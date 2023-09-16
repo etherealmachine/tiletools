@@ -14,6 +14,7 @@
   let mergeFileInput: HTMLInputElement;
   let canvas: HTMLCanvasElement;
   let zoom: number = 2;
+  let mouseOver: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
   let hoverX: number | undefined, hoverY: number | undefined;
   let widthInTiles: number | undefined, heightInTiles: number | undefined;
@@ -46,22 +47,24 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
-    if (tileWidth !== undefined && tileHeight !== undefined && widthInTiles !== undefined && heightInTiles !== undefined) {
-      for (let x = 0; x < widthInTiles; x++) {
-        for (let y = 0; y < heightInTiles; y++) {
-          const tileID = y*widthInTiles+x;
-          if (filter === undefined || filter === "" || tags[tileID]?.includes(filter)) {
-            ctx.drawImage(
-              tileset,
-              x*tileWidth, y*tileHeight,
-              tileWidth, tileHeight,
-              x*tileWidth, y*tileHeight,
-              tileWidth, tileHeight);
+    if (tileset && tileset.complete) {
+      if (tileWidth !== undefined && tileHeight !== undefined && widthInTiles !== undefined && heightInTiles !== undefined) {
+        for (let x = 0; x < widthInTiles; x++) {
+          for (let y = 0; y < heightInTiles; y++) {
+            const tileID = y*widthInTiles+x;
+            if (filter === undefined || filter === "" || tags[tileID]?.includes(filter)) {
+              ctx.drawImage(
+                tileset,
+                x*tileWidth, y*tileHeight,
+                tileWidth, tileHeight,
+                x*tileWidth, y*tileHeight,
+                tileWidth, tileHeight);
+            }
           }
         }
+      } else {
+        ctx.drawImage(tileset, 0, 0, tileset.width, tileset.height);
       }
-    } else {
-      ctx.drawImage(tileset, 0, 0, tileset.width, tileset.height);
     }
 
     ctx.strokeStyle = "white";
@@ -111,7 +114,7 @@
       selectedTileY = Math.floor(y / tileHeight);
       selectedTileIndex = selectedTileY*widthInTiles + selectedTileX;
       tileTags = tags[selectedTileIndex] || "";
-      tagInput.focus();
+      //tagInput.focus();
     }
   }
 
@@ -210,6 +213,31 @@
     requestAnimationFrame(draw);
   }
 
+  function onKeyDown(e: KeyboardEvent) {
+    console.log("tileset");
+    if (!mouseOver) return;
+    if (tileWidth === undefined || tileHeight === undefined) return;
+    switch (e.key) {
+      case "ArrowLeft":
+        offsetX += zoom*tileWidth;
+        e.preventDefault();
+        break;
+      case "ArrowRight":
+        offsetX -= zoom*tileWidth;
+        e.preventDefault();
+        break;
+      case "ArrowUp":
+        offsetY += zoom*tileHeight;
+        e.preventDefault();
+        break;
+      case "ArrowDown":
+        offsetY -= zoom*tileHeight;
+        e.preventDefault();
+        break;
+    }
+    requestAnimationFrame(draw);
+  }
+
   $: triggerRedraw(
     tileset, mergeTileset,
     tileWidth, tileHeight,
@@ -295,13 +323,18 @@
   />
   <canvas
     class="canvas"
+    tabindex="1"
     bind:this={canvas}
     on:wheel={onWheel}
     on:click={onClick}
     on:mousemove={onMouseMove}
-    width={800}
-    height={600}
+    on:keydown={onKeyDown}
+    on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
+    on:mouseleave={() => { mouseOver = false; }}
+    width={400}
+    height={400}
   />
+  <selte:document on:keydown={onKeyDown} />
   {#if selectedTileX !== undefined && selectedTileY !== undefined}
     <div style="display: flex; flex-direction: column; gap: 8px; align-items: start;">
       <div>
@@ -325,5 +358,8 @@
   .canvas {
     border: 2px solid white;
     padding: 1px;
+    flex-grow: 0;
+    width: 400px;
+    height: 400px;
   }
 </style>

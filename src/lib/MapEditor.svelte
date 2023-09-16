@@ -9,6 +9,7 @@
   let tiles: Tile[] = [];
   let currQ: number, currR: number;
   let zoom: number = 1;
+  let mouseOver: boolean = false;
 
   $: size = tileWidth/2;
   const sqrt3 = Math.sqrt(3);
@@ -62,16 +63,20 @@
       tileWidth*1.01, tileHeight*1.01);
   }
 
-  function draw(e?: MouseEvent) {
+  function draw() {
     const ctx = canvas.getContext('2d');
-    if (!ctx) { return }
+    if (!ctx) return;
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    canvas.width = W;
+    canvas.height = H;
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
     ctx.strokeStyle = "white";
-    for (let q = 0; q < (canvas.width / horiz)-1; q++) {
-      for (let r = 0; r < (canvas.height / vert)-1; r++) {
+    for (let q = 0; q < (W/horiz)-1; q++) {
+      for (let r = 0; r < (H/vert)-1; r++) {
         const [x, y] = hexToWorld(q, r-Math.floor(q/2));
         drawHexagon(ctx, x, y, size);
       }
@@ -85,11 +90,8 @@
         drawHexTile(ctx, tile.x, tile.y, tile.tileset, tile.tileX, tile.tileY);
       }
     }
-    if (e) {
-      const [q, r] = screenToHex(e.offsetX, e.offsetY);
-      if (selectedTileset && selectedTileset.complete) {
-        drawHexTile(ctx, q, r, selectedTileset, selectedTileX, selectedTileY);
-      }
+    if (selectedTileset && selectedTileset.complete && currQ !== undefined && currR !== undefined) {
+      drawHexTile(ctx, currQ, currR, selectedTileset, selectedTileX, selectedTileY);
     }
   }
 
@@ -113,7 +115,7 @@
       offsetX += e.movementX;
       offsetY += e.movementY;
     }
-    draw(e);
+    requestAnimationFrame(draw);
   }
 
   function onWheel(e: WheelEvent) {
@@ -126,29 +128,35 @@
     zoom = Math.min(Math.max(0.25, zoom), 8);
     offsetX = -zoom*(e.offsetX-offsetX)/prevZoom + e.offsetX;
     offsetY = -zoom*(e.offsetY-offsetY)/prevZoom + e.offsetY;
-    draw(e);
+    requestAnimationFrame(draw);
   }
 
   function onKeyDown(e: KeyboardEvent) {
+    console.log("map");
+    if (!mouseOver) return;
     switch (e.key) {
       case "ArrowLeft":
         offsetX += zoom*size;
+        e.preventDefault();
         break;
       case "ArrowRight":
         offsetX -= zoom*size;
+        e.preventDefault();
         break;
       case "ArrowUp":
         offsetY += zoom*vert;
+        e.preventDefault();
         break;
       case "ArrowDown":
         offsetY -= zoom*vert;
+        e.preventDefault();
         break;
     }
-    draw();
+    requestAnimationFrame(draw);
   }
 </script>
 
-<div style="display: flex; flex-direction: column;">
+<div style="display: flex; flex-direction: column; flex-grow: 1;">
   <canvas
     class="canvas"
     tabindex="1"
@@ -157,8 +165,8 @@
     on:mousemove={onMouseMove}
     on:click={onClick}
     on:keydown={onKeyDown}
-    width="800px"
-    height="600px"
+    on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
+    on:mouseleave={() => { mouseOver = false; }}
   />
   <span>{currQ}, {currR}</span>
 </div>
@@ -166,6 +174,7 @@
 <style>
   .canvas {
     border: 2px solid white;
-    padding: 1px;
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
   }
 </style>
