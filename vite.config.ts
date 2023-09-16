@@ -3,5 +3,9 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/weave/',
+  build: {
+    outDir: './docs',
+  },
   plugins: [svelte()],
 })
