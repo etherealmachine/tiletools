@@ -334,7 +334,6 @@
     width={400}
     height={400}
   />
-  <selte:document on:keydown={onKeyDown} />
   {#if selectedTileX !== undefined && selectedTileY !== undefined}
     <div style="display: flex; flex-direction: column; gap: 8px; align-items: start;">
       <div>

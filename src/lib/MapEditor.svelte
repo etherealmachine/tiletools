@@ -8,6 +8,8 @@
   let canvas: HTMLCanvasElement;
   let tiles: Tile[] = [];
   let currQ: number, currR: number;
+  let grid: boolean = true;
+  let hex: boolean = true;
   let zoom: number = 1;
   let mouseOver: boolean = false;
 
@@ -30,9 +32,12 @@
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
   }
 
-  function screenToHex(x: number, y: number): number[] {
+  function screenToTile(x: number, y: number): number[] {
     const [tx, ty] = screenToWorld(x, y);
-    return round_axial(((2/3)*tx) / size, ((-1/3)*tx + sqrt3/3*ty)/size);
+    if (hex) {
+      return round_axial(((2/3)*tx) / size, ((-1/3)*tx + sqrt3/3*ty)/size);
+    }
+    return [Math.floor(tx/tileWidth), Math.floor(ty/tileHeight)];
   }
 
   function hexToWorld(q: number, r: number): number[] {
@@ -52,6 +57,16 @@
     ctx.stroke();
   }
 
+  function drawRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number) {
+    ctx.beginPath();
+    ctx.lineTo(x, y);
+    ctx.lineTo(x+width, y);
+    ctx.lineTo(x+width, y+height);
+    ctx.lineTo(x, y+height);
+    ctx.closePath();
+    ctx.stroke();
+  }
+
   function drawHexTile(ctx: CanvasRenderingContext2D, q: number, r: number, tileset: HTMLImageElement, tileX: number, tileY: number) {
     const [x, y] = hexToWorld(q, r);
     ctx.drawImage(
@@ -61,6 +76,15 @@
       // TODO: Why offset by 4?
       x-size, y-vert-6,
       tileWidth*1.01, tileHeight*1.01);
+  }
+
+  function drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileset: HTMLImageElement, tileX: number, tileY: number) {
+    ctx.drawImage(
+      tileset,
+      tileX*tileWidth, tileY*tileHeight,
+      tileWidth, tileHeight,
+      x*tileWidth, y*tileHeight,
+      tileWidth, tileHeight);
   }
 
   function draw() {
@@ -75,10 +99,20 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
     ctx.strokeStyle = "white";
-    for (let q = 0; q < (W/horiz)-1; q++) {
-      for (let r = 0; r < (H/vert)-1; r++) {
-        const [x, y] = hexToWorld(q, r-Math.floor(q/2));
-        drawHexagon(ctx, x, y, size);
+    if (grid) {
+      if (hex) {
+        for (let q = 0; q < (W/horiz)-1; q++) {
+          for (let r = 0; r < (H/vert)-1; r++) {
+            const [x, y] = hexToWorld(q, r-Math.floor(q/2));
+            drawHexagon(ctx, x, y, size);
+          }
+        }
+      } else {
+        for (let x = 0; x < (W/tileWidth)-1; x++) {
+          for (let y = 0; y < (H/tileHeight)-1; y++) {
+            drawRect(ctx, x*tileWidth, y*tileHeight, tileWidth, tileHeight);
+          }
+        }
       }
     }
     tiles.sort((a: Tile, b: Tile): number => {
@@ -87,16 +121,24 @@
     })
     for (let tile of tiles) {
       if (tile.tileset && tile.tileset.complete) {
-        drawHexTile(ctx, tile.x, tile.y, tile.tileset, tile.tileX, tile.tileY);
+        if (hex) {
+          drawHexTile(ctx, tile.x, tile.y, tile.tileset, tile.tileX, tile.tileY);
+        } else {
+          drawTile(ctx, tile.x, tile.y, tile.tileset, tile.tileX, tile.tileY);
+        }
       }
     }
     if (selectedTileset && selectedTileset.complete && currQ !== undefined && currR !== undefined) {
-      drawHexTile(ctx, currQ, currR, selectedTileset, selectedTileX, selectedTileY);
+      if (hex) {
+        drawHexTile(ctx, currQ, currR, selectedTileset, selectedTileX, selectedTileY);
+      } else {
+        drawTile(ctx, currQ, currR, selectedTileset, selectedTileX, selectedTileY);
+      }
     }
   }
 
   function onClick(e: MouseEvent) {
-    const [q, r] = screenToHex(e.offsetX, e.offsetY);
+    const [q, r] = screenToTile(e.offsetX, e.offsetY);
     tiles.push({
       tileset: selectedTileset,
       tileX: selectedTileX,
@@ -108,7 +150,7 @@
   }
 
   function onMouseMove(e: MouseEvent) {
-    [currQ, currR] = screenToHex(e.offsetX, e.offsetY);
+    [currQ, currR] = screenToTile(e.offsetX, e.offsetY);
     if (e.buttons === 1) {
       onClick(e);
     } else if (e.ctrlKey) {
@@ -157,6 +199,15 @@
 </script>
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">
+  <label>
+    <input type="checkbox" bind:checked={grid} />
+    Grid
+  </label>
+  <label>
+    <input type="checkbox" bind:checked={hex} />
+    Hex
+  </label>
+  <span>{currQ}, {currR}</span>
   <canvas
     class="canvas"
     tabindex="1"
@@ -168,7 +219,6 @@
     on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
     on:mouseleave={() => { mouseOver = false; }}
   />
-  <span>{currQ}, {currR}</span>
 </div>
 
 <style>
