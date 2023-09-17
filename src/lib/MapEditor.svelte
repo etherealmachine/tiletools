@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Tile } from "./Tilemap";
+    import { readFileAsBinaryString } from "./files";
 
   export let selectedTileset: HTMLImageElement;
   export let tileWidth: number, tileHeight: number;
@@ -12,6 +13,8 @@
   let hex: boolean = true;
   let zoom: number = 1;
   let mouseOver: boolean = false;
+
+  const DATA_JSON = "data:application/json;base64,";
 
   $: size = tileWidth/2;
   const sqrt3 = Math.sqrt(3);
@@ -90,10 +93,10 @@
   function draw() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const W = canvas.offsetWidth;
-    const H = canvas.offsetHeight;
-    canvas.width = W;
-    canvas.height = H;
+    const W = canvas.scrollWidth;
+    const H = canvas.scrollHeight;
+    canvas.width = W - 4;
+    canvas.height = H - 4;
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
@@ -196,29 +199,60 @@
     }
     requestAnimationFrame(draw);
   }
+
+  function onFileChanged(e: Event) {
+    if (e.target === null) return;
+    const files = (e.target as HTMLInputElement).files;
+    if (files === null) return;
+    const file = files[0];
+    readFileAsBinaryString(file).then(value => {
+      console.log(JSON.parse(value));
+    });
+  }
+
+  function onSave() {
+    const a = document.createElement('a');
+    a.href = DATA_JSON + btoa(JSON.stringify(tiles));
+    a.download = 'map.json';
+    a.click();
+  }
 </script>
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">
-  <label>
-    <input type="checkbox" bind:checked={grid} />
-    Grid
-  </label>
-  <label>
-    <input type="checkbox" bind:checked={hex} />
-    Hex
-  </label>
-  <span>{currQ}, {currR}</span>
-  <canvas
-    class="canvas"
-    tabindex="1"
-    bind:this={canvas}
-    on:wheel={onWheel}
-    on:mousemove={onMouseMove}
-    on:click={onClick}
-    on:keydown={onKeyDown}
-    on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
-    on:mouseleave={() => { mouseOver = false; }}
-  />
+  <div style="display: flex; gap: 8px;">
+    <label>
+      <input type="checkbox" bind:checked={grid} />
+      Grid
+    </label>
+    <label>
+      <input type="checkbox" bind:checked={hex} />
+      Hex
+    </label>
+    <span>{currQ}, {currR}</span>
+    <button on:click={onSave}>Save</button>
+    <input
+      type="file"
+      accept="application/json"
+      on:change={onFileChanged} />
+  </div>
+  <div style="display: flex; flex-grow: 1;">
+    <canvas
+      class="canvas"
+      tabindex="1"
+      bind:this={canvas}
+      on:wheel={onWheel}
+      on:mousemove={onMouseMove}
+      on:click={onClick}
+      on:keydown={onKeyDown}
+      on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
+      on:mouseleave={() => { mouseOver = false; }}
+    />
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <button>Layer 1</button>
+      <button>Layer 2</button>
+      <button>Layer 3</button>
+    </div>
+  </div>
 </div>
 
 <style>

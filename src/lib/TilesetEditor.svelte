@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { ChangeEventHandler } from "svelte/elements";
   import { readMetadata, writeMetadata } from "./PNGMetadata";
   import { readFileAsBinaryString } from "./files";
 
@@ -9,7 +10,6 @@
   const DATA_PNG = "data:image/png;base64,"
 
   let mergeTileset: HTMLImageElement;
-  let fileInput: HTMLInputElement;
   let tagInput: HTMLInputElement;
   let mergeFileInput: HTMLInputElement;
   let canvas: HTMLCanvasElement;
@@ -42,9 +42,13 @@
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const W = canvas.scrollWidth;
+    const H = canvas.scrollHeight;
+    canvas.width = W - 4;
+    canvas.height = H - 4;
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
     if (tileset && tileset.complete) {
@@ -132,9 +136,11 @@
     }
   }
 
-  function onFileChanged() {
-    if (!fileInput || !fileInput.files) return;
-    const file = fileInput.files[0];
+  function onFileChanged(e: Event) {
+    if (e.target === null) return;
+    const files = (e.target as HTMLInputElement).files;
+    if (files === null) return;
+    const file = files[0];
     if (!file) return;
     readFileAsBinaryString(file).then(value => {
       tileset.setAttribute('src', DATA_PNG + btoa(value));
@@ -251,7 +257,6 @@
     <input
       type="file"
       accept="image/png"
-      bind:this={fileInput}
       on:change={onFileChanged} />
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="name">Name</label>
@@ -331,8 +336,6 @@
     on:keydown={onKeyDown}
     on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
     on:mouseleave={() => { mouseOver = false; }}
-    width={400}
-    height={400}
   />
   {#if selectedTileX !== undefined && selectedTileY !== undefined}
     <div style="display: flex; flex-direction: column; gap: 8px; align-items: start;">
@@ -357,8 +360,6 @@
   .canvas {
     border: 2px solid white;
     padding: 1px;
-    flex-grow: 0;
-    width: 400px;
-    height: 400px;
+    flex-grow: 1;
   }
 </style>
