@@ -1,5 +1,4 @@
 <script lang="ts">
-    import type { ChangeEventHandler } from "svelte/elements";
   import { readMetadata, writeMetadata } from "./PNGMetadata";
   import { readFileAsBinaryString } from "./files";
 

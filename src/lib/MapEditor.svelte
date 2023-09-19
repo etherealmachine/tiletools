@@ -1,13 +1,32 @@
 <script lang="ts">
-  import type { Tile } from "./Tilemap";
-    import { readFileAsBinaryString } from "./files";
+  import Icon from "./Icon.svelte";
+  import { readFileAsBinaryString } from "./files";
 
   export let selectedTileset: HTMLImageElement;
   export let tileWidth: number, tileHeight: number;
   export let selectedTileX: number, selectedTileY: number;
 
+  interface Tile {
+    img: HTMLImageElement
+    tileset?: string
+    tileX: number
+    tileY: number
+  }
+
+  interface Layer {
+    name: string
+    visible: boolean
+    tiles: { [key: string]: Tile },
+  }
+
   let canvas: HTMLCanvasElement;
-  let tiles: Tile[] = [];
+  let layers: Layer[] = [{
+    name: "Layer 1",
+    visible: true,
+    tiles: {},
+  }];
+  let editingLayers: boolean = false;
+  let selectedLayerIndex: number = 0;
   let currQ: number, currR: number;
   let grid: boolean = true;
   let hex: boolean = true;
@@ -118,19 +137,25 @@
         }
       }
     }
-    tiles.sort((a: Tile, b: Tile): number => {
-      if (b.y === a.y) return a.x - b.x;
-      return a.y - b.y;
-    })
-    for (let tile of tiles) {
-      if (tile.tileset && tile.tileset.complete) {
-        if (hex) {
-          drawHexTile(ctx, tile.x, tile.y, tile.tileset, tile.tileX, tile.tileY);
-        } else {
-          drawTile(ctx, tile.x, tile.y, tile.tileset, tile.tileX, tile.tileY);
+    layers.forEach(layer => {
+      if (!layer.visible) return;
+      Object.entries(layer.tiles).sort((a, b): number => {
+        const [x1, y1] = a[0].split(',').map(v => parseInt(v));
+        const [x2, y2] = b[0].split(',').map(v => parseInt(v));
+        if (y1 === y2) return x1-x2;
+        return y1-y2;
+      }).forEach(entry => {
+        const [x, y] = entry[0].split(',').map(v => parseInt(v));
+        const tile = entry[1];
+        if (tile.img && tile.img.complete) {
+          if (hex) {
+            drawHexTile(ctx, x, y, tile.img, tile.tileX, tile.tileY);
+          } else {
+            drawTile(ctx, x, y, tile.img, tile.tileX, tile.tileY);
+          }
         }
-      }
-    }
+      });
+    });
     if (selectedTileset && selectedTileset.complete && currQ !== undefined && currR !== undefined) {
       if (hex) {
         drawHexTile(ctx, currQ, currR, selectedTileset, selectedTileX, selectedTileY);
@@ -142,13 +167,11 @@
 
   function onClick(e: MouseEvent) {
     const [q, r] = screenToTile(e.offsetX, e.offsetY);
-    tiles.push({
-      tileset: selectedTileset,
+    layers[selectedLayerIndex].tiles[`${q},${r}`] = {
+      img: selectedTileset,
       tileX: selectedTileX,
       tileY: selectedTileY,
-      x: q,
-      y: r,
-    });
+    };
     draw();
   }
 
@@ -211,10 +234,48 @@
   }
 
   function onSave() {
+    /* TODO
     const a = document.createElement('a');
     a.href = DATA_JSON + btoa(JSON.stringify(tiles));
     a.download = 'map.json';
     a.click();
+    */
+  }
+
+  function setLayerName(i: number) {
+    return (e: Event & { currentTarget: HTMLInputElement }) => {
+      if (e.currentTarget === null) return;
+      layers[i].name = e.currentTarget.value;
+    }
+  }
+
+  function removeLayer(i: number) {
+    return () => {
+      layers.splice(i, 1);
+      layers = layers;
+    }
+  }
+
+  function selectLayer(i: number) {
+    return () => {
+      selectedLayerIndex = i;
+    }
+  }
+
+  function toggleLayerVisibility(i: number) {
+    return () => {
+      layers[i].visible = !layers[i].visible;
+      layers = layers;
+    }
+  }
+
+  function addLayer() {
+    layers.push({
+      name: `Layer ${layers.length+1}`,
+      visible: true,
+      tiles: {},
+    });
+    layers = layers;
   }
 </script>
 
@@ -248,9 +309,27 @@
       on:mouseleave={() => { mouseOver = false; }}
     />
     <div style="display: flex; flex-direction: column; gap: 4px;">
-      <button>Layer 1</button>
-      <button>Layer 2</button>
-      <button>Layer 3</button>
+      <button on:click={() => { editingLayers = !editingLayers }}><Icon name="editPencil" /></button>
+      {#each layers as layer, i}
+        <div>
+          {#if editingLayers}
+            <input placeholder={layer.name} value={layer.name} on:change={setLayerName(i)}/>
+            <button on:click={removeLayer(i)}>
+              <Icon name="minus" />
+            </button>
+          {:else}
+            <button on:click={selectLayer(i)} class:selected={selectedLayerIndex === i}>{layer.name}</button>
+            <button on:click={toggleLayerVisibility(i)}>
+              {#if layer.visible}
+                <Icon name="eyeEmpty" />
+              {:else}
+                <Icon name="eyeOff" />
+              {/if}
+            </button>
+          {/if}
+        </div>
+      {/each}
+      <button on:click={addLayer}><Icon name="plus" /></button>
     </div>
   </div>
 </div>
