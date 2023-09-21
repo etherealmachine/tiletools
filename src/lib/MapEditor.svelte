@@ -112,10 +112,10 @@
   function draw() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const W = canvas.scrollWidth;
-    const H = canvas.scrollHeight;
-    canvas.width = W - 4;
-    canvas.height = H - 4;
+    const W = (canvas.parentElement?.scrollWidth || 0) - 4;
+    const H = (canvas.parentElement?.scrollHeight || 0) - 4;
+    canvas.width = W;
+    canvas.height = H;
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
@@ -253,6 +253,7 @@
     return () => {
       layers.splice(i, 1);
       layers = layers;
+      requestAnimationFrame(draw);
     }
   }
 
@@ -266,6 +267,7 @@
     return () => {
       layers[i].visible = !layers[i].visible;
       layers = layers;
+      requestAnimationFrame(draw);
     }
   }
 
@@ -290,24 +292,28 @@
       Hex
     </label>
     <span>{currQ}, {currR}</span>
-    <button on:click={onSave}>Save</button>
+    <button on:click={onSave}>
+        <Icon name="saveFloppyDisk" />
+    </button>
     <input
       type="file"
       accept="application/json"
       on:change={onFileChanged} />
   </div>
   <div style="display: flex; flex-grow: 1;">
-    <canvas
-      class="canvas"
-      tabindex="1"
-      bind:this={canvas}
-      on:wheel={onWheel}
-      on:mousemove={onMouseMove}
-      on:click={onClick}
-      on:keydown={onKeyDown}
-      on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
-      on:mouseleave={() => { mouseOver = false; }}
-    />
+    <div class="canvas">
+      <canvas
+        style="position: absolute;"
+        tabindex="1"
+        bind:this={canvas}
+        on:wheel={onWheel}
+        on:mousemove={onMouseMove}
+        on:click={onClick}
+        on:keydown={onKeyDown}
+        on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
+        on:mouseleave={() => { mouseOver = false; }}
+      />
+    </div>
     <div style="display: flex; flex-direction: column; gap: 4px;">
       <button on:click={() => { editingLayers = !editingLayers }}><Icon name="editPencil" /></button>
       {#each layers as layer, i}
@@ -337,7 +343,8 @@
 <style>
   .canvas {
     border: 2px solid white;
-    width: calc(100% - 4px);
-    height: calc(100% - 4px);
+    margin: 0;
+    padding: 0;
+    flex-grow: 1;
   }
 </style>

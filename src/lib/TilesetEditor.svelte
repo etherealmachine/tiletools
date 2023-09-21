@@ -1,6 +1,8 @@
 <script lang="ts">
+    import Icon from "./Icon.svelte";
   import { readMetadata, writeMetadata } from "./PNGMetadata";
   import { readFileAsBinaryString } from "./files";
+    import type { Tileset } from "./types";
 
   export let tileset: HTMLImageElement;
   export let tileWidth: number | undefined, tileHeight: number | undefined;
@@ -15,13 +17,17 @@
   let zoom: number = 2;
   let mouseOver: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
-  let hoverX: number | undefined, hoverY: number | undefined;
+  let mouseX: number | undefined, mouseY: number | undefined;
   let widthInTiles: number | undefined, heightInTiles: number | undefined;
   let selectedTileIndex: number | undefined;
   let tilesetName: string;
   let tileTags: string;
   let tags: { [key: number]: string } = {};
   let filter: string;
+  let editing: boolean = false;
+  let color: string = "#ffffff";
+  let imgData: ImageData;
+  let img: ImageBitmap;
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
@@ -41,16 +47,18 @@
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const W = canvas.scrollWidth;
-    const H = canvas.scrollHeight;
-    canvas.width = W - 4;
-    canvas.height = H - 4;
+    const W = (canvas.parentElement?.scrollWidth || 0) - 4;
+    const H = (canvas.parentElement?.scrollHeight || 0) - 4;
+    canvas.width = W;
+    canvas.height = H;
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
-    if (tileset && tileset.complete) {
+    if (img) {
+      ctx.drawImage(img, 0, 0, img.width, img.height);
+    } else if (tileset && tileset.complete) {
       if (tileWidth !== undefined && tileHeight !== undefined && widthInTiles !== undefined && heightInTiles !== undefined) {
         for (let x = 0; x < widthInTiles; x++) {
           for (let y = 0; y < heightInTiles; y++) {
@@ -70,9 +78,28 @@
       }
     }
 
+    if (mouseX === undefined || mouseY === undefined) return;
+
+    // TODO: editing only if mouse down
+    if (editing) {
+      const x = Math.floor(mouseX);
+      const y = Math.floor(mouseY);
+      if (x >= 0 && x < imgData.width && y >= 0 && y < imgData.height) {
+        const i = ((y * imgData.width) + x) * 4;
+        imgData.data[i+0] = 255;
+        imgData.data[i+1] = 255;
+        imgData.data[i+2] = 255;
+        imgData.data[i+3] = 255;
+        // TODO: more efficient?
+        createImageBitmap(imgData).then(_img => { img = _img });
+      }
+    }
+
     ctx.strokeStyle = "white";
     ctx.lineWidth = 1;
     if (tileWidth !== undefined && tileHeight !== undefined) {
+      const hoverX = Math.floor(mouseX / tileWidth);
+      const hoverY = Math.floor(mouseY / tileHeight);
       if (hoverX != undefined && hoverY !== undefined) {
         drawRect(ctx, hoverX*tileWidth, hoverY*tileHeight, tileWidth, tileHeight);
       }
@@ -117,7 +144,7 @@
       selectedTileY = Math.floor(y / tileHeight);
       selectedTileIndex = selectedTileY*widthInTiles + selectedTileX;
       tileTags = tags[selectedTileIndex] || "";
-      //tagInput.focus();
+      tagInput.focus();
     }
   }
 
@@ -129,9 +156,7 @@
       offsetY += e.movementY;
     }
     if (tileWidth !== undefined && tileHeight !== undefined) {
-      const [x, y] = screenToWorld(e.offsetX, e.offsetY);
-      hoverX = Math.floor(x / tileWidth);
-      hoverY = Math.floor(y / tileHeight);
+      [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
     }
   }
 
@@ -144,7 +169,15 @@
     readFileAsBinaryString(file).then(value => {
       tileset.setAttribute('src', DATA_PNG + btoa(value));
       tileset.onload = () => {
-        requestAnimationFrame(draw);
+        const tmp = document.createElement('canvas');
+        tmp.width = tileset.width;
+        tmp.height = tileset.height;
+        const context = canvas.getContext('2d');
+        if (!context) return;
+        context.resetTransform();
+        context.drawImage(tileset, 0, 0, tmp.width, tmp.height);
+        imgData = context.getImageData(0, 0, tmp.width, tmp.height);
+        createImageBitmap(imgData).then(_img => { img = _img });
       };
       tilesetName = "";
       tileWidth = undefined;
@@ -157,12 +190,14 @@
       offsetX = 0;
       offsetY = 0;
       zoom = 2;
-      const metadata = readMetadata(value);
+      const metadata = readMetadata(value) as Tileset;
       if (metadata) {
         tilesetName = metadata.name || "";
-        tileWidth = metadata.tileWidth;
-        tileHeight = metadata.tileHeight;
-        tags = metadata.tags || {};
+        tileWidth = metadata.tilewidth;
+        tileHeight = metadata.tileheight;
+        tags = Object.fromEntries(Object.entries(metadata.tiledata).map(([tileID, properties]) => {
+          return [tileID, properties["tags"].join(",")];
+        }));
       }
     });
   }
@@ -195,10 +230,16 @@
   function onSave() {
     const value = writeMetadata(atob(tileset.src.substring(DATA_PNG.length)), {
       name: tilesetName,
-      tileWidth: tileWidth,
-      tileHeight: tileHeight,
-      tags: tags,
-    });
+      type: "hex",
+      tilewidth: tileWidth,
+      tileheight: tileHeight,
+      margin: 0,
+      spacing: 0,
+      tileoffset: { x: 0, y: 0 },
+      tiledata: Object.fromEntries(Object.entries(tags).map(([tileID, tags]) => {
+        return [tileID, { tags: tags.split(",") }];
+      })),
+    } as Tileset);
     tileset.setAttribute('src', DATA_PNG + btoa(value));
     const a = document.createElement('a');
     a.href = tileset.src;
@@ -219,7 +260,6 @@
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    console.log("tileset");
     if (!mouseOver) return;
     if (tileWidth === undefined || tileHeight === undefined) return;
     switch (e.key) {
@@ -247,7 +287,7 @@
     tileset, mergeTileset,
     tileWidth, tileHeight,
     zoom, offsetX, offsetY, filter,
-    hoverX, hoverY,
+    mouseX, mouseY,
     selectedTileX, selectedTileY);
 </script>
 
@@ -302,8 +342,9 @@
             accept="image/png" />
         </label>
       {/if}
-      <button on:click={onSave}>
-        Save
+      <button on:click={() => { editing = !editing }}><Icon name="editPencil" /></button>
+      <button disabled={!tileset || !tileset.src} on:click={onSave}>
+        <Icon name="saveFloppyDisk" />
       </button>
     </div>
   </div>
@@ -325,17 +366,19 @@
     src=""
     style="display: none;"
   />
-  <canvas
-    class="canvas"
-    tabindex="1"
-    bind:this={canvas}
-    on:wheel={onWheel}
-    on:click={onClick}
-    on:mousemove={onMouseMove}
-    on:keydown={onKeyDown}
-    on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
-    on:mouseleave={() => { mouseOver = false; }}
-  />
+  <div class="canvas">
+    <canvas
+      style="position: absolute;"
+      tabindex="1"
+      bind:this={canvas}
+      on:wheel={onWheel}
+      on:click={onClick}
+      on:mousemove={onMouseMove}
+      on:keydown={onKeyDown}
+      on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
+      on:mouseleave={() => { mouseOver = false; }}
+    />
+  </div>
   {#if selectedTileX !== undefined && selectedTileY !== undefined}
     <div style="display: flex; flex-direction: column; gap: 8px; align-items: start;">
       <div>
@@ -351,6 +394,7 @@
           bind:this={tagInput}
         />
       </div>
+      <input type="color" name="color" value={color} />
     </div>
   {/if}
 </div>
@@ -358,7 +402,8 @@
 <style>
   .canvas {
     border: 2px solid white;
-    padding: 1px;
+    margin: 0;
+    padding: 0;
     flex-grow: 1;
   }
 </style>
