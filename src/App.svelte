@@ -1,5 +1,4 @@
 <script lang="ts">
-    import MapEditor from "./lib/MapEditor.svelte";
     import TilesetEditor from "./lib/TilesetEditor.svelte";
 
     let tileset: HTMLImageElement;
@@ -10,13 +9,6 @@
 <div style="display: flex; gap: 16px; justify-content: space-between; width: 100%;">
   <TilesetEditor
     bind:tileset={tileset}
-    bind:tileWidth={tileWidth}
-    bind:tileHeight={tileHeight}
-    bind:selectedTileX={selectedTileX}
-    bind:selectedTileY={selectedTileY}
-  />
-  <MapEditor
-    bind:selectedTileset={tileset}
     bind:tileWidth={tileWidth}
     bind:tileHeight={tileHeight}
     bind:selectedTileX={selectedTileX}

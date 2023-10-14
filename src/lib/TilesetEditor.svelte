@@ -16,6 +16,7 @@
   let canvas: HTMLCanvasElement;
   let zoom: number = 2;
   let mouseOver: boolean = false;
+  let mouseDown: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
   let mouseX: number | undefined, mouseY: number | undefined;
   let widthInTiles: number | undefined, heightInTiles: number | undefined;
@@ -81,7 +82,7 @@
     if (mouseX === undefined || mouseY === undefined) return;
 
     // TODO: editing only if mouse down
-    if (editing) {
+    if (editing && mouseDown) {
       const x = Math.floor(mouseX);
       const y = Math.floor(mouseY);
       if (x >= 0 && x < imgData.width && y >= 0 && y < imgData.height) {
@@ -148,7 +149,7 @@
     }
   }
 
-  function onMouseMove(e: MouseEvent) {
+  function onPointerMove(e: PointerEvent) {
     if (e.buttons === 1) {
       onClick(e);
     } else if (e.ctrlKey) {
@@ -291,7 +292,8 @@
     selectedTileX, selectedTileY);
 </script>
 
-<div style="display: flex; flex-direction: column; gap: 8px;">
+<svelte:window on:keydown={onKeyDown} />
+<div style="display: flex; flex-direction: column; gap: 8px; flex-grow: 1;">
   <div style="display: flex; gap: 8px; align-items: end;">
     <input
       type="file"
@@ -369,14 +371,14 @@
   <div class="canvas">
     <canvas
       style="position: absolute;"
-      tabindex="1"
       bind:this={canvas}
       on:wheel={onWheel}
       on:click={onClick}
-      on:mousemove={onMouseMove}
-      on:keydown={onKeyDown}
-      on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
-      on:mouseleave={() => { mouseOver = false; }}
+      on:pointermove={onPointerMove}
+      on:pointerdown={() => { mouseDown = true; }}
+      on:pointerup={() => { mouseDown = false; }}
+      on:pointerenter={() => { canvas.focus(); mouseOver = true; }}
+      on:pointerleave={() => { mouseOver = false; }}
     />
   </div>
   {#if selectedTileX !== undefined && selectedTileY !== undefined}
