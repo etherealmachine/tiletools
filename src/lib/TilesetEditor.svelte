@@ -1,8 +1,12 @@
+<script lang="ts" context="module">
+  enum Tool { Select, Edit, Erase, Copy, Paste };
+</script>
+
 <script lang="ts">
-    import Icon from "./Icon.svelte";
+  import Icon from "./Icon.svelte";
   import { readMetadata, writeMetadata } from "./PNGMetadata";
   import { readFileAsBinaryString } from "./files";
-    import type { Tileset } from "./types";
+  import type { Tileset } from "./types";
 
   export let tileset: HTMLImageElement;
   export let tileWidth: number | undefined, tileHeight: number | undefined;
@@ -25,7 +29,7 @@
   let tileTags: string;
   let tags: { [key: number]: string } = {};
   let filter: string;
-  let editing: boolean = false;
+  let tool: Tool = Tool.Select;
   let color: string = "#ffffff";
   let imgData: ImageData;
   let img: ImageBitmap;
@@ -81,16 +85,33 @@
 
     if (mouseX === undefined || mouseY === undefined) return;
 
-    // TODO: editing only if mouse down
-    if (editing && mouseDown) {
+    if (
+        (tool === Tool.Edit || tool === Tool.Erase) && mouseDown &&
+        selectedTileX !== undefined && selectedTileY !== undefined &&
+        tileWidth && tileHeight
+    ) {
       const x = Math.floor(mouseX);
       const y = Math.floor(mouseY);
-      if (x >= 0 && x < imgData.width && y >= 0 && y < imgData.height) {
+      if (
+          x >= 0 && x < imgData.width &&
+          y >= 0 && y < imgData.height &&
+          x >= selectedTileX*tileWidth &&
+          x < (selectedTileX+1)*tileWidth &&
+          y >= selectedTileY*tileHeight &&
+          y < (selectedTileY+1)*tileHeight
+      ) {
         const i = ((y * imgData.width) + x) * 4;
-        imgData.data[i+0] = 255;
-        imgData.data[i+1] = 255;
-        imgData.data[i+2] = 255;
-        imgData.data[i+3] = 255;
+        if (tool === Tool.Edit) {
+          imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
+          imgData.data[i+1] = parseInt(color.slice(3, 5), 16);
+          imgData.data[i+2] = parseInt(color.slice(5, 7), 16);
+          imgData.data[i+3] = 255;
+        } else {
+          imgData.data[i+0] = 0;
+          imgData.data[i+1] = 0;
+          imgData.data[i+2] = 0;
+          imgData.data[i+3] = 0;
+        }
         // TODO: more efficient?
         createImageBitmap(imgData).then(_img => { img = _img });
       }
@@ -136,6 +157,7 @@
   }
 
   function onClick(e: MouseEvent) {
+    if (tool !== Tool.Select) return;
     const [x, y] = screenToWorld(e.offsetX, e.offsetY);
     if (x < 0 || x >= tileset.width || y < 0 || y >= tileset.height) {
       return;
@@ -344,7 +366,21 @@
             accept="image/png" />
         </label>
       {/if}
-      <button on:click={() => { editing = !editing }}><Icon name="editPencil" /></button>
+      <button on:click={() => { tool = Tool.Select }} class:active={tool === Tool.Select}>
+        <Icon name="openSelectHandGesture" />
+      </button>
+      <button on:click={() => { tool = Tool.Edit }} class:active={tool === Tool.Edit}>
+        <Icon name="editPencil" />
+      </button>
+      <button on:click={() => { tool = Tool.Erase }} class:active={tool === Tool.Erase}>
+        <Icon name="erase" />
+      </button>
+      <button on:click={() => { tool = Tool.Copy }}>
+        <Icon name="copy" />
+      </button>
+      <button on:click={() => { tool = Tool.Paste }}>
+        <Icon name="pasteClipboard" />
+      </button>
       <button disabled={!tileset || !tileset.src} on:click={onSave}>
         <Icon name="saveFloppyDisk" />
       </button>
@@ -396,7 +432,7 @@
           bind:this={tagInput}
         />
       </div>
-      <input type="color" name="color" value={color} />
+      <input type="color" name="color" bind:value={color} />
     </div>
   {/if}
 </div>

@@ -73,6 +73,9 @@ button:focus-visible {
 button.selected {
   text-decoration: underline;
 }
+button:not(:hover).active {
+  border-color: #3339a5;
+}
 
 @media (prefers-color-scheme: light) {
   :root {
