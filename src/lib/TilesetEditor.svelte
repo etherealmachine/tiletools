@@ -32,6 +32,7 @@
   let tool: Tool = Tool.Select;
   let color: string = "#ffffff";
   let imgData: ImageData;
+  // TODO: reconcile tileset and img for saving, currently only saves tileset
   let img: ImageBitmap;
 
   function screenToWorld(x: number, y: number): number[] {
@@ -64,23 +65,8 @@
     if (img) {
       ctx.drawImage(img, 0, 0, img.width, img.height);
     } else if (tileset && tileset.complete) {
-      if (tileWidth !== undefined && tileHeight !== undefined && widthInTiles !== undefined && heightInTiles !== undefined) {
-        for (let x = 0; x < widthInTiles; x++) {
-          for (let y = 0; y < heightInTiles; y++) {
-            const tileID = y*widthInTiles+x;
-            if (filter === undefined || filter === "" || tags[tileID]?.includes(filter)) {
-              ctx.drawImage(
-                tileset,
-                x*tileWidth, y*tileHeight,
-                tileWidth, tileHeight,
-                x*tileWidth, y*tileHeight,
-                tileWidth, tileHeight);
-            }
-          }
-        }
-      } else {
-        ctx.drawImage(tileset, 0, 0, tileset.width, tileset.height);
-      }
+      createImageBitmap(imgData).then(_img => { img = _img });
+      requestAnimationFrame(draw);
     }
 
     if (mouseX === undefined || mouseY === undefined) return;
@@ -112,8 +98,7 @@
           imgData.data[i+2] = 0;
           imgData.data[i+3] = 0;
         }
-        // TODO: more efficient?
-        createImageBitmap(imgData).then(_img => { img = _img });
+        createImageBitmap(imgData).then(_img => { img = _img; });
       }
     }
 
@@ -251,7 +236,15 @@
   }
 
   function onSave() {
-    const value = writeMetadata(atob(tileset.src.substring(DATA_PNG.length)), {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.resetTransform();
+    ctx.drawImage(img, 0, 0);
+    const value = writeMetadata(atob(canvas.toDataURL('image/png').substring(DATA_PNG.length)), {
       name: tilesetName,
       type: "hex",
       tilewidth: tileWidth,
