@@ -252,7 +252,9 @@
       widthInTiles = tileset.width/tileWidth;
       heightInTiles = tileset.height/tileHeight;
     }
-    requestAnimationFrame(draw);
+    if (tileset && tileset.complete) {
+      requestAnimationFrame(draw);
+    }
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -365,6 +367,7 @@
     bind:this={tileset}
     src=""
     style="display: none;"
+    alt="Tileset"
   />
   <div class="canvas">
     <canvas
