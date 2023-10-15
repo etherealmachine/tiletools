@@ -4,7 +4,7 @@
 
 <script lang="ts">
   import Icon from "./Icon.svelte";
-  import { readMetadata, writeMetadata } from "./PNGMetadata";
+  import { DATA_PNG, readMetadata, writeMetadata } from "./PNGMetadata";
   import { readFileAsBinaryString } from "./files";
   import type { Tileset } from "./types";
 
@@ -12,11 +12,7 @@
   export let tileWidth: number | undefined, tileHeight: number | undefined;
   export let selectedTileX: number | undefined, selectedTileY: number | undefined;
 
-  const DATA_PNG = "data:image/png;base64,"
-
-  let mergeTileset: HTMLImageElement;
   let tagInput: HTMLInputElement;
-  let mergeFileInput: HTMLInputElement;
   let canvas: HTMLCanvasElement;
   let zoom: number = 2;
   let mouseOver: boolean = false;
@@ -121,19 +117,6 @@
     }
   }
 
-  function mergeTilesets(tilesetA: HTMLImageElement, tilesetB: HTMLImageElement): string | undefined {
-    const canvas = document.createElement('canvas');
-    canvas.width = tilesetA.width + tilesetB.width;
-    canvas.height = Math.max(tilesetA.height, tilesetB.height);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return undefined;
-    ctx.imageSmoothingEnabled = false;
-    ctx.resetTransform();
-    ctx.drawImage(tilesetA, 0, 0, tilesetA.width, tilesetA.height);
-    ctx.drawImage(tilesetB, tilesetA.width, 0, tilesetB.width, tilesetB.height);
-    return canvas.toDataURL('image/png');
-  }
-
   function onWheel(e: WheelEvent) {
     const prevZoom = zoom;
     if (e.deltaY < 0) {
@@ -226,25 +209,6 @@
     });
   }
 
-  function onMergeFileChanged() {
-    if (!mergeFileInput || !mergeFileInput.files) return;
-    const file = mergeFileInput.files[0];
-    if (!file) return;
-    readFileAsBinaryString(file).then(value => {
-      mergeTileset.onload = () => {
-        const merged = mergeTilesets(tileset, mergeTileset);
-        if (merged) {
-          tileset.setAttribute('src', merged);
-          tileset.onload = () => {
-            requestAnimationFrame(draw);
-          };
-        }
-        mergeTileset.setAttribute('src', '');
-      }
-      mergeTileset.setAttribute('src', DATA_PNG + btoa(value));
-    });
-  }
-
   function onTileTagsChanged() {
     if (selectedTileIndex !== undefined) {
       tags[selectedTileIndex] = tileTags;
@@ -324,7 +288,7 @@
   }
 
   $: triggerRedraw(
-    tileset, mergeTileset,
+    tileset,
     tileWidth, tileHeight,
     zoom, offsetX, offsetY, filter,
     mouseX, mouseY,
@@ -369,20 +333,6 @@
       />
     </div>
     <div style="margin-left: auto; display: flex; gap: 8px;">
-      {#if tileset && tileset.src}
-        <label for="merge">
-          <button on:click={() => { mergeFileInput.click() }}>
-            Merge Tileset
-          </button>
-          <input
-            bind:this={mergeFileInput}
-            on:change={onMergeFileChanged}
-            style="display: none;"
-            name="merge"
-            type="file"
-            accept="image/png" />
-        </label>
-      {/if}
       <button on:click={() => { tool = Tool.Select }} class:active={tool === Tool.Select}>
         <Icon name="openSelectHandGesture" />
       </button>
@@ -413,11 +363,6 @@
   </div>
   <img
     bind:this={tileset}
-    src=""
-    style="display: none;"
-  />
-  <img
-    bind:this={mergeTileset}
     src=""
     style="display: none;"
   />

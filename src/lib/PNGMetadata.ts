@@ -1,3 +1,5 @@
+export const DATA_PNG = "data:image/png;base64,"
+
 export interface Chunk {
   type: string
   data: string
