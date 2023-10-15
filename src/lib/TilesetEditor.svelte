@@ -1,5 +1,5 @@
 <script lang="ts" context="module">
-  enum Tool { Select, Edit, Erase, Copy, Paste };
+  enum Tool { Select, Edit, Erase };
 </script>
 
 <script lang="ts">
@@ -30,10 +30,11 @@
   let tags: { [key: number]: string } = {};
   let filter: string;
   let tool: Tool = Tool.Select;
-  let color: string = "#ffffff";
   let imgData: ImageData;
-  // TODO: reconcile tileset and img for saving, currently only saves tileset
   let img: ImageBitmap;
+  // TODO: select from palette, select transparency level
+  let color: string = "#ffffff";
+  let palette: Set<string> = new Set<string>();
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
@@ -64,7 +65,7 @@
 
     if (img) {
       ctx.drawImage(img, 0, 0, img.width, img.height);
-    } else if (tileset && tileset.complete) {
+    } else if (tileset && tileset.complete && imgData) {
       createImageBitmap(imgData).then(_img => { img = _img });
       requestAnimationFrame(draw);
     }
@@ -105,10 +106,14 @@
     ctx.strokeStyle = "white";
     ctx.lineWidth = 1;
     if (tileWidth !== undefined && tileHeight !== undefined) {
-      const hoverX = Math.floor(mouseX / tileWidth);
-      const hoverY = Math.floor(mouseY / tileHeight);
-      if (hoverX != undefined && hoverY !== undefined) {
-        drawRect(ctx, hoverX*tileWidth, hoverY*tileHeight, tileWidth, tileHeight);
+      if (tool === Tool.Select) {
+        const hoverX = Math.floor(mouseX / tileWidth);
+        const hoverY = Math.floor(mouseY / tileHeight);
+        if (hoverX != undefined && hoverY !== undefined) {
+          drawRect(ctx, hoverX*tileWidth, hoverY*tileHeight, tileWidth, tileHeight);
+        }
+      } else {
+        // TODO: draw outline around editing pixel
       }
       if (selectedTileX !== undefined && selectedTileY !== undefined) {
         drawRect(ctx, selectedTileX*tileWidth, selectedTileY*tileHeight, tileWidth, tileHeight);
@@ -136,7 +141,7 @@
     } else if (e.deltaY > 0) {
       zoom *= 0.9;
     }
-    zoom = Math.min(Math.max(0.25, zoom), 8);
+    zoom = Math.min(Math.max(0.05, zoom), 16);
     offsetX = -zoom*(e.offsetX-offsetX)/prevZoom + e.offsetX;
     offsetY = -zoom*(e.offsetY-offsetY)/prevZoom + e.offsetY;
   }
@@ -153,6 +158,17 @@
       selectedTileIndex = selectedTileY*widthInTiles + selectedTileX;
       tileTags = tags[selectedTileIndex] || "";
       tagInput.focus();
+      palette.clear();
+      for (let x = selectedTileX*tileWidth; x < (selectedTileX+1)*tileWidth; x++) {
+        for (let y = selectedTileY*tileHeight; y < (selectedTileY+1)*tileHeight; y++) {
+          const i = ((y * imgData.width) + x) * 4;
+          palette.add("#" + 
+            imgData.data[i+0].toString(16) +
+            imgData.data[i+1].toString(16) +
+            imgData.data[i+2].toString(16));
+        }
+      }
+      palette = palette;
     }
   }
 
@@ -299,6 +315,14 @@
     requestAnimationFrame(draw);
   }
 
+  function copySelectedTile() {
+    // TODO
+  }
+
+  function pasteSelectedTile() {
+    // TODO
+  }
+
   $: triggerRedraw(
     tileset, mergeTileset,
     tileWidth, tileHeight,
@@ -368,10 +392,10 @@
       <button on:click={() => { tool = Tool.Erase }} class:active={tool === Tool.Erase}>
         <Icon name="erase" />
       </button>
-      <button on:click={() => { tool = Tool.Copy }}>
+      <button on:click={copySelectedTile}>
         <Icon name="copy" />
       </button>
-      <button on:click={() => { tool = Tool.Paste }}>
+      <button on:click={pasteSelectedTile}>
         <Icon name="pasteClipboard" />
       </button>
       <button disabled={!tileset || !tileset.src} on:click={onSave}>
@@ -411,7 +435,7 @@
     />
   </div>
   {#if selectedTileX !== undefined && selectedTileY !== undefined}
-    <div style="display: flex; flex-direction: column; gap: 8px; align-items: start;">
+    <div style="display: flex; flex-direction: row; gap: 8px; align-items: start;">
       <div>
         Selected: Tile {selectedTileIndex} ({selectedTileX}, {selectedTileY})
       </div>
@@ -426,6 +450,11 @@
         />
       </div>
       <input type="color" name="color" bind:value={color} />
+      <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px;">
+        {#each palette as color}
+          <button style:background-color={color} class="palette" />
+        {/each}
+      </div>
     </div>
   {/if}
 </div>
