@@ -1,45 +1,74 @@
 <script lang="ts">
-    import { readFileAsDataURL } from "./files";
+  import { readFileAsDataURL } from "./files";
 
-  let tilesetA: HTMLImageElement;
-  let mergeFileInput: HTMLInputElement;
+  let left: HTMLImageElement;
+  let right: HTMLImageElement;
+  let result: HTMLImageElement;
 
-  /*
-  function mergeTilesets(tilesetA: HTMLImageElement, tilesetB: HTMLImageElement): string | undefined {
+  function merge(left: HTMLImageElement, right: HTMLImageElement): string {
     const canvas = document.createElement('canvas');
-    canvas.width = tilesetA.width + tilesetB.width;
-    canvas.height = Math.max(tilesetA.height, tilesetB.height);
+    canvas.width = left.width + right.width;
+    canvas.height = Math.max(left.height, right.height);
     const ctx = canvas.getContext('2d');
-    if (!ctx) return undefined;
+    if (!ctx) return '';
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
-    ctx.drawImage(tilesetA, 0, 0, tilesetA.width, tilesetA.height);
-    ctx.drawImage(tilesetB, tilesetA.width, 0, tilesetB.width, tilesetB.height);
+    ctx.drawImage(left, 0, 0, left.width, left.height);
+    ctx.drawImage(right, left.width, 0, right.width, right.height);
     return canvas.toDataURL('image/png');
   }
-  */
 
-  function onMergeFileChanged() {
-    if (!mergeFileInput || !mergeFileInput.files) return;
-    const file = mergeFileInput.files[0];
-    if (!file) return;
-    readFileAsDataURL(file).then(url => {
-      tilesetA.setAttribute('src', url);
-    });
+  function maybeMerge() {
+    if (left && left.complete && right && right.complete && left.src != '' && right.src != '') {
+      result.setAttribute('src', merge(left, right));
+    }
+  }
+
+  function loadImage(img: HTMLImageElement) {
+    return (e: Event) => {
+      if (e.target === null) return;
+      const files = (e.target as HTMLInputElement).files;
+      if (files === null) return;
+      const file = files[0];
+      if (!file) return;
+      readFileAsDataURL(file).then(url => {
+        img.setAttribute('src', url);
+        img.onload = maybeMerge;
+      });
+    }
   }
 </script>
 
-<label for="merge">
-  <button on:click={() => { mergeFileInput.click() }}>
-    Merge Tileset
-  </button>
-  <input
-    bind:this={mergeFileInput}
-    on:change={onMergeFileChanged}
-    style="display: none;"
-    name="merge"
-    type="file"
-    accept="image/png" />
-</label>
+<div style="display: flex; gap: 16px;">
+  <div style="display: flex; flex-direction: column;">
+    <label for="left">
+      <input
+        on:change={loadImage(left)}
+        name="left"
+        type="file"
+        accept="image/png" />
+    </label>
+    <img
+      bind:this={left}
+      alt="Left Tileset" />
+  </div>
 
-<img bind:this={tilesetA} style="max-width: 300px" />
+  <div style="display: flex; flex-direction: column;">
+    <label for="right">
+      <input
+        on:change={loadImage(right)}
+        name="right"
+        type="file"
+        accept="image/png" />
+    </label>
+    <img
+      bind:this={right}
+      alt="Right Tileset" />
+  </div>
+
+  <div style="display: flex; flex-direction: column;">
+    <img
+      bind:this={result}
+      alt="Merged Tileset" />
+  </div>
+</div>

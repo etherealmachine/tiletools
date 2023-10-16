@@ -10,6 +10,8 @@
 
   export let tileset: HTMLImageElement;
   export let tileWidth: number | undefined, tileHeight: number | undefined;
+  export let margin: number = 0;
+  export let spacing: number = 0;
   export let selectedTileX: number | undefined, selectedTileY: number | undefined;
 
   let tagInput: HTMLInputElement;
@@ -34,6 +36,22 @@
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
+  }
+
+  function worldToTile(x: number, y: number): number[] {
+    if (!tileWidth || !tileHeight) return [0, 0];
+    return [
+      Math.floor((x-margin) / (tileWidth+spacing)),
+      Math.floor((y-margin) / (tileHeight+spacing)),
+    ];
+  }
+
+  function tileToWorld(x: number, y: number): number[] {
+    if (!tileWidth || !tileHeight) return [0, 0];
+    return [
+      x*(tileWidth+spacing)+margin,
+      y*(tileHeight+spacing)+margin,
+    ];
   }
 
   function drawRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number) {
@@ -75,13 +93,12 @@
     ) {
       const x = Math.floor(mouseX);
       const y = Math.floor(mouseY);
+      const [x1, y1] = tileToWorld(selectedTileX, selectedTileY);
+      const [x2, y2] = tileToWorld(selectedTileX+1, selectedTileY+1);
       if (
           x >= 0 && x < imgData.width &&
           y >= 0 && y < imgData.height &&
-          x >= selectedTileX*tileWidth &&
-          x < (selectedTileX+1)*tileWidth &&
-          y >= selectedTileY*tileHeight &&
-          y < (selectedTileY+1)*tileHeight
+          x >= x1 && x < x2 && y >= y1 && y < y2 
       ) {
         const i = ((y * imgData.width) + x) * 4;
         if (tool === Tool.Edit) {
@@ -103,16 +120,19 @@
     ctx.lineWidth = 1;
     if (tileWidth !== undefined && tileHeight !== undefined) {
       if (tool === Tool.Select) {
-        const hoverX = Math.floor(mouseX / tileWidth);
-        const hoverY = Math.floor(mouseY / tileHeight);
-        if (hoverX != undefined && hoverY !== undefined) {
-          drawRect(ctx, hoverX*tileWidth, hoverY*tileHeight, tileWidth, tileHeight);
+        const [tileX, tileY] = worldToTile(mouseX, mouseY);
+        const [x1, y1] = tileToWorld(tileX, tileY);
+        const [x2, y2] = tileToWorld(tileX+1, tileY+1);
+        if (tileX != undefined && tileY !== undefined) {
+          drawRect(ctx, x1, y1, x2-x1, y2-y1);
         }
       } else {
         // TODO: draw outline around editing pixel
       }
       if (selectedTileX !== undefined && selectedTileY !== undefined) {
-        drawRect(ctx, selectedTileX*tileWidth, selectedTileY*tileHeight, tileWidth, tileHeight);
+        const [x1, y1] = tileToWorld(selectedTileX, selectedTileY);
+        const [x2, y2] = tileToWorld(selectedTileX+1, selectedTileY+1);
+        drawRect(ctx, x1, y1, x2-x1, y2-y1);
       }
     }
   }
@@ -136,8 +156,7 @@
       return;
     }
     if (tileWidth !== undefined && tileHeight !== undefined && widthInTiles !== undefined) {
-      selectedTileX = Math.floor(x / tileWidth);
-      selectedTileY = Math.floor(y / tileHeight);
+      [selectedTileX, selectedTileY] = worldToTile(x, y);
       selectedTileIndex = selectedTileY*widthInTiles + selectedTileX;
       tileTags = tags[selectedTileIndex] || "";
       tagInput.focus();
@@ -189,6 +208,8 @@
       tilesetName = "";
       tileWidth = undefined;
       tileHeight = undefined;
+      margin = 0;
+      spacing = 0;
       tileTags = "";
       tags = {};
       selectedTileX = 0;
@@ -202,6 +223,8 @@
         tilesetName = metadata.name || "";
         tileWidth = metadata.tilewidth;
         tileHeight = metadata.tileheight;
+        margin = metadata.margin || 0;
+        spacing = metadata.spacing || 0;
         tags = Object.fromEntries(Object.entries(metadata.tiledata).map(([tileID, properties]) => {
           return [tileID, properties["tags"].join(",")];
         }));
@@ -229,8 +252,8 @@
       type: "hex",
       tilewidth: tileWidth,
       tileheight: tileHeight,
-      margin: 0,
-      spacing: 0,
+      margin: margin,
+      spacing: spacing,
       tileoffset: { x: 0, y: 0 },
       tiledata: Object.fromEntries(Object.entries(tags).map(([tileID, tags]) => {
         return [tileID, { tags: tags.split(",") }];
@@ -329,6 +352,28 @@
         name="height"
         type="number"
         bind:value={tileHeight}
+        min="1"
+        max="64"
+        style="max-width: 4em;"
+      />
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: start;">
+      <label for="Margin">Margin</label>
+      <input
+        name="margin"
+        type="number"
+        bind:value={margin}
+        min="1"
+        max="64"
+        style="max-width: 4em;"
+      />
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: start;">
+      <label for="Spacing">Spacing</label>
+      <input
+        name="spacing"
+        type="number"
+        bind:value={spacing}
         min="1"
         max="64"
         style="max-width: 4em;"

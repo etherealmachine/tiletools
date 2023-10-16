@@ -1,5 +1,5 @@
 <script lang="ts">
-  import TilesetEditor from "../lib/TilesetEditor.svelte";
+  import TilesetEditor from "$lib/TilesetEditor.svelte";
 
   let tileset: HTMLImageElement;
   let tileWidth: number, tileHeight: number;
