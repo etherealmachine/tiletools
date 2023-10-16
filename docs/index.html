@@ -1,15 +1,35 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/weave/weave.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Weave</title>
-    <script type="module" crossorigin src="/weave/assets/index-33f91622.js"></script>
-    <link rel="stylesheet" href="/weave/assets/index-bdb608d0.css">
-  </head>
-  <body>
-    <div id="app"></div>
-    
-  </body>
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="/weave.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		
+		<link rel="modulepreload" href="/_app/immutable/entry/start.463b9fde.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/scheduler.37e983f9.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/singletons.f3e94da5.js">
+		<link rel="modulepreload" href="/_app/immutable/entry/app.75e0ba30.js">
+		<link rel="modulepreload" href="/_app/immutable/chunks/index.fbbb3e38.js">
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">
+			<script>
+				{
+					__sveltekit_b3rfmd = {
+						base: "",
+						env: {}
+					};
+
+					const element = document.currentScript.parentElement;
+
+					Promise.all([
+						import("/_app/immutable/entry/start.463b9fde.js"),
+						import("/_app/immutable/entry/app.75e0ba30.js")
+					]).then(([kit, app]) => {
+						kit.start(app, element);
+					});
+				}
+			</script>
+		</div>
+	</body>
 </html>
