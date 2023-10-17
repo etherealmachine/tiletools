@@ -233,19 +233,19 @@
     if (!mouseOver) return;
     switch (e.key) {
       case "ArrowLeft":
-        offsetX += zoom*tileset.tilewidth;
+        offsetX += zoom*tileset.offsetWidth();
         e.preventDefault();
         break;
       case "ArrowRight":
-        offsetX -= zoom*tileset.tilewidth;
+        offsetX -= zoom*tileset.offsetWidth();
         e.preventDefault();
         break;
       case "ArrowUp":
-        offsetY += zoom*tileset.tileheight;
+        offsetY += zoom*tileset.offsetHeight();
         e.preventDefault();
         break;
       case "ArrowDown":
-        offsetY -= zoom*tileset.tileheight;
+        offsetY -= zoom*tileset.offsetHeight();
         e.preventDefault();
         break;
     }
@@ -305,7 +305,7 @@
       />
     </div>
     <div style="display: flex; flex-direction: column; align-items: start;">
-      <label for="Margin">Margin</label>
+      <label for="margin">Margin</label>
       <input
         name="margin"
         type="number"
@@ -316,7 +316,7 @@
       />
     </div>
     <div style="display: flex; flex-direction: column; align-items: start;">
-      <label for="Spacing">Spacing</label>
+      <label for="spacing">Spacing</label>
       <input
         name="spacing"
         type="number"
@@ -325,6 +325,13 @@
         max="64"
         style="max-width: 4em;"
       />
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: start;">
+      <label for="type">Type</label>
+      <select name="type" bind:value={tileset.type}>
+        <option value="square">Square</option>
+        <option value="hex">Hex</option>
+      </select>
     </div>
     <div style="margin-left: auto; display: flex; gap: 8px;">
       <button on:click={() => { tool = Tool.Select }} class:active={tool === Tool.Select}>

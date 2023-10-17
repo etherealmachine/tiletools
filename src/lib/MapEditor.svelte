@@ -28,26 +28,9 @@
   let selectedLayerIndex: number = 0;
   let currQ: number, currR: number;
   let grid: boolean = true;
-  let hex: boolean = true;
   let zoom: number = 1;
   let mouseOver: boolean = false;
-
-  const DATA_JSON = "data:application/json;base64,";
-
-  $: size = tileset ? tileset.tilewidth/2 : 0;
-  const sqrt3 = Math.sqrt(3);
-  $: horiz = 3/2 * size;
-  $: vert = Math.ceil(sqrt3*size);
-  $: offsetX = size;
-  $: offsetY = vert/2;
-
-  function round_axial(x: number, y: number): number[] {
-    const xgrid = Math.round(x), ygrid = Math.round(y);
-    x -= xgrid, y -= ygrid; // remainder
-    const dx = Math.round(x + 0.5*y) * (x*x >= y*y ? 1 : 0);
-    const dy = Math.round(y + 0.5*x) * (x*x < y*y ? 1 : 0);
-    return [xgrid + dx, ygrid + dy];
-  }
+  let offsetX: number = 0, offsetY: number = 0;
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
@@ -55,18 +38,8 @@
 
   function screenToTile(x: number, y: number): number[] {
     const [tx, ty] = screenToWorld(x, y);
-    if (hex) {
-      return round_axial(((2/3)*tx) / size, ((-1/3)*tx + sqrt3/3*ty)/size);
-    }
     if (!tileset) return [0, 0];
-    return [Math.floor(tx/tileset.tilewidth), Math.floor(ty/tileset.tileheight)];
-  }
-
-  function hexToWorld(q: number, r: number): number[] {
-    return [
-      size*(3/2)*q,
-      size*((sqrt3/2)*q + sqrt3*r),
-    ];
+    return tileset.worldToTile(tx, ty, false);
   }
 
   function drawHexagon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
@@ -89,26 +62,26 @@
     ctx.stroke();
   }
 
-  function drawHexTile(ctx: CanvasRenderingContext2D, q: number, r: number, tileset: Tileset, tileX: number, tileY: number) {
+  // q, r is location in world, tileX, tileY is location in tileset
+  function drawTile(ctx: CanvasRenderingContext2D, q: number, r: number, tileset: Tileset, tileX: number, tileY: number) {
     if (!tileset.img) return;
-    const [x, y] = hexToWorld(q, r);
-    ctx.drawImage(
-      tileset.img,
-      tileX*tileset.tilewidth, tileY*tileset.tileheight,
-      tileset.tilewidth, tileset.tileheight,
-      // TODO: Why offset by 4?
-      x-size, y-vert-6,
-      tileset.tilewidth*1.01, tileset.tileheight*1.01);
-  }
-
-  function drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileset: Tileset, tileX: number, tileY: number) {
-    if (!tileset.img) return;
-    ctx.drawImage(
-      tileset.img,
-      tileX*tileset.tilewidth, tileY*tileset.tileheight,
-      tileset.tilewidth, tileset.tileheight,
-      x*tileset.tilewidth, y*tileset.tileheight,
-      tileset.tilewidth, tileset.tileheight);
+    const [dx, dy] = tileset.tileToWorld(q, r, false);
+    const [sx, sy] = tileset.tileToWorld(tileX, tileY);
+    if (tileset.type == "hex") {
+      ctx.drawImage(
+        tileset.img,
+        sx, sy,
+        tileset.tilewidth, tileset.tileheight,
+        dx, dy,
+        tileset.tilewidth*1.01, tileset.tileheight*1.01);
+    } else {
+      ctx.drawImage(
+        tileset.img,
+        sx, sy,
+        tileset.tilewidth, tileset.tileheight,
+        dx, dy,
+        tileset.tilewidth, tileset.tileheight);
+    }
   }
 
   function draw() {
@@ -123,11 +96,12 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
     ctx.strokeStyle = "white";
+    /* TODO
     if (grid) {
       if (hex) {
         for (let q = 0; q < (W/horiz)-1; q++) {
           for (let r = 0; r < (H/vert)-1; r++) {
-            const [x, y] = hexToWorld(q, r-Math.floor(q/2));
+            const [x, y] = tileset.tileToWorld(q, r-Math.floor(q/2));
             drawHexagon(ctx, x, y, size);
           }
         }
@@ -139,6 +113,7 @@
         }
       }
     }
+    */
     layers.forEach(layer => {
       if (!layer.visible) return;
       Object.entries(layer.tiles).sort((a, b): number => {
@@ -149,19 +124,11 @@
       }).forEach(entry => {
         const [x, y] = entry[0].split(',').map(v => parseInt(v));
         const tile = entry[1];
-        if (hex) {
-          drawHexTile(ctx, x, y, tile.tileset, tile.tileX, tile.tileY);
-        } else {
-          drawTile(ctx, x, y, tile.tileset, tile.tileX, tile.tileY);
-        }
+        drawTile(ctx, x, y, tile.tileset, tile.tileX, tile.tileY);
       });
     });
     if (tileset && tileset.loaded() && currQ !== undefined && currR !== undefined) {
-      if (hex) {
-        drawHexTile(ctx, currQ, currR, tileset, selectedTileX, selectedTileY);
-      } else {
-        drawTile(ctx, currQ, currR, tileset, selectedTileX, selectedTileY);
-      }
+      drawTile(ctx, currQ, currR, tileset, selectedTileX, selectedTileY);
     }
   }
 
@@ -201,23 +168,23 @@
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    console.log("map");
+    if (!tileset) return;
     if (!mouseOver) return;
     switch (e.key) {
       case "ArrowLeft":
-        offsetX += zoom*size;
+        offsetX += zoom*tileset.offsetWidth();
         e.preventDefault();
         break;
       case "ArrowRight":
-        offsetX -= zoom*size;
+        offsetX -= zoom*tileset.offsetWidth();
         e.preventDefault();
         break;
       case "ArrowUp":
-        offsetY += zoom*vert;
+        offsetY += zoom*tileset.offsetHeight();
         e.preventDefault();
         break;
       case "ArrowDown":
-        offsetY -= zoom*vert;
+        offsetY -= zoom*tileset.offsetHeight();
         e.preventDefault();
         break;
     }
@@ -287,10 +254,6 @@
     <label>
       <input type="checkbox" bind:checked={grid} />
       Grid
-    </label>
-    <label>
-      <input type="checkbox" bind:checked={hex} />
-      Hex
     </label>
     <span>{currQ}, {currR}</span>
     <button on:click={onSave}>
