@@ -70,8 +70,8 @@
     ) {
       const x = Math.floor(mouseX);
       const y = Math.floor(mouseY);
-      const [x1, y1] = tileset.tileToWorld(selectedTileX, selectedTileY);
-      const [x2, y2] = tileset.tileToWorld(selectedTileX+1, selectedTileY+1);
+      const [x1, y1] = tileset.tileToImgCoords(selectedTileX, selectedTileY);
+      const [x2, y2] = tileset.tileToImgCoords(selectedTileX+1, selectedTileY+1);
       if (
           x >= 0 && x < imgData.width &&
           y >= 0 && y < imgData.height &&
@@ -96,9 +96,9 @@
     ctx.strokeStyle = "white";
     ctx.lineWidth = 1;
     if (tool === Tool.Select) {
-      const [tileX, tileY] = tileset.worldToTile(mouseX, mouseY);
-      const [x1, y1] = tileset.tileToWorld(tileX, tileY);
-      const [x2, y2] = tileset.tileToWorld(tileX+1, tileY+1);
+      const [tileX, tileY] = tileset.imgCoordsToTile(mouseX, mouseY);
+      const [x1, y1] = tileset.tileToImgCoords(tileX, tileY);
+      const [x2, y2] = tileset.tileToImgCoords(tileX+1, tileY+1);
       if (tileX != undefined && tileY !== undefined) {
         drawRect(ctx, x1, y1, x2-x1, y2-y1);
       }
@@ -106,8 +106,8 @@
       // TODO: draw outline around editing pixel
     }
     if (selectedTileX !== undefined && selectedTileY !== undefined) {
-      const [x1, y1] = tileset.tileToWorld(selectedTileX, selectedTileY);
-      const [x2, y2] = tileset.tileToWorld(selectedTileX+1, selectedTileY+1);
+      const [x1, y1] = tileset.tileToImgCoords(selectedTileX, selectedTileY);
+      const [x2, y2] = tileset.tileToImgCoords(selectedTileX+1, selectedTileY+1);
       drawRect(ctx, x1, y1, x2-x1, y2-y1);
     }
   }
@@ -131,12 +131,12 @@
     if (x < 0 || x >= tileset.img.width || y < 0 || y >= tileset.img.height) {
       return;
     }
-    [selectedTileX, selectedTileY] = tileset.worldToTile(x, y);
+    [selectedTileX, selectedTileY] = tileset.imgCoordsToTile(x, y);
     // TODO tileTags = tags[selectedTileIndex] || "";
     tagInput.focus();
     palette.clear();
-    const [x1, y1] = tileset.tileToWorld(selectedTileX, selectedTileY);
-    const [x2, y2] = tileset.tileToWorld(selectedTileX+1, selectedTileY+1);
+    const [x1, y1] = tileset.tileToImgCoords(selectedTileX, selectedTileY);
+    const [x2, y2] = tileset.tileToImgCoords(selectedTileX+1, selectedTileY+1);
     for (let x = x1; x < x2; x++) {
       for (let y = y1; y < y2; y++) {
         const i = ((y * imgData.width) + x) * 4;

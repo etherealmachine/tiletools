@@ -39,7 +39,7 @@
   function screenToTile(x: number, y: number): number[] {
     const [tx, ty] = screenToWorld(x, y);
     if (!tileset) return [0, 0];
-    return tileset.worldToTile(tx, ty, false);
+    return tileset.worldToTile(tx, ty);
   }
 
   function drawHexagon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
@@ -65,23 +65,14 @@
   // q, r is location in world, tileX, tileY is location in tileset
   function drawTile(ctx: CanvasRenderingContext2D, q: number, r: number, tileset: Tileset, tileX: number, tileY: number) {
     if (!tileset.img) return;
-    const [dx, dy] = tileset.tileToWorld(q, r, false);
-    const [sx, sy] = tileset.tileToWorld(tileX, tileY);
-    if (tileset.type == "hex") {
-      ctx.drawImage(
-        tileset.img,
-        sx, sy,
-        tileset.tilewidth, tileset.tileheight,
-        dx, dy,
-        tileset.tilewidth*1.01, tileset.tileheight*1.01);
-    } else {
-      ctx.drawImage(
-        tileset.img,
-        sx, sy,
-        tileset.tilewidth, tileset.tileheight,
-        dx, dy,
-        tileset.tilewidth, tileset.tileheight);
-    }
+    const [dx, dy] = tileset.tileToWorld(q, r);
+    const [sx, sy] = tileset.tileToImgCoords(tileX, tileY);
+    ctx.drawImage(
+      tileset.img,
+      sx, sy,
+      tileset.tilewidth, tileset.tileheight,
+      dx, dy,
+      tileset.tilewidth, tileset.tileheight);
   }
 
   function draw() {
