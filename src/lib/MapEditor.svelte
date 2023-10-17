@@ -26,7 +26,7 @@
   }];
   let editingLayers: boolean = false;
   let selectedLayerIndex: number = 0;
-  let currQ: number, currR: number;
+  let hoverX: number, hoverY: number;
   let grid: boolean = true;
   let zoom: number = 1;
   let mouseOver: boolean = false;
@@ -62,11 +62,15 @@
     ctx.stroke();
   }
 
-  // q, r is location in world, tileX, tileY is location in tileset
-  function drawTile(ctx: CanvasRenderingContext2D, q: number, r: number, tileset: Tileset, tileX: number, tileY: number) {
+  // x, y is location in world, tileX, tileY is location in tileset
+  function drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileset: Tileset, tileX: number, tileY: number) {
     if (!tileset.img) return;
-    const [dx, dy] = tileset.tileToWorld(q, r);
+    let [dx, dy] = tileset.tileToWorld(x, y);
     const [sx, sy] = tileset.tileToImgCoords(tileX, tileY);
+    if (tileset.type === "hex") {
+      dx -= tileset.radius();
+      dy -= tileset.hexHeight() + 4 // TODO: Why?;
+    }
     ctx.drawImage(
       tileset.img,
       sx, sy,
@@ -87,13 +91,15 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
     ctx.strokeStyle = "white";
-    /* TODO
-    if (grid) {
-      if (hex) {
+    if (grid && tileset) {
+      if (tileset.type === "hex") {
+        const radius = tileset.radius();
+        const horiz = Math.sqrt(3)*radius;
+        const vert = (3/2)*radius;
         for (let q = 0; q < (W/horiz)-1; q++) {
           for (let r = 0; r < (H/vert)-1; r++) {
             const [x, y] = tileset.tileToWorld(q, r-Math.floor(q/2));
-            drawHexagon(ctx, x, y, size);
+            drawHexagon(ctx, x, y, radius);
           }
         }
       } else if (tileset) {
@@ -104,7 +110,6 @@
         }
       }
     }
-    */
     layers.forEach(layer => {
       if (!layer.visible) return;
       Object.entries(layer.tiles).sort((a, b): number => {
@@ -118,8 +123,8 @@
         drawTile(ctx, x, y, tile.tileset, tile.tileX, tile.tileY);
       });
     });
-    if (tileset && tileset.loaded() && currQ !== undefined && currR !== undefined) {
-      drawTile(ctx, currQ, currR, tileset, selectedTileX, selectedTileY);
+    if (tileset && tileset.loaded() && hoverX !== undefined && hoverY !== undefined) {
+      drawTile(ctx, hoverX, hoverY, tileset, selectedTileX, selectedTileY);
     }
   }
 
@@ -135,7 +140,7 @@
   }
 
   function onMouseMove(e: MouseEvent) {
-    [currQ, currR] = screenToTile(e.offsetX, e.offsetY);
+    [hoverX, hoverY] = screenToTile(e.offsetX, e.offsetY);
     if (e.buttons === 1) {
       onClick(e);
     } else if (e.ctrlKey) {
@@ -246,7 +251,7 @@
       <input type="checkbox" bind:checked={grid} />
       Grid
     </label>
-    <span>{currQ}, {currR}</span>
+    <span>{hoverX}, {hoverY}</span>
     <button on:click={onSave}>
         <Icon name="saveFloppyDisk" />
     </button>

@@ -44,8 +44,8 @@ export class Tileset {
       ];
     }
     return [
-      x*(this.tilewidth+this.spacing)+this.margin,
-      y*(this.tileheight+this.spacing)+this.margin,
+      x*this.tilewidth,
+      y*this.tileheight,
     ];
   }
 
