@@ -6,13 +6,11 @@
   import Icon from "./Icon.svelte";
   import { DATA_PNG, readMetadata, writeMetadata } from "./PNGMetadata";
   import { readFileAsBinaryString } from "./files";
-  import type { Tileset } from "./types";
+  import { Tileset } from "./types";
 
-  export let tileset: HTMLImageElement;
-  export let tileWidth: number | undefined, tileHeight: number | undefined;
-  export let margin: number = 0;
-  export let spacing: number = 0;
+  export let tileset: Tileset = new Tileset({});
   export let selectedTileX: number | undefined, selectedTileY: number | undefined;
+  export let maxWidth: string | undefined = undefined;
 
   let tagInput: HTMLInputElement;
   let canvas: HTMLCanvasElement;
@@ -21,11 +19,7 @@
   let mouseDown: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
   let mouseX: number | undefined, mouseY: number | undefined;
-  let widthInTiles: number | undefined, heightInTiles: number | undefined;
-  let selectedTileIndex: number | undefined;
-  let tilesetName: string;
   let tileTags: string;
-  let tags: { [key: number]: string } = {};
   let filter: string;
   let tool: Tool = Tool.Select;
   let imgData: ImageData;
@@ -36,22 +30,6 @@
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
-  }
-
-  function worldToTile(x: number, y: number): number[] {
-    if (!tileWidth || !tileHeight) return [0, 0];
-    return [
-      Math.floor((x-margin) / (tileWidth+spacing)),
-      Math.floor((y-margin) / (tileHeight+spacing)),
-    ];
-  }
-
-  function tileToWorld(x: number, y: number): number[] {
-    if (!tileWidth || !tileHeight) return [0, 0];
-    return [
-      x*(tileWidth+spacing)+margin,
-      y*(tileHeight+spacing)+margin,
-    ];
   }
 
   function drawRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number) {
@@ -79,7 +57,7 @@
 
     if (img) {
       ctx.drawImage(img, 0, 0, img.width, img.height);
-    } else if (tileset && tileset.complete && imgData) {
+    } else if (tileset && tileset.loaded() && imgData) {
       createImageBitmap(imgData).then(_img => { img = _img });
       requestAnimationFrame(draw);
     }
@@ -88,13 +66,12 @@
 
     if (
         (tool === Tool.Edit || tool === Tool.Erase) && mouseDown &&
-        selectedTileX !== undefined && selectedTileY !== undefined &&
-        tileWidth && tileHeight
+        selectedTileX !== undefined && selectedTileY !== undefined
     ) {
       const x = Math.floor(mouseX);
       const y = Math.floor(mouseY);
-      const [x1, y1] = tileToWorld(selectedTileX, selectedTileY);
-      const [x2, y2] = tileToWorld(selectedTileX+1, selectedTileY+1);
+      const [x1, y1] = tileset.tileToWorld(selectedTileX, selectedTileY);
+      const [x2, y2] = tileset.tileToWorld(selectedTileX+1, selectedTileY+1);
       if (
           x >= 0 && x < imgData.width &&
           y >= 0 && y < imgData.height &&
@@ -118,22 +95,20 @@
 
     ctx.strokeStyle = "white";
     ctx.lineWidth = 1;
-    if (tileWidth !== undefined && tileHeight !== undefined) {
-      if (tool === Tool.Select) {
-        const [tileX, tileY] = worldToTile(mouseX, mouseY);
-        const [x1, y1] = tileToWorld(tileX, tileY);
-        const [x2, y2] = tileToWorld(tileX+1, tileY+1);
-        if (tileX != undefined && tileY !== undefined) {
-          drawRect(ctx, x1, y1, x2-x1, y2-y1);
-        }
-      } else {
-        // TODO: draw outline around editing pixel
-      }
-      if (selectedTileX !== undefined && selectedTileY !== undefined) {
-        const [x1, y1] = tileToWorld(selectedTileX, selectedTileY);
-        const [x2, y2] = tileToWorld(selectedTileX+1, selectedTileY+1);
+    if (tool === Tool.Select) {
+      const [tileX, tileY] = tileset.worldToTile(mouseX, mouseY);
+      const [x1, y1] = tileset.tileToWorld(tileX, tileY);
+      const [x2, y2] = tileset.tileToWorld(tileX+1, tileY+1);
+      if (tileX != undefined && tileY !== undefined) {
         drawRect(ctx, x1, y1, x2-x1, y2-y1);
       }
+    } else {
+      // TODO: draw outline around editing pixel
+    }
+    if (selectedTileX !== undefined && selectedTileY !== undefined) {
+      const [x1, y1] = tileset.tileToWorld(selectedTileX, selectedTileY);
+      const [x2, y2] = tileset.tileToWorld(selectedTileX+1, selectedTileY+1);
+      drawRect(ctx, x1, y1, x2-x1, y2-y1);
     }
   }
 
@@ -152,26 +127,26 @@
   function onClick(e: MouseEvent) {
     if (tool !== Tool.Select) return;
     const [x, y] = screenToWorld(e.offsetX, e.offsetY);
-    if (x < 0 || x >= tileset.width || y < 0 || y >= tileset.height) {
+    if (!tileset.img) return;
+    if (x < 0 || x >= tileset.img.width || y < 0 || y >= tileset.img.height) {
       return;
     }
-    if (tileWidth !== undefined && tileHeight !== undefined && widthInTiles !== undefined) {
-      [selectedTileX, selectedTileY] = worldToTile(x, y);
-      selectedTileIndex = selectedTileY*widthInTiles + selectedTileX;
-      tileTags = tags[selectedTileIndex] || "";
-      tagInput.focus();
-      palette.clear();
-      for (let x = selectedTileX*tileWidth; x < (selectedTileX+1)*tileWidth; x++) {
-        for (let y = selectedTileY*tileHeight; y < (selectedTileY+1)*tileHeight; y++) {
-          const i = ((y * imgData.width) + x) * 4;
-          palette.add("#" + 
-            imgData.data[i+0].toString(16) +
-            imgData.data[i+1].toString(16) +
-            imgData.data[i+2].toString(16));
-        }
+    [selectedTileX, selectedTileY] = tileset.worldToTile(x, y);
+    // TODO tileTags = tags[selectedTileIndex] || "";
+    tagInput.focus();
+    palette.clear();
+    const [x1, y1] = tileset.tileToWorld(selectedTileX, selectedTileY);
+    const [x2, y2] = tileset.tileToWorld(selectedTileX+1, selectedTileY+1);
+    for (let x = x1; x < x2; x++) {
+      for (let y = y1; y < y2; y++) {
+        const i = ((y * imgData.width) + x) * 4;
+        palette.add("#" + 
+          imgData.data[i+0].toString(16) +
+          imgData.data[i+1].toString(16) +
+          imgData.data[i+2].toString(16));
       }
-      palette = palette;
     }
+    palette = palette;
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -181,9 +156,7 @@
       offsetX += e.movementX;
       offsetY += e.movementY;
     }
-    if (tileWidth !== undefined && tileHeight !== undefined) {
-      [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
-    }
+    [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
   }
 
   function onFileChanged(e: Event) {
@@ -193,49 +166,35 @@
     const file = files[0];
     if (!file) return;
     readFileAsBinaryString(file).then(value => {
-      tileset.setAttribute('src', DATA_PNG + btoa(value));
-      tileset.onload = () => {
+      if (!tileset.img) return;
+      tileset.img.setAttribute('src', DATA_PNG + btoa(value));
+      tileset.img.onload = () => {
+        if (!tileset.img) return;
         const tmp = document.createElement('canvas');
-        tmp.width = tileset.width;
-        tmp.height = tileset.height;
-        const context = canvas.getContext('2d');
+        tmp.width = tileset.img.width;
+        tmp.height = tileset.img.height;
+        const context = tmp.getContext('2d');
         if (!context) return;
         context.resetTransform();
-        context.drawImage(tileset, 0, 0, tmp.width, tmp.height);
+        context.drawImage(tileset.img, 0, 0, tmp.width, tmp.height);
         imgData = context.getImageData(0, 0, tmp.width, tmp.height);
         createImageBitmap(imgData).then(_img => { img = _img });
       };
-      tilesetName = "";
-      tileWidth = undefined;
-      tileHeight = undefined;
-      margin = 0;
-      spacing = 0;
+      
+      const tmpImg = tileset.img;
+      tileset = new Tileset(readMetadata(value));
+      tileset.img = tmpImg;
       tileTags = "";
-      tags = {};
       selectedTileX = 0;
       selectedTileY = 0;
-      selectedTileIndex = 0;
       offsetX = 0;
       offsetY = 0;
       zoom = 2;
-      const metadata = readMetadata(value) as Tileset;
-      if (metadata) {
-        tilesetName = metadata.name || "";
-        tileWidth = metadata.tilewidth;
-        tileHeight = metadata.tileheight;
-        margin = metadata.margin || 0;
-        spacing = metadata.spacing || 0;
-        tags = Object.fromEntries(Object.entries(metadata.tiledata).map(([tileID, properties]) => {
-          return [tileID, properties["tags"].join(",")];
-        }));
-      }
     });
   }
 
   function onTileTagsChanged() {
-    if (selectedTileIndex !== undefined) {
-      tags[selectedTileIndex] = tileTags;
-    }
+    // TODO
   }
 
   function onSave() {
@@ -247,57 +206,46 @@
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.drawImage(img, 0, 0);
-    const value = writeMetadata(atob(canvas.toDataURL('image/png').substring(DATA_PNG.length)), {
-      name: tilesetName,
-      type: "hex",
-      tilewidth: tileWidth,
-      tileheight: tileHeight,
-      margin: margin,
-      spacing: spacing,
-      tileoffset: { x: 0, y: 0 },
-      tiledata: Object.fromEntries(Object.entries(tags).map(([tileID, tags]) => {
-        return [tileID, { tags: tags.split(",") }];
-      })),
-    } as Tileset);
-    tileset.setAttribute('src', DATA_PNG + btoa(value));
-    const a = document.createElement('a');
-    a.href = tileset.src;
-    if (tilesetName) {
-      a.download = `${tilesetName}.png`;
-    } else {
-      a.download = 'tileset.png';
+    const value = writeMetadata(
+      atob(canvas.toDataURL('image/png').substring(DATA_PNG.length)),
+      tileset.metadata(),
+    );
+    if (tileset.img) {
+      tileset.img.setAttribute('src', DATA_PNG + btoa(value));
+      const a = document.createElement('a');
+      a.href = tileset.img.src;
+      if (tileset.name) {
+        a.download = `${tileset.name}.png`;
+      } else {
+        a.download = 'tileset.png';
+      }
+      a.click();
     }
-    a.click();
   }
 
   function triggerRedraw(..._args: any[]) {
-    if (tileset && tileWidth !== undefined && tileHeight !== undefined) {
-      widthInTiles = tileset.width/tileWidth;
-      heightInTiles = tileset.height/tileHeight;
-    }
-    if (tileset && tileset.complete) {
+    if (tileset && tileset.loaded()) {
       requestAnimationFrame(draw);
     }
   }
 
   function onKeyDown(e: KeyboardEvent) {
     if (!mouseOver) return;
-    if (tileWidth === undefined || tileHeight === undefined) return;
     switch (e.key) {
       case "ArrowLeft":
-        offsetX += zoom*tileWidth;
+        offsetX += zoom*tileset.tilewidth;
         e.preventDefault();
         break;
       case "ArrowRight":
-        offsetX -= zoom*tileWidth;
+        offsetX -= zoom*tileset.tilewidth;
         e.preventDefault();
         break;
       case "ArrowUp":
-        offsetY += zoom*tileHeight;
+        offsetY += zoom*tileset.tileheight;
         e.preventDefault();
         break;
       case "ArrowDown":
-        offsetY -= zoom*tileHeight;
+        offsetY -= zoom*tileset.tileheight;
         e.preventDefault();
         break;
     }
@@ -314,15 +262,14 @@
 
   $: triggerRedraw(
     tileset,
-    tileWidth, tileHeight,
     zoom, offsetX, offsetY, filter,
     mouseX, mouseY,
     selectedTileX, selectedTileY);
 </script>
 
 <svelte:window on:keydown={onKeyDown} />
-<div style="display: flex; flex-direction: column; gap: 8px; flex-grow: 1;">
-  <div style="display: flex; gap: 8px; align-items: end;">
+<div style="display: flex; flex-direction: column; gap: 8px; flex-grow: 1;" style:max-width={maxWidth}>
+  <div style="display: flex; gap: 8px; align-items: end; flex-wrap: wrap;">
     <input
       type="file"
       accept="image/png"
@@ -332,7 +279,7 @@
       <input
         name="name"
         type="text"
-        bind:value={tilesetName}
+        bind:value={tileset.name}
       />
     </div>
     <div style="display: flex; flex-direction: column; align-items: start;">
@@ -340,7 +287,7 @@
       <input
         name="width"
         type="number"
-        bind:value={tileWidth}
+        bind:value={tileset.tilewidth}
         min="1"
         max="64"
         style="max-width: 4em;"
@@ -351,7 +298,7 @@
       <input
         name="height"
         type="number"
-        bind:value={tileHeight}
+        bind:value={tileset.tileheight}
         min="1"
         max="64"
         style="max-width: 4em;"
@@ -362,7 +309,7 @@
       <input
         name="margin"
         type="number"
-        bind:value={margin}
+        bind:value={tileset.margin}
         min="1"
         max="64"
         style="max-width: 4em;"
@@ -373,7 +320,7 @@
       <input
         name="spacing"
         type="number"
-        bind:value={spacing}
+        bind:value={tileset.spacing}
         min="1"
         max="64"
         style="max-width: 4em;"
@@ -395,7 +342,7 @@
       <button on:click={pasteSelectedTile}>
         <Icon name="pasteClipboard" />
       </button>
-      <button disabled={!tileset || !tileset.src} on:click={onSave}>
+      <button disabled={!tileset.img || !tileset.img.src} on:click={onSave}>
         <Icon name="saveFloppyDisk" />
       </button>
     </div>
@@ -409,7 +356,7 @@
     />
   </div>
   <img
-    bind:this={tileset}
+    bind:this={tileset.img}
     src=""
     style="display: none;"
     alt="Tileset"
@@ -430,7 +377,7 @@
   {#if selectedTileX !== undefined && selectedTileY !== undefined}
     <div style="display: flex; flex-direction: row; gap: 8px; align-items: start;">
       <div>
-        Selected: Tile {selectedTileIndex} ({selectedTileX}, {selectedTileY})
+        Selected: Tile ({selectedTileX}, {selectedTileY})
       </div>
       <div style="display: flex; flex-direction: column; align-items: start;">
         <label for="tags">Tags</label>

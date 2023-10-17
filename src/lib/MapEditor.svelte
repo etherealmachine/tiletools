@@ -1,14 +1,13 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import { readFileAsBinaryString } from "./files";
+  import type { Tileset } from "./types";
 
-  export let selectedTileset: HTMLImageElement;
-  export let tileWidth: number, tileHeight: number;
+  export let tileset: Tileset | undefined;
   export let selectedTileX: number, selectedTileY: number;
 
   interface Tile {
-    img: HTMLImageElement
-    tileset?: string
+    tileset: Tileset
     tileX: number
     tileY: number
   }
@@ -35,7 +34,7 @@
 
   const DATA_JSON = "data:application/json;base64,";
 
-  $: size = tileWidth/2;
+  $: size = tileset ? tileset.tilewidth/2 : 0;
   const sqrt3 = Math.sqrt(3);
   $: horiz = 3/2 * size;
   $: vert = Math.ceil(sqrt3*size);
@@ -59,7 +58,8 @@
     if (hex) {
       return round_axial(((2/3)*tx) / size, ((-1/3)*tx + sqrt3/3*ty)/size);
     }
-    return [Math.floor(tx/tileWidth), Math.floor(ty/tileHeight)];
+    if (!tileset) return [0, 0];
+    return [Math.floor(tx/tileset.tilewidth), Math.floor(ty/tileset.tileheight)];
   }
 
   function hexToWorld(q: number, r: number): number[] {
@@ -89,24 +89,26 @@
     ctx.stroke();
   }
 
-  function drawHexTile(ctx: CanvasRenderingContext2D, q: number, r: number, tileset: HTMLImageElement, tileX: number, tileY: number) {
+  function drawHexTile(ctx: CanvasRenderingContext2D, q: number, r: number, tileset: Tileset, tileX: number, tileY: number) {
+    if (!tileset.img) return;
     const [x, y] = hexToWorld(q, r);
     ctx.drawImage(
-      tileset,
-      tileX*tileWidth, tileY*tileHeight,
-      tileWidth, tileHeight,
+      tileset.img,
+      tileX*tileset.tilewidth, tileY*tileset.tileheight,
+      tileset.tilewidth, tileset.tileheight,
       // TODO: Why offset by 4?
       x-size, y-vert-6,
-      tileWidth*1.01, tileHeight*1.01);
+      tileset.tilewidth*1.01, tileset.tileheight*1.01);
   }
 
-  function drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileset: HTMLImageElement, tileX: number, tileY: number) {
+  function drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileset: Tileset, tileX: number, tileY: number) {
+    if (!tileset.img) return;
     ctx.drawImage(
-      tileset,
-      tileX*tileWidth, tileY*tileHeight,
-      tileWidth, tileHeight,
-      x*tileWidth, y*tileHeight,
-      tileWidth, tileHeight);
+      tileset.img,
+      tileX*tileset.tilewidth, tileY*tileset.tileheight,
+      tileset.tilewidth, tileset.tileheight,
+      x*tileset.tilewidth, y*tileset.tileheight,
+      tileset.tilewidth, tileset.tileheight);
   }
 
   function draw() {
@@ -129,10 +131,10 @@
             drawHexagon(ctx, x, y, size);
           }
         }
-      } else {
-        for (let x = 0; x < (W/tileWidth)-1; x++) {
-          for (let y = 0; y < (H/tileHeight)-1; y++) {
-            drawRect(ctx, x*tileWidth, y*tileHeight, tileWidth, tileHeight);
+      } else if (tileset) {
+        for (let x = 0; x < (W/tileset.tilewidth)-1; x++) {
+          for (let y = 0; y < (H/tileset.tileheight)-1; y++) {
+            drawRect(ctx, x*tileset.tilewidth, y*tileset.tileheight, tileset.tilewidth, tileset.tileheight);
           }
         }
       }
@@ -147,28 +149,27 @@
       }).forEach(entry => {
         const [x, y] = entry[0].split(',').map(v => parseInt(v));
         const tile = entry[1];
-        if (tile.img && tile.img.complete) {
-          if (hex) {
-            drawHexTile(ctx, x, y, tile.img, tile.tileX, tile.tileY);
-          } else {
-            drawTile(ctx, x, y, tile.img, tile.tileX, tile.tileY);
-          }
+        if (hex) {
+          drawHexTile(ctx, x, y, tile.tileset, tile.tileX, tile.tileY);
+        } else {
+          drawTile(ctx, x, y, tile.tileset, tile.tileX, tile.tileY);
         }
       });
     });
-    if (selectedTileset && selectedTileset.complete && currQ !== undefined && currR !== undefined) {
+    if (tileset && tileset.loaded() && currQ !== undefined && currR !== undefined) {
       if (hex) {
-        drawHexTile(ctx, currQ, currR, selectedTileset, selectedTileX, selectedTileY);
+        drawHexTile(ctx, currQ, currR, tileset, selectedTileX, selectedTileY);
       } else {
-        drawTile(ctx, currQ, currR, selectedTileset, selectedTileX, selectedTileY);
+        drawTile(ctx, currQ, currR, tileset, selectedTileX, selectedTileY);
       }
     }
   }
 
   function onClick(e: MouseEvent) {
+    if (!tileset || !tileset.img) return;
     const [q, r] = screenToTile(e.offsetX, e.offsetY);
     layers[selectedLayerIndex].tiles[`${q},${r}`] = {
-      img: selectedTileset,
+      tileset: tileset,
       tileX: selectedTileX,
       tileY: selectedTileY,
     };

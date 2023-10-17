@@ -7,14 +7,25 @@
 
   function merge(left: HTMLImageElement, right: HTMLImageElement): string {
     const canvas = document.createElement('canvas');
-    canvas.width = left.width + right.width;
-    canvas.height = Math.max(left.height, right.height);
+    const landscape = left.width + right.width < left.height + right.height;
+    if (landscape) {
+      canvas.width = left.width + right.width;
+      canvas.height = Math.max(left.height, right.height);
+    } else {
+      canvas.width = Math.max(left.width, right.width);
+      canvas.height = left.height + right.height;
+    }
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
-    ctx.drawImage(left, 0, 0, left.width, left.height);
-    ctx.drawImage(right, left.width, 0, right.width, right.height);
+    if (landscape) {
+      ctx.drawImage(left, 0, 0, left.width, left.height);
+      ctx.drawImage(right, left.width, 0, right.width, right.height);
+    } else {
+      ctx.drawImage(left, 0, 0, left.width, left.height);
+      ctx.drawImage(right, 0, left.height, right.width, right.height);
+    }
     return canvas.toDataURL('image/png');
   }
 
