@@ -4,8 +4,7 @@
 
 <script lang="ts">
   import Icon from "./Icon.svelte";
-  import { DATA_PNG, readMetadata, writeMetadata } from "./PNGMetadata";
-  import { readFileAsBinaryString } from "./files";
+  import { PNGWithMetadata } from "./PNGWithMetadata";
   import { Tileset } from "./types";
 
   export let tileset: Tileset = new Tileset({});
@@ -165,9 +164,9 @@
     if (files === null) return;
     const file = files[0];
     if (!file) return;
-    readFileAsBinaryString(file).then(value => {
+    PNGWithMetadata.fromFile(file).then(png => {
       if (!tileset.img) return;
-      tileset.img.setAttribute('src', DATA_PNG + btoa(value));
+      tileset.img.setAttribute('src', png.dataURL());
       tileset.img.onload = () => {
         if (!tileset.img) return;
         const tmp = document.createElement('canvas');
@@ -182,7 +181,7 @@
       };
       
       const tmpImg = tileset.img;
-      tileset = new Tileset(readMetadata(value));
+      tileset = new Tileset(png.metadata);
       tileset.img = tmpImg;
       tileTags = "";
       selectedTileX = 0;
@@ -198,28 +197,10 @@
   }
 
   function onSave() {
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.imageSmoothingEnabled = false;
-    ctx.resetTransform();
-    ctx.drawImage(img, 0, 0);
-    const value = writeMetadata(
-      atob(canvas.toDataURL('image/png').substring(DATA_PNG.length)),
-      tileset.metadata(),
-    );
+    const png = new PNGWithMetadata(tileset.name, tileset.metadata(), img);
+    png.download();
     if (tileset.img) {
-      tileset.img.setAttribute('src', DATA_PNG + btoa(value));
-      const a = document.createElement('a');
-      a.href = tileset.img.src;
-      if (tileset.name) {
-        a.download = `${tileset.name}.png`;
-      } else {
-        a.download = 'tileset.png';
-      }
-      a.click();
+      tileset.img.setAttribute('src', png.dataURL());
     }
   }
 

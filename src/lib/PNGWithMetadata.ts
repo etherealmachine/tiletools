@@ -1,14 +1,64 @@
-export const DATA_PNG = "data:image/png;base64,"
+import { readFileAsBinaryString } from "./files";
 
-export interface Chunk {
+interface Chunk {
   type: string
   data: string
 }
 
 const PNG_SIG = String.fromCharCode(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
 const tEXt = "tEXt";
+const DATA_PNG = "data:image/png;base64,"
 
-export function readMetadata(s: string): any {
+export class PNGWithMetadata {
+  filename: string;
+  metadata: any;
+  imageBytes: string;
+
+  constructor(filename: string, metadata: any, img: HTMLCanvasElement | ImageBitmap | string) {
+    this.filename = filename;
+    this.metadata = metadata;
+    if (img instanceof HTMLCanvasElement) {
+      this.imageBytes = atob(img.toDataURL('image/png').substring(DATA_PNG.length));
+    } else if (img instanceof ImageBitmap) {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error("failed to create canvas");
+      ctx.imageSmoothingEnabled = false;
+      ctx.resetTransform();
+      ctx.drawImage(img, 0, 0);
+      this.imageBytes = atob(canvas.toDataURL('image/png').substring(DATA_PNG.length));
+    } else {
+      this.imageBytes = img;
+      this.metadata = readMetadata(img);
+    }
+  }
+
+  download() {
+    const a = document.createElement('a');
+    a.href = this.dataURL();
+    a.download = `${this.filename}.png`;
+    a.click();
+  }
+
+  dataURL(): string {
+    return DATA_PNG + btoa(writeMetadata(
+      this.imageBytes,
+      this.metadata,
+    ));
+  }
+
+  static fromFile(file: File): Promise<PNGWithMetadata> {
+    return new Promise<PNGWithMetadata>((resolve, reject) => {
+      readFileAsBinaryString(file).then(imageBytes => {
+        resolve(new PNGWithMetadata(file.name, undefined, imageBytes));
+      });
+    });
+  }
+}
+
+function readMetadata(s: string): any {
   for (let chunk of splitChunks(s)) {
     if (isMetadataChunk(chunk)) {
       return JSON.parse(chunk.data);
@@ -17,7 +67,7 @@ export function readMetadata(s: string): any {
   return undefined;
 }
 
-export function writeMetadata(s: string, metadata: { [key: string]: any }): string {
+function writeMetadata(s: string, metadata: { [key: string]: any }): string {
   const chunks = splitChunks(s);
   const i = chunks.findIndex(isMetadataChunk);
   const chunk = {
@@ -32,13 +82,13 @@ export function writeMetadata(s: string, metadata: { [key: string]: any }): stri
   return joinChunks(chunks);
 }
 
-function isMetadataChunk(c: Chunk): boolean {
-  return c.type === tEXt && c.data.startsWith("{") && c.data.endsWith("}");
-}
-
-function isPNG(s: string): boolean {
+export function isPNG(s: string): boolean {
   const sig = s.substring(0, 8);
   return (sig === PNG_SIG);
+}
+
+function isMetadataChunk(c: Chunk): boolean {
+  return c.type === tEXt && c.data.startsWith("{") && c.data.endsWith("}");
 }
 
 function splitChunks(s: string): Chunk[] {

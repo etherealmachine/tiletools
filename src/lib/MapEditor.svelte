@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
+    import { PNGWithMetadata } from "./PNGWithMetadata";
   import { readFileAsBinaryString } from "./files";
   import type { Tileset } from "./types";
 
@@ -190,23 +191,19 @@
     requestAnimationFrame(draw);
   }
 
-  function onFileChanged(e: Event) {
+  function onLoad(e: Event) {
     if (e.target === null) return;
     const files = (e.target as HTMLInputElement).files;
     if (files === null) return;
     const file = files[0];
-    readFileAsBinaryString(file).then(value => {
-      console.log(JSON.parse(value));
+    PNGWithMetadata.fromFile(file).then(png => {
+      layers = png.metadata.layers;
     });
   }
 
   function onSave() {
-    /* TODO
-    const a = document.createElement('a');
-    a.href = DATA_JSON + btoa(JSON.stringify(tiles));
-    a.download = 'map.json';
-    a.click();
-    */
+    const png = new PNGWithMetadata('map.json', { layers: layers }, canvas);
+    png.download();
   }
 
   function setLayerName(i: number) {
@@ -261,7 +258,7 @@
     <input
       type="file"
       accept="application/json"
-      on:change={onFileChanged} />
+      on:change={onLoad} />
   </div>
   <div style="display: flex; flex-grow: 1;">
     <div class="canvas">
