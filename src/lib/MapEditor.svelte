@@ -91,7 +91,7 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
     ctx.strokeStyle = "white";
-    if (grid && tileset) {
+    if (grid && tileset && tileset.tilewidth > 0 && tileset.tileheight > 0) {
       if (tileset.type === "hex") {
         const radius = tileset.radius();
         const horiz = Math.sqrt(3)*radius;
@@ -102,7 +102,7 @@
             drawHexagon(ctx, x, y, radius);
           }
         }
-      } else if (tileset) {
+      } else {
         for (let x = 0; x < (W/tileset.tilewidth)-1; x++) {
           for (let y = 0; y < (H/tileset.tileheight)-1; y++) {
             drawRect(ctx, x*tileset.tilewidth, y*tileset.tileheight, tileset.tilewidth, tileset.tileheight);
@@ -125,6 +125,9 @@
     });
     if (tileset && tileset.loaded() && hoverX !== undefined && hoverY !== undefined) {
       drawTile(ctx, hoverX, hoverY, tileset, selectedTileX, selectedTileY);
+    }
+    if (!tileset || !tileset.loaded()) {
+      console.log('no tileset');
     }
   }
 
