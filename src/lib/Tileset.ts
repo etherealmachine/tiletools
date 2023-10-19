@@ -9,6 +9,7 @@ export default class Tileset {
   margin: number
   spacing: number
   tiledata: { [key: number]: { [key: number]: { [key: string]: any } } }
+  selectedTiles: number[][] = []
 
   constructor(args: { [key: string]: any }) {
     this.name = args.name || "";
@@ -110,6 +111,35 @@ export default class Tileset {
     return this.tileheight + this.spacing;
   }
 
+  setSelectedTile(x: number, y: number) {
+    this.selectedTiles = [[x, y]]
+  }
+
+  addSelectedTile(x: number, y: number) {
+    this.selectedTiles.push([x, y]);
+  }
+
+  // Is x and y contained in the tileset's image?
+  // x, y in image coordinates
+  inBounds(x: number, y: number): boolean {
+    return x >= 0 && x <= (this.img?.width || 0) && y >= 0 && y <= (this.img?.width || 0);
+  }
+
+  // Is x and y contained in the selection?
+  // x, y in image coordinates
+  inSelection(x: number, y: number): boolean {
+    return this.inBounds(x, y) && this.selectedTiles.some(loc => {
+      const [x1, y1] = this.tileToImgCoords(loc[0], loc[1]);
+      const [x2, y2] = this.tileToImgCoords(loc[0]+1, loc[1]+1);
+      return x >= x1 && x < x2 && y >= y1 && y < y2;
+    });
+  }
+
+  randSelectedTile(): number[] | undefined {
+    if (this.selectedTiles.length === 0) return undefined;
+    return this.selectedTiles[Math.floor(Math.random()*this.selectedTiles.length)];
+  }
+
   static loadFromFile(file: File): Promise<Tileset> {
     return new Promise((resolve, reject) => {
       const tileset = new Tileset({
@@ -127,7 +157,6 @@ export default class Tileset {
       });
     });
   }
-
 }
 
 function round_axial(x: number, y: number): number[] {

@@ -4,7 +4,6 @@
   import Tileset from "./Tileset";
 
   export let tileset: Tileset | undefined;
-  export let selectedTileX: number, selectedTileY: number;
 
   interface Tile {
     tileset: Tileset
@@ -126,7 +125,10 @@
       });
     });
     if (tileset && tileset.loaded() && hoverX !== undefined && hoverY !== undefined && mouseOver) {
-      drawTile(ctx, hoverX, hoverY, tileset, selectedTileX, selectedTileY);
+      const randTile = tileset.randSelectedTile();
+      if (randTile) {
+        drawTile(ctx, hoverX, hoverY, tileset, randTile[0], randTile[1]);
+      }
     }
   }
 
@@ -136,11 +138,14 @@
     if (erase) {
       delete layers[selectedLayerIndex].tiles[`${q},${r}`];
     } else {
-      layers[selectedLayerIndex].tiles[`${q},${r}`] = {
-        tileset: tileset,
-        tileX: selectedTileX,
-        tileY: selectedTileY,
-      };
+      const randTile = tileset.randSelectedTile();
+      if (randTile) {
+        layers[selectedLayerIndex].tiles[`${q},${r}`] = {
+          tileset: tileset,
+          tileX: randTile[0],
+          tileY: randTile[1],
+        };
+      }
     }
     requestAnimationFrame(draw);
   }

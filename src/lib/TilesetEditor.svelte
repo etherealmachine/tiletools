@@ -8,7 +8,6 @@
   import Tileset from "./Tileset";
 
   export let tileset: Tileset = new Tileset({});
-  export let selectedTileX: number | undefined, selectedTileY: number | undefined;
   export let maxWidth: string | undefined = undefined;
 
   let tagInput: HTMLInputElement | undefined;
@@ -76,18 +75,11 @@
 
     if (
         imgData &&
-        (tool === Tool.Edit || tool === Tool.Erase) && mouseDown &&
-        selectedTileX !== undefined && selectedTileY !== undefined
+        (tool === Tool.Edit || tool === Tool.Erase) && mouseDown
     ) {
       const x = Math.floor(mouseX);
       const y = Math.floor(mouseY);
-      const [x1, y1] = tileset.tileToImgCoords(selectedTileX, selectedTileY);
-      const [x2, y2] = tileset.tileToImgCoords(selectedTileX+1, selectedTileY+1);
-      if (
-          x >= 0 && x < imgData.width &&
-          y >= 0 && y < imgData.height &&
-          x >= x1 && x < x2 && y >= y1 && y < y2 
-      ) {
+      if (tileset.inSelection(Math.floor(mouseX), Math.floor(mouseY))) {
         const i = ((y * imgData.width) + x) * 4;
         if (tool === Tool.Edit) {
           imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
@@ -116,11 +108,11 @@
     } else {
       // TODO: draw outline around editing pixel
     }
-    if (selectedTileX !== undefined && selectedTileY !== undefined) {
-      const [x1, y1] = tileset.tileToImgCoords(selectedTileX, selectedTileY);
-      const [x2, y2] = tileset.tileToImgCoords(selectedTileX+1, selectedTileY+1);
+    tileset.selectedTiles.forEach(loc => {
+      const [x1, y1] = tileset.tileToImgCoords(loc[0], loc[1]);
+      const [x2, y2] = tileset.tileToImgCoords(loc[0]+1, loc[1]+1);
       drawRect(ctx, x1, y1, x2-x1, y2-y1);
-    }
+    });
   }
 
   function onWheel(e: WheelEvent) {
@@ -142,8 +134,16 @@
     if (x < 0 || x >= tileset.img.width || y < 0 || y >= tileset.img.height) {
       return;
     }
-    [selectedTileX, selectedTileY] = tileset.imgCoordsToTile(x, y);
-    // TODO tileTags = tags[selectedTileIndex] || "";
+    const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
+    if (e.ctrlKey) {
+      tileset.addSelectedTile(tileX, tileY);
+    } else {
+      tileset.setSelectedTile(tileX, tileY);
+    }
+    // TODO: update tile tag input on selection
+    // tileTags = tags[selectedTileIndex] || "";
+    /*
+    TODO: How does this work with multiple tiles selected?
     if (tagInput) {
       tagInput.focus();
     }
@@ -162,6 +162,7 @@
       }
       palette = palette;
     }
+    */
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -183,8 +184,6 @@
     Tileset.loadFromFile(file).then(_tileset => {
       tileset = _tileset;
       tileTags = "";
-      selectedTileX = 0;
-      selectedTileY = 0;
       offsetX = 0;
       offsetY = 0;
       zoom = 2;
@@ -192,7 +191,7 @@
   }
 
   function onTileTagsChanged() {
-    // TODO
+    // TODO: Update selected tile's tags. How does this work with multiple selections?
   }
 
   function onSave() {
@@ -232,18 +231,17 @@
   }
 
   function copySelectedTile() {
-    // TODO
+    // TODO: Copy selected tile
   }
 
   function pasteSelectedTile() {
-    // TODO
+    // TODO: Paste copied tile. What about cloning the tile and expanding the width/height of the tileset?
   }
 
   $: triggerRedraw(
     tileset,
     zoom, offsetX, offsetY, filter,
-    mouseX, mouseY,
-    selectedTileX, selectedTileY);
+    mouseX, mouseY);
 </script>
 
 <svelte:window on:keydown={onKeyDown} />
@@ -354,29 +352,24 @@
       on:pointerleave={() => { mouseOver = false; }}
     />
   </div>
-  {#if selectedTileX !== undefined && selectedTileY !== undefined}
-    <div style="display: flex; flex-direction: row; gap: 8px; align-items: start;">
-      <div>
-        Selected: Tile ({selectedTileX}, {selectedTileY})
-      </div>
-      <div style="display: flex; flex-direction: column; align-items: start;">
-        <label for="tags">Tags</label>
-        <input
-          name="tags"
-          type="text"
-          on:change={onTileTagsChanged}
-          bind:value={tileTags}
-          bind:this={tagInput}
-        />
-      </div>
-      <input type="color" name="color" bind:value={color} />
-      <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px;">
-        {#each palette as color}
-          <button style:background-color={color} class="palette" />
-        {/each}
-      </div>
+  <div style="display: flex; flex-direction: row; gap: 8px; align-items: start;">
+    <div style="display: flex; flex-direction: column; align-items: start;">
+      <label for="tags">Tags</label>
+      <input
+        name="tags"
+        type="text"
+        on:change={onTileTagsChanged}
+        bind:value={tileTags}
+        bind:this={tagInput}
+      />
     </div>
-  {/if}
+    <input type="color" name="color" bind:value={color} />
+    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px;">
+      {#each palette as color}
+        <button style:background-color={color} class="palette" />
+      {/each}
+    </div>
+  </div>
 </div>
 
 <style>
