@@ -25,6 +25,7 @@
     visible: true,
     tiles: {},
   }];
+  let erase: boolean = false;
   let editingLayers: boolean = false;
   let selectedLayerIndex: number = 0;
   let hoverX: number, hoverY: number;
@@ -127,20 +128,21 @@
     if (tileset && tileset.loaded() && hoverX !== undefined && hoverY !== undefined) {
       drawTile(ctx, hoverX, hoverY, tileset, selectedTileX, selectedTileY);
     }
-    if (!tileset || !tileset.loaded()) {
-      console.log('no tileset');
-    }
   }
 
   function onClick(e: MouseEvent) {
     if (!tileset || !tileset.img) return;
     const [q, r] = screenToTile(e.offsetX, e.offsetY);
-    layers[selectedLayerIndex].tiles[`${q},${r}`] = {
-      tileset: tileset,
-      tileX: selectedTileX,
-      tileY: selectedTileY,
-    };
-    draw();
+    if (erase) {
+      delete layers[selectedLayerIndex].tiles[`${q},${r}`];
+    } else {
+      layers[selectedLayerIndex].tiles[`${q},${r}`] = {
+        tileset: tileset,
+        tileX: selectedTileX,
+        tileY: selectedTileY,
+      };
+    }
+    requestAnimationFrame(draw);
   }
 
   function onMouseMove(e: MouseEvent) {
@@ -273,6 +275,9 @@
       Grid
     </label>
     <span>{hoverX}, {hoverY}</span>
+    <button on:click={() => { erase = !erase}} class:active={erase}>
+      <Icon name="erase" />
+    </button>
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="name">Name</label>
       <input
