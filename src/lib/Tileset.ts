@@ -1,4 +1,6 @@
-export class Tileset {
+import { PNGWithMetadata } from "./PNGWithMetadata"
+
+export default class Tileset {
   name: string
   img?: HTMLImageElement
   type: "square" | "hex"
@@ -8,8 +10,9 @@ export class Tileset {
   spacing: number
   tiledata: { [key: number]: { [key: number]: { [key: string]: any } } }
 
-  constructor(args: any) {
+  constructor(args: { [key: string]: any }) {
     this.name = args.name || "";
+    this.img = args.img;
     this.type = args.type || "square";
     this.tilewidth = args.tilewidth || 0;
     this.tileheight = args.tileheight || 0;
@@ -105,6 +108,24 @@ export class Tileset {
 
   offsetHeight(): number {
     return this.tileheight + this.spacing;
+  }
+
+  static loadFromFile(file: File): Promise<Tileset> {
+    return new Promise((resolve, reject) => {
+      const tileset = new Tileset({
+        img: document.createElement('img'),
+      });
+      PNGWithMetadata.fromFile(file).then(png => {
+        const img = tileset.img;
+        if (!img) {
+          reject('tileset has no HTML Image Element');
+        } else {
+          img.src = png.dataURL();
+          Object.assign(tileset, png.metadata);
+          resolve(tileset);
+        }
+      });
+    });
   }
 
 }

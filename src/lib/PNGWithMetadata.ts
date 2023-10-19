@@ -14,11 +14,13 @@ export class PNGWithMetadata {
   metadata: any;
   imageBytes: string;
 
-  constructor(filename: string, metadata: any, img: HTMLCanvasElement | ImageBitmap | string) {
+  constructor(filename: string, metadata: { [key: string]: any }, img: HTMLCanvasElement | HTMLImageElement | ImageBitmap | string) {
     this.filename = filename;
     this.metadata = metadata;
     if (img instanceof HTMLCanvasElement) {
       this.imageBytes = atob(img.toDataURL('image/png').substring(DATA_PNG.length));
+    } else if (img instanceof HTMLImageElement) {
+      this.imageBytes = atob(img.src.substring(DATA_PNG.length));
     } else if (img instanceof ImageBitmap) {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
@@ -29,9 +31,12 @@ export class PNGWithMetadata {
       ctx.resetTransform();
       ctx.drawImage(img, 0, 0);
       this.imageBytes = atob(canvas.toDataURL('image/png').substring(DATA_PNG.length));
+    } else if (img.startsWith(DATA_PNG)) {
+      this.imageBytes = atob(img.slice(DATA_PNG.length))
+      this.metadata = readMetadata(this.imageBytes);
     } else {
       this.imageBytes = img;
-      this.metadata = readMetadata(img);
+      this.metadata = readMetadata(this.imageBytes);
     }
   }
 
@@ -49,10 +54,18 @@ export class PNGWithMetadata {
     ));
   }
 
+  static fromDataURL(url: string): PNGWithMetadata {
+    return new PNGWithMetadata("", {}, url);
+  }
+
   static fromFile(file: File): Promise<PNGWithMetadata> {
     return new Promise<PNGWithMetadata>((resolve, reject) => {
       readFileAsBinaryString(file).then(imageBytes => {
-        resolve(new PNGWithMetadata(file.name, undefined, imageBytes));
+        if (!imageBytes.startsWith(PNG_SIG)) {
+          reject('file is not a PNG');
+        } else {
+          resolve(new PNGWithMetadata(file.name, {}, imageBytes));
+        }
       });
     });
   }

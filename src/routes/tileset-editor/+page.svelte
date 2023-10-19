@@ -1,6 +1,6 @@
 <script lang="ts">
   import TilesetEditor from "$lib/TilesetEditor.svelte";
-  import type { Tileset } from "$lib/types";
+  import type { Tileset } from "$lib/Tileset";
 
   let tileset: Tileset;
   let selectedTileX: number, selectedTileY: number;

@@ -1,8 +1,7 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
-    import { PNGWithMetadata } from "./PNGWithMetadata";
-  import { readFileAsBinaryString } from "./files";
-  import type { Tileset } from "./types";
+  import { PNGWithMetadata } from "./PNGWithMetadata";
+  import Tileset from "./Tileset";
 
   export let tileset: Tileset | undefined;
   export let selectedTileX: number, selectedTileY: number;
@@ -20,6 +19,7 @@
   }
 
   let canvas: HTMLCanvasElement;
+  let name: string;
   let layers: Layer[] = [{
     name: "Layer 1",
     visible: true,
@@ -197,12 +197,33 @@
     if (files === null) return;
     const file = files[0];
     PNGWithMetadata.fromFile(file).then(png => {
+      const tilesetPNG = PNGWithMetadata.fromDataURL(png.metadata.tileset);
+      tileset = new Tileset(tilesetPNG.metadata);
+      tileset.img = document.createElement('img');
+      tileset.img.src = tilesetPNG.dataURL();
       layers = png.metadata.layers;
+      layers.forEach(layer => {
+        Object.values(layer.tiles).forEach(tile => {
+          if (tileset) {
+            tile.tileset = tileset;
+          }
+        });
+      });
+      name = png.metadata.name;
     });
   }
 
   function onSave() {
-    const png = new PNGWithMetadata('map.json', { layers: layers }, canvas);
+    const metadata: any = {
+      layers: layers,
+    };
+    if (tileset && tileset.img) {
+      const tilesetPNG = new PNGWithMetadata(tileset.name, tileset.metadata(), tileset.img);
+      tilesetPNG.metadata.name = tileset.name;
+      metadata.tileset = tilesetPNG.dataURL();
+      metadata.name = name;
+    }
+    const png = new PNGWithMetadata(name, metadata, canvas);
     png.download();
   }
 
@@ -252,12 +273,20 @@
       Grid
     </label>
     <span>{hoverX}, {hoverY}</span>
+    <div style="display: flex; flex-direction: column; align-items: start;">
+      <label for="name">Name</label>
+      <input
+        name="name"
+        type="text"
+        bind:value={name}
+      />
+    </div>
     <button on:click={onSave}>
         <Icon name="saveFloppyDisk" />
     </button>
     <input
       type="file"
-      accept="application/json"
+      accept="image/png"
       on:change={onLoad} />
   </div>
   <div style="display: flex; flex-grow: 1;">

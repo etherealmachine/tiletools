@@ -5,14 +5,14 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
-  import { Tileset } from "./types";
+  import Tileset from "./Tileset";
 
   export let tileset: Tileset = new Tileset({});
   export let selectedTileX: number | undefined, selectedTileY: number | undefined;
   export let maxWidth: string | undefined = undefined;
 
-  let tagInput: HTMLInputElement;
-  let canvas: HTMLCanvasElement;
+  let tagInput: HTMLInputElement | undefined;
+  let canvas: HTMLCanvasElement | undefined;
   let zoom: number = 2;
   let mouseOver: boolean = false;
   let mouseDown: boolean = false;
@@ -21,8 +21,8 @@
   let tileTags: string;
   let filter: string;
   let tool: Tool = Tool.Select;
-  let imgData: ImageData;
-  let img: ImageBitmap;
+  let imgData: ImageData | undefined;
+  let bitmap: ImageBitmap | undefined;
   // TODO: select from palette, select transparency level
   let color: string = "#ffffff";
   let palette: Set<string> = new Set<string>();
@@ -54,16 +54,28 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
-    if (img) {
-      ctx.drawImage(img, 0, 0, img.width, img.height);
+    if (bitmap) {
+      ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
     } else if (tileset && tileset.loaded() && imgData) {
-      createImageBitmap(imgData).then(_img => { img = _img });
+      createImageBitmap(imgData).then(img => { bitmap = img });
+      requestAnimationFrame(draw);
+    } else if (tileset && tileset.img && tileset.loaded() && !imgData) {
+      const tmp = document.createElement('canvas');
+      tmp.width = tileset.img.width;
+      tmp.height = tileset.img.height;
+      const context = tmp.getContext('2d');
+      if (!context) return;
+      context.resetTransform();
+      context.drawImage(tileset.img, 0, 0, tmp.width, tmp.height);
+      imgData = context.getImageData(0, 0, tmp.width, tmp.height);
+      createImageBitmap(imgData).then(img => { bitmap = img });
       requestAnimationFrame(draw);
     }
 
     if (mouseX === undefined || mouseY === undefined) return;
 
     if (
+        imgData &&
         (tool === Tool.Edit || tool === Tool.Erase) && mouseDown &&
         selectedTileX !== undefined && selectedTileY !== undefined
     ) {
@@ -88,7 +100,7 @@
           imgData.data[i+2] = 0;
           imgData.data[i+3] = 0;
         }
-        createImageBitmap(imgData).then(_img => { img = _img; });
+        createImageBitmap(imgData).then(img => { bitmap = img; });
       }
     }
 
@@ -132,20 +144,24 @@
     }
     [selectedTileX, selectedTileY] = tileset.imgCoordsToTile(x, y);
     // TODO tileTags = tags[selectedTileIndex] || "";
-    tagInput.focus();
-    palette.clear();
-    const [x1, y1] = tileset.tileToImgCoords(selectedTileX, selectedTileY);
-    const [x2, y2] = tileset.tileToImgCoords(selectedTileX+1, selectedTileY+1);
-    for (let x = x1; x < x2; x++) {
-      for (let y = y1; y < y2; y++) {
-        const i = ((y * imgData.width) + x) * 4;
-        palette.add("#" + 
-          imgData.data[i+0].toString(16) +
-          imgData.data[i+1].toString(16) +
-          imgData.data[i+2].toString(16));
-      }
+    if (tagInput) {
+      tagInput.focus();
     }
-    palette = palette;
+    if (imgData) {
+      palette.clear();
+      const [x1, y1] = tileset.tileToImgCoords(selectedTileX, selectedTileY);
+      const [x2, y2] = tileset.tileToImgCoords(selectedTileX+1, selectedTileY+1);
+      for (let x = x1; x < x2; x++) {
+        for (let y = y1; y < y2; y++) {
+          const i = ((y * imgData.width) + x) * 4;
+          palette.add("#" + 
+            imgData.data[i+0].toString(16) +
+            imgData.data[i+1].toString(16) +
+            imgData.data[i+2].toString(16));
+        }
+      }
+      palette = palette;
+    }
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -158,31 +174,14 @@
     [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
   }
 
-  function onFileChanged(e: Event) {
+  function onLoad(e: Event) {
     if (e.target === null) return;
     const files = (e.target as HTMLInputElement).files;
     if (files === null) return;
     const file = files[0];
     if (!file) return;
-    PNGWithMetadata.fromFile(file).then(png => {
-      if (!tileset.img) return;
-      tileset.img.setAttribute('src', png.dataURL());
-      tileset.img.onload = () => {
-        if (!tileset.img) return;
-        const tmp = document.createElement('canvas');
-        tmp.width = tileset.img.width;
-        tmp.height = tileset.img.height;
-        const context = tmp.getContext('2d');
-        if (!context) return;
-        context.resetTransform();
-        context.drawImage(tileset.img, 0, 0, tmp.width, tmp.height);
-        imgData = context.getImageData(0, 0, tmp.width, tmp.height);
-        createImageBitmap(imgData).then(_img => { img = _img });
-      };
-      
-      const tmpImg = tileset.img;
-      tileset = new Tileset(png.metadata);
-      tileset.img = tmpImg;
+    Tileset.loadFromFile(file).then(_tileset => {
+      tileset = _tileset;
       tileTags = "";
       selectedTileX = 0;
       selectedTileY = 0;
@@ -197,10 +196,9 @@
   }
 
   function onSave() {
-    const png = new PNGWithMetadata(tileset.name, tileset.metadata(), img);
-    png.download();
-    if (tileset.img) {
-      tileset.img.setAttribute('src', png.dataURL());
+    if (bitmap) {
+      const png = new PNGWithMetadata(tileset.name, tileset.metadata(), bitmap);
+      png.download();
     }
   }
 
@@ -254,7 +252,7 @@
     <input
       type="file"
       accept="image/png"
-      on:change={onFileChanged} />
+      on:change={onLoad} />
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="name">Name</label>
       <input
@@ -343,12 +341,6 @@
       bind:value={filter}
     />
   </div>
-  <img
-    bind:this={tileset.img}
-    src=""
-    style="display: none;"
-    alt="Tileset"
-  />
   <div class="canvas">
     <canvas
       style="position: absolute;"
@@ -358,7 +350,7 @@
       on:pointermove={onPointerMove}
       on:pointerdown={() => { mouseDown = true; }}
       on:pointerup={() => { mouseDown = false; }}
-      on:pointerenter={() => { canvas.focus(); mouseOver = true; }}
+      on:pointerenter={() => { if (canvas) canvas.focus(); mouseOver = true; }}
       on:pointerleave={() => { mouseOver = false; }}
     />
   </div>

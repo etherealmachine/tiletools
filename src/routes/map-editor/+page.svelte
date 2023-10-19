@@ -1,7 +1,7 @@
 <script lang="ts">
   import MapEditor from "$lib/MapEditor.svelte";
   import TilesetEditor from "$lib/TilesetEditor.svelte";
-  import type { Tileset } from "$lib/types";
+  import type { Tileset } from "$lib/Tileset";
 
   let tileset: Tileset;
   let selectedTileX: number, selectedTileY: number;
