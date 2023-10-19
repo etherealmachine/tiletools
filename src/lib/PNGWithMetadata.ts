@@ -11,7 +11,7 @@ const DATA_PNG = "data:image/png;base64,"
 
 export class PNGWithMetadata {
   filename: string;
-  metadata: any;
+  metadata: { [key: string]: any };
   imageBytes: string;
 
   constructor(filename: string, metadata: { [key: string]: any }, img: HTMLCanvasElement | HTMLImageElement | ImageBitmap | string) {
@@ -33,10 +33,10 @@ export class PNGWithMetadata {
       this.imageBytes = atob(canvas.toDataURL('image/png').substring(DATA_PNG.length));
     } else if (img.startsWith(DATA_PNG)) {
       this.imageBytes = atob(img.slice(DATA_PNG.length))
-      this.metadata = readMetadata(this.imageBytes);
+      this.metadata = readMetadata(this.imageBytes) || {};
     } else {
       this.imageBytes = img;
-      this.metadata = readMetadata(this.imageBytes);
+      this.metadata = readMetadata(this.imageBytes) || {};
     }
   }
 
@@ -71,7 +71,7 @@ export class PNGWithMetadata {
   }
 }
 
-function readMetadata(s: string): any {
+function readMetadata(s: string): { [key: string]: string } | undefined {
   for (let chunk of splitChunks(s)) {
     if (isMetadataChunk(chunk)) {
       return JSON.parse(chunk.data);
@@ -81,6 +81,7 @@ function readMetadata(s: string): any {
 }
 
 function writeMetadata(s: string, metadata: { [key: string]: any }): string {
+  if (metadata.length == 0) return '';
   const chunks = splitChunks(s);
   const i = chunks.findIndex(isMetadataChunk);
   const chunk = {

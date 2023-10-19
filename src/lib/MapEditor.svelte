@@ -125,7 +125,7 @@
         drawTile(ctx, x, y, tile.tileset, tile.tileX, tile.tileY);
       });
     });
-    if (tileset && tileset.loaded() && hoverX !== undefined && hoverY !== undefined) {
+    if (tileset && tileset.loaded() && hoverX !== undefined && hoverY !== undefined && mouseOver) {
       drawTile(ctx, hoverX, hoverY, tileset, selectedTileX, selectedTileY);
     }
   }
