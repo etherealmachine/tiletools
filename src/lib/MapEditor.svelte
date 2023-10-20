@@ -24,10 +24,12 @@
     visible: true,
     tiles: {},
   }];
+  // TODO: flood fill and erase area
   let erase: boolean = false;
   let editingLayers: boolean = false;
   let selectedLayerIndex: number = 0;
-  let hoverX: number, hoverY: number;
+  let mouseX: number, mouseY: number;
+  let dragX: number | undefined, dragY: number | undefined;
   let grid: boolean = true;
   let zoom: number = 1;
   let mouseOver: boolean = false;
@@ -124,36 +126,73 @@
         drawTile(ctx, x, y, tile.tileset, tile.tileX, tile.tileY);
       });
     });
-    if (tileset && tileset.loaded() && hoverX !== undefined && hoverY !== undefined && mouseOver) {
-      const randTile = tileset.randSelectedTile();
-      if (randTile) {
-        drawTile(ctx, hoverX, hoverY, tileset, randTile[0], randTile[1]);
+    if (tileset && tileset.loaded()) {
+      if (mouseX !== undefined && mouseY !== undefined && mouseOver) {
+        let [x1, y1] = [dragX || mouseX, dragY || mouseY];
+        let [x2, y2] = [mouseX, mouseY];
+        if (x1 > x2) {
+          [x1, x2] = [x2, x1];
+        }
+        if (y1 > y2) {
+          [y1, y2] = [y2, y1];
+        }
+        for (let x = x1; x <= x2; x++) {
+          for (let y = y1; y <= y2; y++) {
+            const randTile = tileset.randSelectedTile();
+            if (randTile) {
+              drawTile(ctx, x, y, tileset, randTile[0], randTile[1]);
+            }
+          }
+        }
       }
     }
   }
 
-  function onClick(e: MouseEvent) {
+  function onPointerDown(e: PointerEvent) {
+    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
+    [dragX, dragY] = [mouseX, mouseY];
+  }
+
+  function onPointerUp(e: PointerEvent) {
     if (!tileset || !tileset.img) return;
-    const [q, r] = screenToTile(e.offsetX, e.offsetY);
-    if (erase) {
-      delete layers[selectedLayerIndex].tiles[`${q},${r}`];
-    } else {
-      const randTile = tileset.randSelectedTile();
-      if (randTile) {
-        layers[selectedLayerIndex].tiles[`${q},${r}`] = {
-          tileset: tileset,
-          tileX: randTile[0],
-          tileY: randTile[1],
-        };
+    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
+    let [x1, y1] = [dragX || mouseX, dragY || mouseY];
+    let [x2, y2] = [mouseX, mouseY];
+    if (x1 > x2) {
+      [x1, x2] = [x2, x1];
+    }
+    if (y1 > y2) {
+      [y1, y2] = [y2, y1];
+    }
+    for (let x = x1; x <= x2; x++) {
+      for (let y = y1; y <= y2; y++) {
+        const loc = `${x},${y}`;
+        if (erase) {
+          delete layers[selectedLayerIndex].tiles[loc];
+        } else {
+          const randTile = tileset.randSelectedTile();
+          if (randTile) {
+            layers[selectedLayerIndex].tiles[loc] = {
+              tileset: tileset,
+              tileX: randTile[0],
+              tileY: randTile[1],
+            };
+          }
+        }
       }
     }
     requestAnimationFrame(draw);
+    [dragX, dragY] = [undefined, undefined];
   }
 
-  function onMouseMove(e: MouseEvent) {
-    [hoverX, hoverY] = screenToTile(e.offsetX, e.offsetY);
+  function onPointerCancel() {
+    [dragX, dragY] = [undefined, undefined];
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
     if (e.buttons === 1) {
-      onClick(e);
+      // TODO: draw while dragging
     } else if (e.ctrlKey) {
       offsetX += e.movementX;
       offsetY += e.movementY;
@@ -279,7 +318,7 @@
       <input type="checkbox" bind:checked={grid} />
       Grid
     </label>
-    <span>{hoverX}, {hoverY}</span>
+    <span>{mouseX}, {mouseY}</span>
     <button on:click={() => { erase = !erase}} class:active={erase}>
       <Icon name="erase" />
     </button>
@@ -306,11 +345,13 @@
         tabindex="1"
         bind:this={canvas}
         on:wheel={onWheel}
-        on:mousemove={onMouseMove}
-        on:click={onClick}
+        on:pointerdown={onPointerDown}
+        on:pointerup={onPointerUp}
+        on:pointercancel={onPointerCancel}
+        on:pointermove={onPointerMove}
         on:keydown={onKeyDown}
-        on:mouseenter={() => { canvas.focus(); mouseOver = true; }}
-        on:mouseleave={() => { mouseOver = false; }}
+        on:pointerenter={() => { canvas.focus(); mouseOver = true; }}
+        on:pointerleave={() => { mouseOver = false; }}
       />
     </div>
     <div style="display: flex; flex-direction: column; gap: 4px;">

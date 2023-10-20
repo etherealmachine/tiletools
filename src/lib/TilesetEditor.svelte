@@ -135,7 +135,7 @@
       return;
     }
     const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
-    if (e.ctrlKey) {
+    if (e.shiftKey) {
       tileset.addSelectedTile(tileX, tileY);
     } else {
       tileset.setSelectedTile(tileX, tileY);
