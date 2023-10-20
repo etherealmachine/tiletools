@@ -1,1 +1,0 @@
-async function t(r){return new Promise((n,a)=>{const e=new FileReader;e.addEventListener("load",function(){e.result?n(e.result):a(`error loading ${r}`)}),e.readAsDataURL(r)})}async function s(r){return new Promise((n,a)=>{const e=new FileReader;e.addEventListener("load",function(){e.result?n(e.result):a(`error loading ${r}`)}),e.readAsBinaryString(r)})}export{s as a,t as r};
