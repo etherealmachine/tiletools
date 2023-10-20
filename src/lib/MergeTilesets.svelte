@@ -1,85 +1,126 @@
 <script lang="ts">
-  import { readFileAsDataURL } from "./files";
+    import Icon from "./Icon.svelte";
+  import Tileset from "./Tileset";
 
-  let left: HTMLImageElement;
-  let right: HTMLImageElement;
-  let result: HTMLImageElement;
+  let left: Tileset = new Tileset({});
+  let right: Tileset = new Tileset({});
+  let result: Tileset = new Tileset({});
+  let landscape: boolean = true;
 
-  function merge(left: HTMLImageElement, right: HTMLImageElement): string {
+  function merge(landscape: boolean) {
+    if (!left.img || !right.img) return;
     const canvas = document.createElement('canvas');
-    const landscape = left.width + right.width < left.height + right.height;
     if (landscape) {
-      canvas.width = left.width + right.width;
-      canvas.height = Math.max(left.height, right.height);
+      canvas.width = left.img.width + right.img.width + left.spacing;
+      canvas.height = Math.max(left.img.height, right.img.height);
     } else {
-      canvas.width = Math.max(left.width, right.width);
-      canvas.height = left.height + right.height;
+      canvas.width = Math.max(left.img.width, right.img.width);
+      canvas.height = left.img.height + right.img.height + left.spacing;
     }
     const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
+    if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     if (landscape) {
-      ctx.drawImage(left, 0, 0, left.width, left.height);
-      ctx.drawImage(right, left.width, 0, right.width, right.height);
+      ctx.drawImage(left.img, 0, 0);
+      ctx.drawImage(right.img, left.img.width+left.spacing, 0);
     } else {
-      ctx.drawImage(left, 0, 0, left.width, left.height);
-      ctx.drawImage(right, 0, left.height, right.width, right.height);
+      ctx.drawImage(left.img, 0, 0);
+      ctx.drawImage(right.img, 0, left.img.height+left.spacing);
     }
-    return canvas.toDataURL('image/png');
+    const src = canvas.toDataURL();
+    if (!result.img) {
+      result.img = document.createElement('img');
+    }
+    Object.assign(result, Object.fromEntries(
+      Object.entries(left).filter(([k, _]) => !['name', 'img'].includes(k))));
+    result.img.src = src;
   }
 
-  function maybeMerge() {
-    if (left && left.complete && right && right.complete && left.src != '' && right.src != '') {
-      result.setAttribute('src', merge(left, right));
-    }
-  }
-
-  function loadImage(img: HTMLImageElement) {
+  function loadTileset(tileset: Tileset) {
     return (e: Event) => {
       if (e.target === null) return;
       const files = (e.target as HTMLInputElement).files;
       if (files === null) return;
       const file = files[0];
       if (!file) return;
-      readFileAsDataURL(file).then(url => {
-        img.setAttribute('src', url);
-        img.onload = maybeMerge;
+      Tileset.loadFromFile(file, tileset).then(() => {
+        left = left;
+        right = right;
+        console.log(left.spacing);
       });
     }
   }
+
+  function onSave() {
+    result.download();
+  }
+
+  $: merge(landscape);
 </script>
 
 <div style="display: flex; gap: 16px;">
   <div style="display: flex; flex-direction: column;">
     <label for="left">
       <input
-        on:change={loadImage(left)}
+        on:change={loadTileset(left)}
         name="left"
         type="file"
         accept="image/png" />
     </label>
     <img
-      bind:this={left}
+      class="tileset-preview"  
+      src={left?.img?.src}
       alt="Left Tileset" />
   </div>
 
   <div style="display: flex; flex-direction: column;">
     <label for="right">
       <input
-        on:change={loadImage(right)}
+        on:change={loadTileset(right)}
         name="right"
         type="file"
         accept="image/png" />
     </label>
     <img
-      bind:this={right}
+      class="tileset-preview"  
+      src={right?.img?.src}
       alt="Right Tileset" />
   </div>
 
   <div style="display: flex; flex-direction: column;">
+    <div style="display: flex; flex-direction: row;">
+      <div style="display: flex; flex-direction: column; align-items: start;">
+        <label for="name">Name</label>
+        <input
+          name="name"
+          type="text"
+          bind:value={result.name}
+        />
+      </div>
+      <label>
+        <input type="checkbox" bind:checked={landscape} />
+        Landscape 
+      </label>
+      <button on:click={() => merge(landscape)}>
+        <Icon name="gitMerge" />
+      </button>
+      <button disabled={!result.img || !result.img.src} on:click={onSave}>
+        <Icon name="saveFloppyDisk" />
+      </button>
+    </div>
     <img
-      bind:this={result}
+      class="tileset-preview"  
+      src={result?.img?.src}
       alt="Merged Tileset" />
   </div>
 </div>
+
+<style>
+  .tileset-preview {
+    width: 400px;
+    height: 300px;
+    object-fit: contain;
+    border: 1px solid white;
+  }
+</style>

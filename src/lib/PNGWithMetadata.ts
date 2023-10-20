@@ -33,10 +33,10 @@ export class PNGWithMetadata {
       this.imageBytes = atob(canvas.toDataURL('image/png').substring(DATA_PNG.length));
     } else if (img.startsWith(DATA_PNG)) {
       this.imageBytes = atob(img.slice(DATA_PNG.length))
-      this.metadata = readMetadata(this.imageBytes) || {};
+      Object.assign(this.metadata, readMetadata(this.imageBytes) || {});
     } else {
       this.imageBytes = img;
-      this.metadata = readMetadata(this.imageBytes) || {};
+      Object.assign(this.metadata, readMetadata(this.imageBytes) || {});
     }
   }
 

@@ -119,6 +119,16 @@ export default class Tileset {
     this.selectedTiles.push([x, y]);
   }
 
+  widthInTiles(): number {
+    if (!this.img) return 0;
+    return (this.img.width - this.margin) / this.offsetWidth();
+  }
+
+  heightInTiles(): number {
+    if (!this.img) return 0;
+    return (this.img.height - this.margin) / this.offsetHeight();
+  }
+
   // Is x and y contained in the tileset's image?
   // x, y in image coordinates
   inBounds(x: number, y: number): boolean {
@@ -140,19 +150,28 @@ export default class Tileset {
     return this.selectedTiles[Math.floor(Math.random()*this.selectedTiles.length)];
   }
 
-  static loadFromFile(file: File): Promise<Tileset> {
+  download() {
+    if (!this.img) return;
+    const png = new PNGWithMetadata(this.name, this.metadata(), this.img.src);
+    png.download();
+  }
+
+  static loadFromFile(file: File, into?: Tileset): Promise<Tileset> {
     return new Promise((resolve, reject) => {
-      const tileset = new Tileset({
-        img: document.createElement('img'),
-      });
       PNGWithMetadata.fromFile(file).then(png => {
-        const img = tileset.img;
+        if (!into) {
+          into = new Tileset({});
+        }
+        if (!into.img) {
+          into.img = document.createElement('img');
+        }
+        const img = into.img;
         if (!img) {
           reject('tileset has no HTML Image Element');
         } else {
           img.src = png.dataURL();
-          Object.assign(tileset, png.metadata);
-          resolve(tileset);
+          Object.assign(into, png.metadata);
+          resolve(into);
         }
       });
     });

@@ -5,6 +5,7 @@
   import erase from "../assets/icons/erase.svg?raw";
   import eyeEmpty from "../assets/icons/eye-empty.svg?raw";
   import eyeOff from "../assets/icons/eye-off.svg?raw";
+  import gitMerge from "../assets/icons/git-merge.svg?raw";
   import minus from "../assets/icons/minus.svg?raw";
   import openSelectHandGesture from "../assets/icons/open-select-hand-gesture.svg?raw";
   import pasteClipboard from "../assets/icons/paste-clipboard.svg?raw";
@@ -20,6 +21,7 @@
     erase,
     eyeEmpty,
     eyeOff,
+    gitMerge,
     minus,
     openSelectHandGesture,
     pasteClipboard,

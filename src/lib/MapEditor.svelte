@@ -1,30 +1,31 @@
+<script lang="ts" context="module">
+  export interface Tile {
+    tileset: Tileset
+    tileX: number
+    tileY: number
+  }
+
+  export interface Layer {
+    name: string
+    visible: boolean
+    tiles: { [key: string]: Tile },
+  }
+</script>
+
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
 
   export let tileset: Tileset | undefined;
-
-  interface Tile {
-    tileset: Tileset
-    tileX: number
-    tileY: number
-  }
-
-  interface Layer {
-    name: string
-    visible: boolean
-    tiles: { [key: string]: Tile },
-  }
-
-  let canvas: HTMLCanvasElement;
-  let name: string;
-  let layers: Layer[] = [{
+  export let layers: Layer[] = [{
     name: "Layer 1",
     visible: true,
     tiles: {},
   }];
-  // TODO: flood fill and erase area
+
+  let canvas: HTMLCanvasElement;
+  let name: string;
   let erase: boolean = false;
   let editingLayers: boolean = false;
   let selectedLayerIndex: number = 0;
@@ -106,6 +107,7 @@
           }
         }
       } else {
+        // TODO: Infinite grid
         for (let x = 0; x < (W/tileset.tilewidth)-1; x++) {
           for (let y = 0; y < (H/tileset.tileheight)-1; y++) {
             drawRect(ctx, x*tileset.tilewidth, y*tileset.tileheight, tileset.tilewidth, tileset.tileheight);
@@ -156,6 +158,7 @@
   function onPointerUp(e: PointerEvent) {
     if (!tileset || !tileset.img) return;
     [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
+    // TODO: flood fill with shift
     let [x1, y1] = [dragX || mouseX, dragY || mouseY];
     let [x2, y2] = [mouseX, mouseY];
     if (x1 > x2) {
@@ -167,7 +170,7 @@
     for (let x = x1; x <= x2; x++) {
       for (let y = y1; y <= y2; y++) {
         const loc = `${x},${y}`;
-        if (erase) {
+        if (e.ctrlKey || erase) {
           delete layers[selectedLayerIndex].tiles[loc];
         } else {
           const randTile = tileset.randSelectedTile();
