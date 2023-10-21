@@ -10,19 +10,19 @@
   export let tileset: Tileset = new Tileset({});
   export let maxWidth: string | undefined = undefined;
 
-  let tagInput: HTMLInputElement | undefined;
   let canvas: HTMLCanvasElement | undefined;
   let zoom: number = 2;
   let mouseOver: boolean = false;
   let mouseDown: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
   let mouseX: number | undefined, mouseY: number | undefined;
-  let tileTags: string;
+  let tagString: string = "";
+  let tagInput: HTMLInputElement | undefined;
   let filter: string;
   let tool: Tool = Tool.Select;
   let imgData: ImageData | undefined;
   let bitmap: ImageBitmap | undefined;
-  // TODO: select from palette, select transparency level
+  // TODO: Select from palette, select transparency level
   let color: string = "#ffffff";
   let palette: Set<string> = new Set<string>();
 
@@ -53,6 +53,7 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
+    // TODO: Only draw filtered
     if (bitmap) {
       ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
     } else if (tileset && tileset.loaded() && imgData) {
@@ -106,7 +107,7 @@
         drawRect(ctx, x1, y1, x2-x1, y2-y1);
       }
     } else {
-      // TODO: draw outline around editing pixel
+      // TODO: Draw outline around editing pixel
     }
     tileset.selectedTiles.forEach(loc => {
       const [x1, y1] = tileset.tileToImgCoords(loc[0], loc[1]);
@@ -139,30 +140,29 @@
       tileset.addSelectedTile(tileX, tileY);
     } else {
       tileset.setSelectedTile(tileX, tileY);
+      if (tagInput) {
+        tagInput.focus();
+      }
     }
-    // TODO: update tile tag input on selection
-    // tileTags = tags[selectedTileIndex] || "";
-    /*
-    TODO: How does this work with multiple tiles selected?
-    if (tagInput) {
-      tagInput.focus();
-    }
-    if (imgData) {
-      palette.clear();
-      const [x1, y1] = tileset.tileToImgCoords(selectedTileX, selectedTileY);
-      const [x2, y2] = tileset.tileToImgCoords(selectedTileX+1, selectedTileY+1);
-      for (let x = x1; x < x2; x++) {
-        for (let y = y1; y < y2; y++) {
-          const i = ((y * imgData.width) + x) * 4;
-          palette.add("#" + 
-            imgData.data[i+0].toString(16) +
-            imgData.data[i+1].toString(16) +
-            imgData.data[i+2].toString(16));
+    tagString = Array.from(tileset.selectionTags().values()).join(',');
+    palette.clear();
+    tileset.selectedTiles.forEach(([x, y]) => {
+      const [x1, y1] = tileset.tileToImgCoords(x, y);
+      const [x2, y2] = tileset.tileToImgCoords(x+1, y+1);
+      if (imgData) {
+        for (let x = x1; x < x2; x++) {
+          for (let y = y1; y < y2; y++) {
+            const i = ((y * imgData.width) + x) * 4;
+            palette.add("#" + 
+              imgData.data[i+0].toString(16) +
+              imgData.data[i+1].toString(16) +
+              imgData.data[i+2].toString(16) +
+              imgData.data[i+3].toString(16));
+          }
         }
       }
-      palette = palette;
-    }
-    */
+    });
+    palette = palette;
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -183,15 +183,17 @@
     if (!file) return;
     Tileset.loadFromFile(file).then(_tileset => {
       tileset = _tileset;
-      tileTags = "";
       offsetX = 0;
       offsetY = 0;
       zoom = 2;
     });
   }
 
-  function onTileTagsChanged() {
+  function onTagsChanged(e: Event) {
     // TODO: Update selected tile's tags. How does this work with multiple selections?
+    const tags = new Set((e.target as HTMLInputElement).value.split(','));
+    tileset.setSelectionTags(tags);
+    tagString = Array.from(tileset.selectionTags().values()).join(',');
   }
 
   function onSave() {
@@ -230,11 +232,19 @@
     requestAnimationFrame(draw);
   }
 
-  function copySelectedTile() {
+  function undo() {
+    // TODO: Undo
+  }
+
+  function redo() {
+    // TODO: Redo
+  }
+
+  function copy() {
     // TODO: Copy selected tile
   }
 
-  function pasteSelectedTile() {
+  function paste() {
     // TODO: Paste copied tile. What about cloning the tile and expanding the width/height of the tileset?
   }
 
@@ -320,10 +330,16 @@
       <button on:click={() => { tool = Tool.Erase }} class:active={tool === Tool.Erase}>
         <Icon name="erase" />
       </button>
-      <button on:click={copySelectedTile}>
+      <button on:click={undo}>
+        <Icon name="undo" />
+      </button>
+      <button on:click={redo}>
+        <Icon name="redo" />
+      </button>
+      <button on:click={copy}>
         <Icon name="copy" />
       </button>
-      <button on:click={pasteSelectedTile}>
+      <button on:click={paste}>
         <Icon name="pasteClipboard" />
       </button>
       <button disabled={!tileset.img || !tileset.img.src} on:click={onSave}>
@@ -358,8 +374,8 @@
       <input
         name="tags"
         type="text"
-        on:change={onTileTagsChanged}
-        bind:value={tileTags}
+        on:change={onTagsChanged}
+        bind:value={tagString}
         bind:this={tagInput}
       />
     </div>

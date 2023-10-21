@@ -3,6 +3,8 @@
   import type Tileset from "$lib/Tileset";
 
   let tileset: Tileset;
+
+  // TODO: Persist state during reload
 </script>
 
 <div style="display: flex; gap: 16px; justify-content: space-between; width: 100%;">

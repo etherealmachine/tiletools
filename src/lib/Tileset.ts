@@ -119,6 +119,51 @@ export default class Tileset {
     this.selectedTiles.push([x, y]);
   }
 
+  setSelectionTags(tags: Set<string>) {
+    this.selectedTiles.forEach(([x, y]) => {
+      // If a single tile is selected, tags replaces the current set
+      if (this.selectedTiles.length === 1) {
+        this.setTileData(x, y, "tags", Array.from(tags));
+      } else { // If multiple tiles are selected, tags add to their set
+        const currTags = new Set<string>(this.getTileData(x, y, "tags", []));
+        tags.forEach(tag => currTags.add(tag));
+        this.setTileData(x, y, "tags", Array.from(currTags));
+      }
+    });
+  }
+
+  selectionTags(): Set<string> {
+    let tags = new Set<string>();
+    if (this.selectedTiles.length === 0) return tags;
+    // If a single tile is selected, return that tile's tags
+    if (this.selectedTiles.length === 1) {
+      const [x, y] = this.selectedTiles[0];
+      return new Set(this.getTileData(x, y, "tags", []));
+    }
+    // Otherwise, return the intersection of the selected tile's tags
+    this.selectedTiles.forEach(([x, y]) => {
+      const tileTags = new Set<string>(this.getTileData(x, y, "tags", []));
+      if (tags.size == 0) {
+        tags = tileTags;
+      } else {
+        tags = new Set([...tags].filter(tag => tileTags.has(tag)));
+      }
+    });
+    return tags;
+  }
+
+  setTileData(x: number, y: number, key: string, value: any) {
+    if (!this.tiledata[x]) this.tiledata[x] = {};
+    if (!this.tiledata[x][y]) this.tiledata[x][y] = {};
+    this.tiledata[x][y][key] = value;
+  }
+
+  getTileData(x: number, y: number, key: string, onEmpty?: any): any {
+    if (!this.tiledata[x]) return onEmpty;
+    if (!this.tiledata[x][y]) return onEmpty;
+    return this.tiledata[x][y][key];
+  }
+
   widthInTiles(): number {
     if (!this.img) return 0;
     return (this.img.width - this.margin) / this.offsetWidth();
