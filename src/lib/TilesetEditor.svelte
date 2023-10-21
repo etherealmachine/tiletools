@@ -22,8 +22,8 @@
   let tool: Tool = Tool.Select;
   let imgData: ImageData | undefined;
   let bitmap: ImageBitmap | undefined;
-  // TODO: Select from palette, select transparency level
   let color: string = "#ffffff";
+  let opacity: number = 100;
   let palette: Set<string> = new Set<string>();
 
   function screenToWorld(x: number, y: number): number[] {
@@ -86,7 +86,7 @@
           imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
           imgData.data[i+1] = parseInt(color.slice(3, 5), 16);
           imgData.data[i+2] = parseInt(color.slice(5, 7), 16);
-          imgData.data[i+3] = 255;
+          imgData.data[i+3] = Math.round(255*(opacity/100));
         } else {
           imgData.data[i+0] = 0;
           imgData.data[i+1] = 0;
@@ -163,6 +163,10 @@
       }
     });
     palette = palette;
+  }
+
+  function setColor(e: Event) {
+    color = (e.target as HTMLButtonElement).style.backgroundColor;
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -380,9 +384,13 @@
       />
     </div>
     <input type="color" name="color" bind:value={color} />
+    <input type="range" min="0" max="100" bind:value={opacity} />
     <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px;">
       {#each palette as color}
-        <button style:background-color={color} class="palette" />
+        <button
+          on:click={setColor}
+          style:background-color={color}
+          class="palette" />
       {/each}
     </div>
   </div>
