@@ -10,8 +10,10 @@
   import openSelectHandGesture from "../assets/icons/open-select-hand-gesture.svg?raw";
   import pasteClipboard from "../assets/icons/paste-clipboard.svg?raw";
   import plus from "../assets/icons/plus.svg?raw";
+  import redo from "../assets/icons/redo.svg?raw";
   import saveFloppyDisk from "../assets/icons/save-floppy-disk.svg?raw";
   import settings from "../assets/icons/settings.svg?raw";
+  import undo from "../assets/icons/undo.svg?raw";
   import upload from "../assets/icons/upload.svg?raw";
 
   const icons: { [key: string]: string } = {
@@ -26,8 +28,10 @@
     openSelectHandGesture,
     pasteClipboard,
     plus,
+    redo,
     saveFloppyDisk,
     settings,
+    undo,
     upload,
   };
 

@@ -1,6 +1,5 @@
 <script lang="ts" context="module">
   export interface Tile {
-    tileset: Tileset
     tileX: number
     tileY: number
   }
@@ -127,20 +126,21 @@
         }
       }
     }
-    layers.forEach(layer => {
-      if (!layer.visible) return;
-      Object.entries(layer.tiles).sort((a, b): number => {
-        const [x1, y1] = a[0].split(',').map(v => parseInt(v));
-        const [x2, y2] = b[0].split(',').map(v => parseInt(v));
-        if (y1 === y2) return x1-x2;
-        return y1-y2;
-      }).forEach(entry => {
-        const [x, y] = entry[0].split(',').map(v => parseInt(v));
-        const tile = entry[1];
-        drawTile(ctx, x, y, tile.tileset, tile.tileX, tile.tileY);
-      });
-    });
     if (tileset && tileset.loaded()) {
+      const ts = tileset;
+      layers.forEach(layer => {
+        if (!layer.visible) return;
+        Object.entries(layer.tiles).sort((a, b): number => {
+          const [x1, y1] = a[0].split(',').map(v => parseInt(v));
+          const [x2, y2] = b[0].split(',').map(v => parseInt(v));
+          if (y1 === y2) return x1-x2;
+          return y1-y2;
+        }).forEach(entry => {
+          const [x, y] = entry[0].split(',').map(v => parseInt(v));
+          const tile = entry[1];
+          drawTile(ctx, x, y, ts, tile.tileX, tile.tileY);
+        });
+      });
       if (mouseX !== undefined && mouseY !== undefined && mouseOver) {
         let [x1, y1] = [dragX || mouseX, dragY || mouseY];
         let [x2, y2] = [mouseX, mouseY];
@@ -154,7 +154,7 @@
           for (let y = y1; y <= y2; y++) {
             const randTile = tileset.randSelectedTile();
             if (randTile) {
-              drawTile(ctx, x, y, tileset, randTile[0], randTile[1]);
+              drawTile(ctx, x, y, ts, randTile[0], randTile[1]);
             }
           }
         }
@@ -188,7 +188,6 @@
           const randTile = tileset.randSelectedTile();
           if (randTile) {
             layers[selectedLayerIndex].tiles[loc] = {
-              tileset: tileset,
               tileX: randTile[0],
               tileY: randTile[1],
             };
@@ -263,15 +262,16 @@
       tileset.img = document.createElement('img');
       tileset.img.src = tilesetPNG.dataURL();
       layers = png.metadata.layers;
-      layers.forEach(layer => {
-        Object.values(layer.tiles).forEach(tile => {
-          if (tileset) {
-            tile.tileset = tileset;
-          }
-        });
-      });
       name = png.metadata.name;
     });
+  }
+
+  function onUndo() {
+    // TODO: Undo
+  }
+
+  function onRedo() {
+    // TODO: Redo
   }
 
   function onSave() {
@@ -345,6 +345,12 @@
         bind:value={name}
       />
     </div>
+    <button on:click={onUndo}>
+        <Icon name="undo" />
+    </button>
+    <button on:click={onRedo}>
+        <Icon name="redo" />
+    </button>
     <button on:click={onSave}>
         <Icon name="saveFloppyDisk" />
     </button>
