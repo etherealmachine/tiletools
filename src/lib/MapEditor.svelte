@@ -98,18 +98,30 @@
     if (grid && tileset && tileset.tilewidth > 0 && tileset.tileheight > 0) {
       if (tileset.type === "hex") {
         const radius = tileset.radius();
-        const horiz = Math.sqrt(3)*radius;
-        const vert = (3/2)*radius;
-        for (let q = 0; q < (W/horiz)-1; q++) {
-          for (let r = 0; r < (H/vert)-1; r++) {
-            const [x, y] = tileset.tileToWorld(q, r-Math.floor(q/2));
-            drawHexagon(ctx, x, y, radius);
+        const horiz = (3/2)*radius;
+        const halfHoriz = (1/2)*horiz;
+        const vert = Math.sqrt(3)*radius;
+        const halfVert = (1/2)*vert;
+        let [x1, y1] = screenToWorld(0, 0);
+        x1 = Math.floor(x1/horiz);
+        y1 = Math.floor(y1/vert);
+        const [w, h] = [canvas.width/horiz/zoom, canvas.height/vert/zoom];
+        for (let x = x1; x <= x1+w; x++) {
+          for (let y = y1; y <= y1+h; y++) {
+            if (x % 2 === 0) {
+              drawHexagon(ctx, x*horiz, y*vert, radius);
+            } else {
+              drawHexagon(ctx, x*horiz, y*vert+halfVert, radius);
+            }
           }
         }
       } else {
-        // TODO: Infinite grid
-        for (let x = 0; x < (W/tileset.tilewidth)-1; x++) {
-          for (let y = 0; y < (H/tileset.tileheight)-1; y++) {
+        let [x1, y1] = screenToWorld(0, 0);
+        x1 = Math.floor(x1/tileset.tilewidth);
+        y1 = Math.floor(y1/tileset.tileheight);
+        const [w, h] = [canvas.width/tileset.tilewidth/zoom, canvas.height/tileset.tileheight/zoom];
+        for (let x = x1; x <= x1+w; x++) {
+          for (let y = y1; y <= y1+h; y++) {
             drawRect(ctx, x*tileset.tilewidth, y*tileset.tileheight, tileset.tilewidth, tileset.tileheight);
           }
         }
