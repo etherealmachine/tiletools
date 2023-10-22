@@ -236,12 +236,6 @@
     }
   }
 
-  function triggerRedraw(..._args: any[]) {
-    if (tileset && tileset.loaded()) {
-      requestAnimationFrame(draw);
-    }
-  }
-
   function onKeyDown(e: KeyboardEvent) {
     if (!mouseOver) return;
     // TODO: Allow smaller offsets than a full tile
@@ -283,9 +277,7 @@
     const last = undoStack.pop();
     if (!last) return;
     pushStack(redoStack, false);
-    for (let i = 0; i < imgData.width*imgData.height*4; i++) {
-      imgData.data[i] = last.data[i];
-    }
+    imgData = last;
     updateBitmap(true);
   }
 
@@ -294,9 +286,7 @@
     const last = redoStack.pop();
     if (!last) return;
     pushStack(undoStack, false);
-    for (let i = 0; i < imgData.width*imgData.height*4; i++) {
-      imgData.data[i] = last.data[i];
-    }
+    imgData = last;
     updateBitmap(true);
   }
 
@@ -333,6 +323,12 @@
         }
       }
       updateBitmap();
+    }
+  }
+
+  function triggerRedraw(..._args: any[]) {
+    if (tileset && tileset.loaded()) {
+      requestAnimationFrame(draw);
     }
   }
 

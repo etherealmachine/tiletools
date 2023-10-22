@@ -34,6 +34,8 @@
   let zoom: number = 1;
   let mouseOver: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
+  let undoStack: Layer[][] = [];
+  let redoStack: Layer[][] = [];
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
@@ -179,6 +181,7 @@
     if (y1 > y2) {
       [y1, y2] = [y2, y1];
     }
+    pushStack(undoStack);
     for (let x = x1; x <= x2; x++) {
       for (let y = y1; y <= y2; y++) {
         const loc = `${x},${y}`;
@@ -195,7 +198,6 @@
         }
       }
     }
-    requestAnimationFrame(draw);
     [dragX, dragY] = [undefined, undefined];
   }
 
@@ -211,7 +213,6 @@
       offsetX += e.movementX;
       offsetY += e.movementY;
     }
-    requestAnimationFrame(draw);
   }
 
   function onWheel(e: WheelEvent) {
@@ -224,12 +225,12 @@
     zoom = Math.min(Math.max(0.25, zoom), 8);
     offsetX = -zoom*(e.offsetX-offsetX)/prevZoom + e.offsetX;
     offsetY = -zoom*(e.offsetY-offsetY)/prevZoom + e.offsetY;
-    requestAnimationFrame(draw);
   }
 
   function onKeyDown(e: KeyboardEvent) {
     if (!tileset) return;
     if (!mouseOver) return;
+    // TODO: Hotkeys: Zoom to tile, Copy/Paste, Save, Undo/Redo, Select, Edit, Erase, Vim-Like Tile Navigation
     switch (e.key) {
       case "ArrowLeft":
         offsetX += zoom*tileset.offsetWidth();
@@ -248,7 +249,6 @@
         e.preventDefault();
         break;
     }
-    requestAnimationFrame(draw);
   }
 
   function onLoad(e: Event) {
@@ -263,15 +263,29 @@
       tileset.img.src = tilesetPNG.dataURL();
       layers = png.metadata.layers;
       name = png.metadata.name;
+      pushStack(undoStack);
     });
   }
 
-  function onUndo() {
-    // TODO: Undo
+  function pushStack(stack: Layer[][], clearRedo: boolean = true) {
+    stack.push(JSON.parse(JSON.stringify(layers)));
+    if (clearRedo) {
+      redoStack = [];
+    }
   }
 
-  function onRedo() {
-    // TODO: Redo
+  function undo() {
+    const last = undoStack.pop();
+    if (!last) return;
+    pushStack(redoStack, false);
+    layers = last;
+  }
+
+  function redo() {
+    const last = redoStack.pop();
+    if (!last) return;
+    pushStack(undoStack, false);
+    layers = last;
   }
 
   function onSave() {
@@ -291,15 +305,16 @@
   function setLayerName(i: number) {
     return (e: Event & { currentTarget: HTMLInputElement }) => {
       if (e.currentTarget === null) return;
+      pushStack(undoStack);
       layers[i].name = e.currentTarget.value;
     }
   }
 
   function removeLayer(i: number) {
     return () => {
+      pushStack(undoStack);
       layers.splice(i, 1);
       layers = layers;
-      requestAnimationFrame(draw);
     }
   }
 
@@ -313,11 +328,11 @@
     return () => {
       layers[i].visible = !layers[i].visible;
       layers = layers;
-      requestAnimationFrame(draw);
     }
   }
 
   function addLayer() {
+    pushStack(undoStack);
     layers.push({
       name: `Layer ${layers.length+1}`,
       visible: true,
@@ -325,6 +340,18 @@
     });
     layers = layers;
   }
+
+  function triggerRedraw(..._args: any[]) {
+    if (tileset && tileset.loaded()) {
+      requestAnimationFrame(draw);
+    }
+  }
+
+  $: triggerRedraw(
+    tileset, layers, grid,
+    zoom, offsetX, offsetY,
+    dragX, dragY,
+    mouseX, mouseY, mouseOver);
 </script>
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">
@@ -345,10 +372,10 @@
         bind:value={name}
       />
     </div>
-    <button on:click={onUndo}>
+    <button on:click={undo}>
         <Icon name="undo" />
     </button>
-    <button on:click={onRedo}>
+    <button on:click={redo}>
         <Icon name="redo" />
     </button>
     <button on:click={onSave}>
