@@ -21,11 +21,14 @@
   let filter: string = "";
   let tool: Tool = Tool.Select;
   let imgData: ImageData | undefined;
+  let dirty: boolean = false;
   let bitmap: ImageBitmap | undefined;
   let color: string = "#ffffff";
   let opacity: number = 100;
   let palette: Set<string> = new Set<string>();
   let copyBuffer: ImageData | undefined;
+  let undoStack: ImageData[] = [];
+  let redoStack: ImageData[] = [];
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
@@ -39,6 +42,14 @@
     ctx.lineTo(x, y+height);
     ctx.closePath();
     ctx.stroke();
+  }
+
+  function updateBitmap(redraw: boolean = false) {
+    if (!imgData) return;
+    createImageBitmap(imgData).then(img => {
+      bitmap = img;
+      if (redraw) { triggerRedraw() };
+    });
   }
 
   function draw() {
@@ -63,9 +74,6 @@
           }
         }
       }
-    } else if (tileset && tileset.loaded() && imgData) {
-      createImageBitmap(imgData).then(img => { bitmap = img });
-      requestAnimationFrame(draw);
     } else if (tileset && tileset.img && tileset.loaded() && !imgData) {
       const tmp = document.createElement('canvas');
       tmp.width = tileset.img.width;
@@ -75,8 +83,8 @@
       context.resetTransform();
       context.drawImage(tileset.img, 0, 0, tmp.width, tmp.height);
       imgData = context.getImageData(0, 0, tmp.width, tmp.height);
-      createImageBitmap(imgData).then(img => { bitmap = img });
-      requestAnimationFrame(draw);
+      updateBitmap();
+      pushStack(undoStack);
     }
 
     if (mouseX === undefined || mouseY === undefined) return;
@@ -86,6 +94,10 @@
         copyBuffer === undefined &&
         (tool === Tool.Edit || tool === Tool.Erase) && mouseDown
     ) {
+      if (!dirty) {
+        pushStack(undoStack);
+        dirty = true;
+      }
       const x = Math.floor(mouseX);
       const y = Math.floor(mouseY);
       if (tileset.inSelection(x, y)) {
@@ -101,8 +113,10 @@
           imgData.data[i+2] = 0;
           imgData.data[i+3] = 0;
         }
-        createImageBitmap(imgData).then(img => { bitmap = img; });
+        updateBitmap();
       }
+    } else {
+      dirty = false;
     }
 
     ctx.strokeStyle = "white";
@@ -247,15 +261,40 @@
         e.preventDefault();
         break;
     }
-    requestAnimationFrame(draw);
+  }
+
+  function pushStack(stack: ImageData[], clearRedo: boolean = true) {
+    if (!imgData) return;
+    const copy = new ImageData(imgData.width, imgData.height);
+    for (let i = 0; i < imgData.width*imgData.height*4; i++) {
+      copy.data[i] = imgData.data[i];
+    }
+    stack.push(copy);
+    if (clearRedo) {
+      redoStack = [];
+    }
   }
 
   function undo() {
-    // TODO: Undo
+    if (!imgData) return;
+    const last = undoStack.pop();
+    if (!last) return;
+    pushStack(redoStack, false);
+    for (let i = 0; i < imgData.width*imgData.height*4; i++) {
+      imgData.data[i] = last.data[i];
+    }
+    updateBitmap(true);
   }
 
   function redo() {
-    // TODO: Redo
+    if (!imgData) return;
+    const last = redoStack.pop();
+    if (!last) return;
+    pushStack(undoStack, false);
+    for (let i = 0; i < imgData.width*imgData.height*4; i++) {
+      imgData.data[i] = last.data[i];
+    }
+    updateBitmap(true);
   }
 
   function copy() {
@@ -278,6 +317,7 @@
   function paste() {
     // TODO: What about expanding the width/height of the tileset?
     if (copyBuffer && imgData && tileset.selectedTiles.length === 1) {
+      pushStack(undoStack);
       const [x1, y1] = tileset.tileToImgCoords(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]);
       for (let x = 0; x < tileset.tilewidth; x++) {
         for (let y = 0; y < tileset.tileheight; y++) {
@@ -289,12 +329,12 @@
           imgData.data[i+3] = copyBuffer.data[j+3];
         }
       }
-      createImageBitmap(imgData).then(img => { bitmap = img; });
+      updateBitmap();
     }
   }
 
   $: triggerRedraw(
-    tileset, bitmap,
+    tileset,
     color, opacity,
     zoom, offsetX, offsetY, filter,
     mouseX, mouseY, mouseOver, mouseDown);
