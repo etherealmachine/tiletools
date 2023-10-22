@@ -119,8 +119,6 @@
       dirty = false;
     }
 
-    ctx.strokeStyle = "white";
-    ctx.fillStyle = color;
     ctx.lineWidth = 1;
     if (mouseOver) {
       if (tool === Tool.Select) {
@@ -128,15 +126,18 @@
         const [x1, y1] = tileset.tileToImgCoords(tileX, tileY);
         const [x2, y2] = tileset.tileToImgCoords(tileX+1, tileY+1);
         if (tileX != undefined && tileY !== undefined) {
+          ctx.strokeStyle = "#ffffffaa";
           drawRect(ctx, x1, y1, x2-x1, y2-y1);
         }
       } else if (tool === Tool.Edit || tool === Tool.Erase) {
+        ctx.fillStyle = color;
         if (tool === Tool.Erase) {
           ctx.fillStyle = "white";
         }
         ctx.fillRect(Math.floor(mouseX), Math.floor(mouseY), 1, 1);
       }
     }
+    ctx.strokeStyle = "white";
     tileset.selectedTiles.forEach(loc => {
       const [x1, y1] = tileset.tileToImgCoords(loc[0], loc[1]);
       const [x2, y2] = tileset.tileToImgCoords(loc[0]+1, loc[1]+1);
@@ -229,7 +230,7 @@
   }
 
   // TODO: Make save different from download
-  function onSave() {
+  function save() {
     if (bitmap) {
       const png = new PNGWithMetadata(tileset.name, tileset.metadata(), bitmap);
       png.download();
@@ -239,21 +240,65 @@
   function onKeyDown(e: KeyboardEvent) {
     if (!mouseOver) return;
     // TODO: Allow smaller offsets than a full tile
-    // TODO: Hotkeys: Zoom to tile, Copy/Paste, Save, Undo/Redo, Select, Edit, Erase, Vim-Like Tile Navigation
-    switch (e.key) {
-      case "ArrowLeft":
+    // TODO: Hotkeys: Select, Edit, Erase
+    switch (true) {
+      case e.key === "z" && e.ctrlKey:
+        undo();
+        e.preventDefault();
+        break;
+      case e.key === "y" && e.ctrlKey:
+        redo();
+        e.preventDefault();
+        break;
+      case e.key === "s" && e.ctrlKey:
+        save();
+        e.preventDefault();
+        break;
+      case e.key === "c" && e.ctrlKey:
+        copy();
+        e.preventDefault();
+        break;
+      case e.key === "v" && e.ctrlKey:
+        paste();
+        e.preventDefault();
+        break;
+      case e.key === "z" && tileset.selectedTiles.length === 1:
+        // TODO: zoom to tile
+        e.preventDefault();
+        break;
+      case e.key === "i" && tileset.selectedTiles.length === 1:
+        tileset.setSelectedTile(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]-1);
+        tileset = tileset;
+        e.preventDefault();
+        break;
+      case e.key === "k" && tileset.selectedTiles.length === 1:
+        tileset.setSelectedTile(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]+1);
+        tileset = tileset;
+        e.preventDefault();
+        break;
+      case e.key === "j" && tileset.selectedTiles.length === 1:
+        tileset.setSelectedTile(tileset.selectedTiles[0][0]-1, tileset.selectedTiles[0][1]);
+        tileset = tileset;
+        e.preventDefault();
+        break;
+      case e.key === "l" && tileset.selectedTiles.length === 1:
+        tileset.setSelectedTile(tileset.selectedTiles[0][0]+1, tileset.selectedTiles[0][1]);
+        tileset = tileset;
+        e.preventDefault();
+        break;
+      case e.key === "ArrowLeft":
         offsetX += zoom*tileset.offsetWidth();
         e.preventDefault();
         break;
-      case "ArrowRight":
+      case e.key === "ArrowRight":
         offsetX -= zoom*tileset.offsetWidth();
         e.preventDefault();
         break;
-      case "ArrowUp":
+      case e.key === "ArrowUp":
         offsetY += zoom*tileset.offsetHeight();
         e.preventDefault();
         break;
-      case "ArrowDown":
+      case e.key === "ArrowDown":
         offsetY -= zoom*tileset.offsetHeight();
         e.preventDefault();
         break;
@@ -428,7 +473,7 @@
       <button on:click={paste}>
         <Icon name="pasteClipboard" />
       </button>
-      <button disabled={!tileset.img || !tileset.img.src} on:click={onSave}>
+      <button disabled={!tileset.img || !tileset.img.src} on:click={save}>
         <Icon name="saveFloppyDisk" />
       </button>
     </div>
