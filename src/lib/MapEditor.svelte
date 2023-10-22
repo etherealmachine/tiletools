@@ -170,7 +170,7 @@
   function onPointerUp(e: PointerEvent) {
     if (!tileset || !tileset.img) return;
     [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
-    // TODO: flood fill with shift
+    // TODO: Flood fill with shift
     let [x1, y1] = [dragX || mouseX, dragY || mouseY];
     let [x2, y2] = [mouseX, mouseY];
     if (x1 > x2) {
@@ -206,7 +206,7 @@
   function onPointerMove(e: PointerEvent) {
     [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
     if (e.buttons === 1) {
-      // TODO: draw while dragging
+      // TODO: Draw while dragging
     } else if (e.ctrlKey) {
       offsetX += e.movementX;
       offsetY += e.movementY;

@@ -11,6 +11,7 @@
       <a href="{base}/merge-tilesets" class="button">Merge Tilesets</a>
       <a href="{base}/about" class="button">About</a>
     </div>
+    <!-- TODO: Add an example tileset and map for square and hex orientations -->
   </div>
 </div>
 

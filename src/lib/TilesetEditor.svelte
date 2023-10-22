@@ -228,6 +228,7 @@
     tagString = Array.from(tileset.selectionTags().values()).join(',');
   }
 
+  // TODO: Make save different from download
   function onSave() {
     if (bitmap) {
       const png = new PNGWithMetadata(tileset.name, tileset.metadata(), bitmap);
@@ -243,6 +244,8 @@
 
   function onKeyDown(e: KeyboardEvent) {
     if (!mouseOver) return;
+    // TODO: Allow smaller offsets than a full tile
+    // TODO: Hotkeys: Zoom to tile, Copy/Paste, Save, Undo/Redo, Select, Edit, Erase, Vim-Like Tile Navigation
     switch (e.key) {
       case "ArrowLeft":
         offsetX += zoom*tileset.offsetWidth();
@@ -335,6 +338,7 @@
 
   $: triggerRedraw(
     tileset,
+    // Note: Adding bitmap here would make sense but has bad performance. Needs investigation.
     color, opacity,
     zoom, offsetX, offsetY, filter,
     mouseX, mouseY, mouseOver, mouseDown);
