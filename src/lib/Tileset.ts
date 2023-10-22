@@ -158,7 +158,7 @@ export default class Tileset {
     this.tiledata[x][y][key] = value;
   }
 
-  getTileData(x: number, y: number, key: string, onEmpty?: any): any {
+  getTileData<T>(x: number, y: number, key: string, onEmpty: T): T {
     if (!this.tiledata[x]) return onEmpty;
     if (!this.tiledata[x][y]) return onEmpty;
     return this.tiledata[x][y][key];

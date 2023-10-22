@@ -18,7 +18,7 @@
   let mouseX: number | undefined, mouseY: number | undefined;
   let tagString: string = "";
   let tagInput: HTMLInputElement | undefined;
-  let filter: string;
+  let filter: string = "";
   let tool: Tool = Tool.Select;
   let imgData: ImageData | undefined;
   let bitmap: ImageBitmap | undefined;
@@ -53,9 +53,15 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
-    // TODO: Only draw filtered
-    if (bitmap) {
-      ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
+    if (tileset && bitmap) {
+      for (let tileX = 0; tileX < tileset.widthInTiles(); tileX++) {
+        for (let tileY = 0; tileY < tileset.heightInTiles(); tileY++) {
+          if (filter === "" || tileset.getTileData(tileX, tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
+            const [x, y] = tileset.tileToImgCoords(tileX, tileY);
+            ctx.drawImage(bitmap, x, y, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
+          }
+        }
+      }
     } else if (tileset && tileset.loaded() && imgData) {
       createImageBitmap(imgData).then(img => { bitmap = img });
       requestAnimationFrame(draw);
