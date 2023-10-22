@@ -50,6 +50,7 @@
     if (!imgData) return;
     createImageBitmap(imgData).then(img => {
       bitmap = img;
+      tileset.img = bitmap;
       if (redraw) { triggerRedraw() };
     });
   }
@@ -516,7 +517,7 @@
       <button on:click={paste} disabled={tileset.selectedTiles.length !== 1 || !copyBuffer}>
         <Icon name="pasteClipboard" />
       </button>
-      <button disabled={!tileset.img || !tileset.img.src} on:click={save}>
+      <button disabled={!tileset.loaded()} on:click={save}>
         <Icon name="saveFloppyDisk" />
       </button>
     </div>

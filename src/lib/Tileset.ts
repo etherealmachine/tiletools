@@ -2,7 +2,7 @@ import { PNGWithMetadata } from "./PNGWithMetadata"
 
 export default class Tileset {
   name: string
-  img?: HTMLImageElement
+  img?: HTMLImageElement | ImageBitmap
   type: "square" | "hex"
   tilewidth: number
   tileheight: number
@@ -23,7 +23,7 @@ export default class Tileset {
   }
 
   loaded(): boolean {
-    return !!(this.img && this.img.complete);
+    return !!(this.img && (this.img instanceof ImageBitmap || this.img.complete));
   }
 
   worldToTile(x: number, y: number): number[] {
@@ -197,7 +197,7 @@ export default class Tileset {
 
   download() {
     if (!this.img) return;
-    const png = new PNGWithMetadata(this.name, this.metadata(), this.img.src);
+    const png = new PNGWithMetadata(this.name, this.metadata(), this.img);
     png.download();
   }
 
@@ -207,17 +207,10 @@ export default class Tileset {
         if (!into) {
           into = new Tileset({});
         }
-        if (!into.img) {
-          into.img = document.createElement('img');
-        }
-        const img = into.img;
-        if (!img) {
-          reject('tileset has no HTML Image Element');
-        } else {
-          img.src = png.dataURL();
-          Object.assign(into, png.metadata);
-          resolve(into);
-        }
+        into.img = document.createElement('img');
+        into.img.src = png.dataURL();
+        Object.assign(into, png.metadata);
+        resolve(into);
       });
     });
   }
