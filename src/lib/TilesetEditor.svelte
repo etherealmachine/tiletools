@@ -25,6 +25,7 @@
   let color: string = "#ffffff";
   let opacity: number = 100;
   let palette: Set<string> = new Set<string>();
+  let copyBuffer: ImageData | undefined;
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
@@ -82,11 +83,12 @@
 
     if (
         imgData &&
+        copyBuffer === undefined &&
         (tool === Tool.Edit || tool === Tool.Erase) && mouseDown
     ) {
       const x = Math.floor(mouseX);
       const y = Math.floor(mouseY);
-      if (tileset.inSelection(Math.floor(mouseX), Math.floor(mouseY))) {
+      if (tileset.inSelection(x, y)) {
         const i = ((y * imgData.width) + x) * 4;
         if (tool === Tool.Edit) {
           imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
@@ -106,18 +108,20 @@
     ctx.strokeStyle = "white";
     ctx.fillStyle = color;
     ctx.lineWidth = 1;
-    if (tool === Tool.Select) {
-      const [tileX, tileY] = tileset.imgCoordsToTile(mouseX, mouseY);
-      const [x1, y1] = tileset.tileToImgCoords(tileX, tileY);
-      const [x2, y2] = tileset.tileToImgCoords(tileX+1, tileY+1);
-      if (tileX != undefined && tileY !== undefined) {
-        drawRect(ctx, x1, y1, x2-x1, y2-y1);
+    if (mouseOver) {
+      if (tool === Tool.Select) {
+        const [tileX, tileY] = tileset.imgCoordsToTile(mouseX, mouseY);
+        const [x1, y1] = tileset.tileToImgCoords(tileX, tileY);
+        const [x2, y2] = tileset.tileToImgCoords(tileX+1, tileY+1);
+        if (tileX != undefined && tileY !== undefined) {
+          drawRect(ctx, x1, y1, x2-x1, y2-y1);
+        }
+      } else if (tool === Tool.Edit || tool === Tool.Erase) {
+        if (tool === Tool.Erase) {
+          ctx.fillStyle = "white";
+        }
+        ctx.fillRect(Math.floor(mouseX), Math.floor(mouseY), 1, 1);
       }
-    } else if (tool === Tool.Edit || tool === Tool.Erase) {
-      if (tool === Tool.Erase) {
-        ctx.fillStyle = "white";
-      }
-      ctx.fillRect(Math.floor(mouseX), Math.floor(mouseY), 1, 1);
     }
     tileset.selectedTiles.forEach(loc => {
       const [x1, y1] = tileset.tileToImgCoords(loc[0], loc[1]);
@@ -255,18 +259,45 @@
   }
 
   function copy() {
-    // TODO: Copy selected tile
+    if (imgData && tileset.selectedTiles.length === 1) {
+      const [x1, y1] = tileset.tileToImgCoords(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]);
+      copyBuffer = new ImageData(tileset.tilewidth, tileset.tileheight);
+      for (let x = 0; x < tileset.tilewidth; x++) {
+        for (let y = 0; y < tileset.tileheight; y++) {
+          const i = (((y1+y) * imgData.width) + (x1+x)) * 4;
+          const j = ((y * copyBuffer.width) + x) * 4;
+          copyBuffer.data[j+0] = imgData.data[i+0];
+          copyBuffer.data[j+1] = imgData.data[i+1];
+          copyBuffer.data[j+2] = imgData.data[i+2];
+          copyBuffer.data[j+3] = imgData.data[i+3];
+        }
+      }
+    }
   }
 
   function paste() {
-    // TODO: Paste copied tile. What about cloning the tile and expanding the width/height of the tileset?
+    // TODO: What about expanding the width/height of the tileset?
+    if (copyBuffer && imgData && tileset.selectedTiles.length === 1) {
+      const [x1, y1] = tileset.tileToImgCoords(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]);
+      for (let x = 0; x < tileset.tilewidth; x++) {
+        for (let y = 0; y < tileset.tileheight; y++) {
+          const i = (((y1+y) * imgData.width) + (x1+x)) * 4;
+          const j = ((y * copyBuffer.width) + x) * 4;
+          imgData.data[i+0] = copyBuffer.data[j+0];
+          imgData.data[i+1] = copyBuffer.data[j+1];
+          imgData.data[i+2] = copyBuffer.data[j+2];
+          imgData.data[i+3] = copyBuffer.data[j+3];
+        }
+      }
+      createImageBitmap(imgData).then(img => { bitmap = img; });
+    }
   }
 
   $: triggerRedraw(
-    tileset,
+    tileset, bitmap,
     color, opacity,
     zoom, offsetX, offsetY, filter,
-    mouseX, mouseY, mouseDown);
+    mouseX, mouseY, mouseOver, mouseDown);
 </script>
 
 <svelte:window on:keydown={onKeyDown} />
