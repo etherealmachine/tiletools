@@ -98,6 +98,7 @@
     }
 
     ctx.strokeStyle = "white";
+    ctx.fillStyle = color;
     ctx.lineWidth = 1;
     if (tool === Tool.Select) {
       const [tileX, tileY] = tileset.imgCoordsToTile(mouseX, mouseY);
@@ -106,8 +107,11 @@
       if (tileX != undefined && tileY !== undefined) {
         drawRect(ctx, x1, y1, x2-x1, y2-y1);
       }
-    } else {
-      // TODO: Draw outline around editing pixel
+    } else if (tool === Tool.Edit || tool === Tool.Erase) {
+      if (tool === Tool.Erase) {
+        ctx.fillStyle = "white";
+      }
+      ctx.fillRect(Math.floor(mouseX), Math.floor(mouseY), 1, 1);
     }
     tileset.selectedTiles.forEach(loc => {
       const [x1, y1] = tileset.tileToImgCoords(loc[0], loc[1]);
@@ -136,6 +140,7 @@
       return;
     }
     const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
+    // TODO: Multi-select with drag
     if (e.shiftKey) {
       tileset.addSelectedTile(tileX, tileY);
     } else {
@@ -194,7 +199,6 @@
   }
 
   function onTagsChanged(e: Event) {
-    // TODO: Update selected tile's tags. How does this work with multiple selections?
     const tags = new Set((e.target as HTMLInputElement).value.split(','));
     tileset.setSelectionTags(tags);
     tagString = Array.from(tileset.selectionTags().values()).join(',');
@@ -254,8 +258,9 @@
 
   $: triggerRedraw(
     tileset,
+    color, opacity,
     zoom, offsetX, offsetY, filter,
-    mouseX, mouseY);
+    mouseX, mouseY, mouseDown);
 </script>
 
 <svelte:window on:keydown={onKeyDown} />
