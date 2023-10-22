@@ -1,10 +1,13 @@
 <script lang="ts">
   import copy from "../assets/icons/copy.svg?raw";
+  import cropRotateTl from "../assets/icons/crop-rotate-tl.svg?raw";
   import download from "../assets/icons/download.svg?raw";
   import editPencil from "../assets/icons/edit-pencil.svg?raw";
   import erase from "../assets/icons/erase.svg?raw";
   import eyeEmpty from "../assets/icons/eye-empty.svg?raw";
   import eyeOff from "../assets/icons/eye-off.svg?raw";
+  import flipHoriz from "../assets/icons/flip-horiz.svg?raw";
+  import flipVert from "../assets/icons/flip-vert.svg?raw";
   import gitMerge from "../assets/icons/git-merge.svg?raw";
   import minus from "../assets/icons/minus.svg?raw";
   import openSelectHandGesture from "../assets/icons/open-select-hand-gesture.svg?raw";
@@ -18,11 +21,14 @@
 
   const icons: { [key: string]: string } = {
     copy,
+    cropRotateTl,
     download,
     editPencil,
     erase,
     eyeEmpty,
     eyeOff,
+    flipHoriz,
+    flipVert,
     gitMerge,
     minus,
     openSelectHandGesture,

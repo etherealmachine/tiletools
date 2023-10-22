@@ -6,6 +6,7 @@
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
+  import rotsprite from "./rotsprite";
 
   export let tileset: Tileset = new Tileset({});
   export let maxWidth: string | undefined = undefined;
@@ -29,6 +30,7 @@
   let copyBuffer: ImageData | undefined;
   let undoStack: ImageData[] = [];
   let redoStack: ImageData[] = [];
+  let degrees: number = 90;
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
@@ -84,7 +86,6 @@
       context.drawImage(tileset.img, 0, 0, tmp.width, tmp.height);
       imgData = context.getImageData(0, 0, tmp.width, tmp.height);
       updateBitmap();
-      pushStack(undoStack);
     }
 
     if (mouseX === undefined || mouseY === undefined) return;
@@ -119,7 +120,7 @@
       dirty = false;
     }
 
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1/zoom;
     if (mouseOver) {
       if (tool === Tool.Select) {
         const [tileX, tileY] = tileset.imgCoordsToTile(mouseX, mouseY);
@@ -192,6 +193,7 @@
         }
       }
     });
+    tileset = tileset;
     palette = palette;
   }
 
@@ -215,6 +217,7 @@
     if (files === null) return;
     const file = files[0];
     if (!file) return;
+    // TODO: Loading spinner
     Tileset.loadFromFile(file).then(_tileset => {
       tileset = _tileset;
       offsetX = 0;
@@ -263,7 +266,13 @@
         e.preventDefault();
         break;
       case e.key === "z" && tileset.selectedTiles.length === 1:
-        // TODO: zoom to tile
+        const [w, h] = [canvas?.width || 0, canvas?.height || 0];
+        const maxZoom = Math.min(w, h)/Math.max(tileset.tilewidth, tileset.tileheight);
+        const [x, y] = tileset.tileToImgCoords(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]);
+        zoom = maxZoom;
+        const centerX = (w/2)-(tileset.tilewidth*zoom)/2;
+        offsetX = -x*zoom + centerX;
+        offsetY = -y*zoom;
         e.preventDefault();
         break;
       case e.key === "i" && tileset.selectedTiles.length === 1:
@@ -315,6 +324,8 @@
     if (clearRedo) {
       redoStack = [];
     }
+    undoStack = undoStack;
+    redoStack = redoStack;
   }
 
   function undo() {
@@ -367,7 +378,25 @@
           imgData.data[i+3] = copyBuffer.data[j+3];
         }
       }
-      updateBitmap();
+      updateBitmap(true);
+    }
+  }
+
+  function flipHoriz() {
+    // TODO: Flip horizontally
+  }
+
+  function flipVert() {
+    // TODO: Flip vertically
+  }
+
+  function rotate() {
+    copy();
+    if (copyBuffer) {
+      copyBuffer = rotsprite(copyBuffer, degrees);
+      // TODO: Rotated sprite needs centering for non-square tiles
+      paste();
+      copyBuffer = undefined;
     }
   }
 
@@ -461,16 +490,30 @@
       <button on:click={() => { tool = Tool.Erase }} class:active={tool === Tool.Erase}>
         <Icon name="erase" />
       </button>
-      <button on:click={undo}>
+      <button on:click={flipHoriz} disabled={tileset.selectedTiles.length !== 1}>
+        <Icon name="flipHoriz" />
+      </button>
+      <button on:click={flipVert} disabled={tileset.selectedTiles.length !== 1}>
+        <Icon name="flipVert" />
+      </button>
+      <button on:click={rotate} disabled={tileset.selectedTiles.length !== 1}>
+        <Icon name="cropRotateTl" />
+        <input
+          type="number"
+          min="0" max="90" value={degrees}
+          on:click={(e) => e.stopPropagation()}
+          disabled={tileset.selectedTiles.length !== 1} />
+      </button>
+      <button on:click={undo} disabled={undoStack.length === 0}>
         <Icon name="undo" />
       </button>
-      <button on:click={redo}>
+      <button on:click={redo} disabled={redoStack.length === 0}>
         <Icon name="redo" />
       </button>
-      <button on:click={copy}>
+      <button on:click={copy} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="copy" />
       </button>
-      <button on:click={paste}>
+      <button on:click={paste} disabled={tileset.selectedTiles.length !== 1 || !copyBuffer}>
         <Icon name="pasteClipboard" />
       </button>
       <button disabled={!tileset.img || !tileset.img.src} on:click={save}>
