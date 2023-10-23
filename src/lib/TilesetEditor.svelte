@@ -87,6 +87,9 @@
       context.drawImage(tileset.img, 0, 0, tmp.width, tmp.height);
       imgData = context.getImageData(0, 0, tmp.width, tmp.height);
       updateBitmap();
+    } else {
+      triggerRedraw();
+      return;
     }
 
     if (mouseX === undefined || mouseY === undefined) return;
@@ -103,7 +106,7 @@
       const x = Math.floor(mouseX);
       const y = Math.floor(mouseY);
       if (tileset.inSelection(x, y)) {
-        const i = ((y * imgData.width) + x) * 4;
+        const i = (y * imgData.width + x) * 4;
         if (tool === Tool.Edit) {
           imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
           imgData.data[i+1] = parseInt(color.slice(3, 5), 16);
@@ -184,7 +187,7 @@
       if (imgData) {
         for (let x = x1; x < x2; x++) {
           for (let y = y1; y < y2; y++) {
-            const i = ((y * imgData.width) + x) * 4;
+            const i = (y * imgData.width + x) * 4;
             palette.add("#" + 
               imgData.data[i+0].toString(16) +
               imgData.data[i+1].toString(16) +
@@ -198,8 +201,17 @@
     palette = palette;
   }
 
+  function rgb2hex(rgb: string): string {
+    const match = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+    if (!match) return rgb;
+    function hex(x: string) {
+      return ("0" + parseInt(x).toString(16)).slice(-2);
+    }
+    return "#" + hex(match[1]) + hex(match[2]) + hex(match[3]);
+}
+
   function setColor(e: Event) {
-    color = (e.target as HTMLButtonElement).style.backgroundColor;
+    color = rgb2hex((e.target as HTMLButtonElement).style.backgroundColor);
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -353,8 +365,8 @@
       copyBuffer = new ImageData(tileset.tilewidth, tileset.tileheight);
       for (let x = 0; x < tileset.tilewidth; x++) {
         for (let y = 0; y < tileset.tileheight; y++) {
-          const i = (((y1+y) * imgData.width) + (x1+x)) * 4;
-          const j = ((y * copyBuffer.width) + x) * 4;
+          const i = ((y1+y) * imgData.width + (x1+x)) * 4;
+          const j = (y * copyBuffer.width + x) * 4;
           copyBuffer.data[j+0] = imgData.data[i+0];
           copyBuffer.data[j+1] = imgData.data[i+1];
           copyBuffer.data[j+2] = imgData.data[i+2];
@@ -371,8 +383,8 @@
       const [x1, y1] = tileset.tileToImgCoords(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]);
       for (let x = 0; x < tileset.tilewidth; x++) {
         for (let y = 0; y < tileset.tileheight; y++) {
-          const i = (((y1+y) * imgData.width) + (x1+x)) * 4;
-          const j = ((y * copyBuffer.width) + x) * 4;
+          const i = ((y1+y) * imgData.width + (x1+x)) * 4;
+          const j = (y * copyBuffer.width + x) * 4;
           imgData.data[i+0] = copyBuffer.data[j+0];
           imgData.data[i+1] = copyBuffer.data[j+1];
           imgData.data[i+2] = copyBuffer.data[j+2];
@@ -383,12 +395,30 @@
     }
   }
 
-  function flipHoriz() {
-    // TODO: Flip horizontally
-  }
-
-  function flipVert() {
-    // TODO: Flip vertically
+  function flip(axis: string) {
+    // TODO: Flip - something is wrong with the math
+    copy();
+    if (copyBuffer) {
+      const flip = new ImageData(copyBuffer.width, copyBuffer.height);
+      for (let x = 0; x < flip.width; x++) {
+        for (let y = 0; y < flip.height; y++) {
+          const i = (y * flip.width + x) * 4;
+          let j: number;
+          if (axis === 'x') {
+            j = (y * flip.width + (flip.width-x)) * 4;
+          } else {
+            j = ((flip.height-y) * flip.width + x) * 4;
+          }
+          flip.data[i+0] = copyBuffer.data[j+0];
+          flip.data[i+1] = copyBuffer.data[j+1];
+          flip.data[i+2] = copyBuffer.data[j+2];
+          flip.data[i+3] = copyBuffer.data[j+3];
+        }
+      }
+      copyBuffer = flip;
+      paste();
+      copyBuffer = undefined;
+    }
   }
 
   function rotate() {
@@ -491,10 +521,10 @@
       <button on:click={() => { tool = Tool.Erase }} class:active={tool === Tool.Erase}>
         <Icon name="erase" />
       </button>
-      <button on:click={flipHoriz} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={() => flip('x')} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="flipHoriz" />
       </button>
-      <button on:click={flipVert} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={() => flip('y')} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="flipVert" />
       </button>
       <button on:click={rotate} disabled={tileset.selectedTiles.length !== 1}>
