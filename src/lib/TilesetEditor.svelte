@@ -98,7 +98,6 @@
 
     if (
         imgData &&
-        copyBuffer === undefined &&
         (tool === Tool.Edit || tool === Tool.Erase) && mouseDown
     ) {
       if (!dirty) {
@@ -260,8 +259,23 @@
   function onKeyDown(e: KeyboardEvent) {
     if (!mouseOver) return;
     // TODO: Allow smaller offsets than a full tile
-    // TODO: Hotkeys: Select, Edit, Erase
     switch (true) {
+      case e.key === "s":
+        tool = Tool.Select;
+        e.preventDefault();
+        break;
+      case e.key === "e":
+        tool = Tool.Erase;
+        e.preventDefault();
+        break;
+      case e.key === "d":
+        tool = Tool.Edit;
+        e.preventDefault();
+        break;
+      case e.key === "m":
+        tool = Tool.Move;
+        e.preventDefault();
+        break;
       case e.key === "z" && e.ctrlKey:
         undo();
         e.preventDefault();
@@ -570,7 +584,7 @@
         <Icon name="cropRotateTl" />
         <input
           type="number"
-          min="0" max="90" value={degrees}
+          min="0" max="90" bind:value={degrees}
           on:click={(e) => e.stopPropagation()}
           disabled={tileset.selectedTiles.length !== 1} />
       </button>

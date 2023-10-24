@@ -17,6 +17,7 @@
   import Tileset from "./Tileset";
 
   export let tileset: Tileset | undefined;
+  // TODO: Select location, copy/paste layers
   export let layers: Layer[] = [{
     name: "Layer 1",
     visible: true,
@@ -230,21 +231,36 @@
   function onKeyDown(e: KeyboardEvent) {
     if (!tileset) return;
     if (!mouseOver) return;
-    // TODO: Hotkeys: Zoom to tile, Copy/Paste, Save, Undo/Redo, Select, Edit, Erase, Vim-Like Tile Navigation
-    switch (e.key) {
-      case "ArrowLeft":
+    switch (true) {
+      case e.key === "e":
+        erase = true;
+        e.preventDefault();
+        break;
+      case e.key === "z" && e.ctrlKey:
+        undo();
+        e.preventDefault();
+        break;
+      case e.key === "y" && e.ctrlKey:
+        redo();
+        e.preventDefault();
+        break;
+      case e.key === "s" && e.ctrlKey:
+        save();
+        e.preventDefault();
+        break;
+      case e.key === "ArrowLeft":
         offsetX += zoom*tileset.offsetWidth();
         e.preventDefault();
         break;
-      case "ArrowRight":
+      case e.key === "ArrowRight":
         offsetX -= zoom*tileset.offsetWidth();
         e.preventDefault();
         break;
-      case "ArrowUp":
+      case e.key === "ArrowUp":
         offsetY += zoom*tileset.offsetHeight();
         e.preventDefault();
         break;
-      case "ArrowDown":
+      case e.key === "ArrowDown":
         offsetY -= zoom*tileset.offsetHeight();
         e.preventDefault();
         break;
@@ -288,7 +304,7 @@
     layers = last;
   }
 
-  function onSave() {
+  function save() {
     const metadata: any = {
       layers: layers,
     };
@@ -378,7 +394,7 @@
     <button on:click={redo}>
         <Icon name="redo" />
     </button>
-    <button on:click={onSave}>
+    <button on:click={save}>
         <Icon name="saveFloppyDisk" />
     </button>
     <input
