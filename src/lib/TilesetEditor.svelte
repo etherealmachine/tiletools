@@ -1,8 +1,10 @@
 <script lang="ts" context="module">
-  enum Tool { Select, Edit, Erase };
+  enum Tool { Select, Edit, Erase, Move };
 </script>
 
 <script lang="ts">
+    import { browser } from "$app/environment";
+
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
@@ -201,14 +203,17 @@
     palette = palette;
   }
 
-  function rgb2hex(rgb: string): string {
-    const match = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
-    if (!match) return rgb;
+  function rgb2hex(color: string): string {
+    const match = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*(\d*)\)$/);
+    if (!match) return color;
     function hex(x: string) {
       return ("0" + parseInt(x).toString(16)).slice(-2);
     }
+    if (match[4]) {
+      return "#" + hex(match[1]) + hex(match[2]) + hex(match[3]) + hex(match[4]);
+    }
     return "#" + hex(match[1]) + hex(match[2]) + hex(match[3]);
-}
+  }
 
   function setColor(e: Event) {
     color = rgb2hex((e.target as HTMLButtonElement).style.backgroundColor);
@@ -230,7 +235,6 @@
     if (files === null) return;
     const file = files[0];
     if (!file) return;
-    // TODO: Loading spinner
     Tileset.loadFromFile(file).then(_tileset => {
       tileset = _tileset;
       offsetX = 0;
@@ -306,6 +310,22 @@
       case e.key === "l" && tileset.selectedTiles.length === 1:
         tileset.setSelectedTile(tileset.selectedTiles[0][0]+1, tileset.selectedTiles[0][1]);
         tileset = tileset;
+        e.preventDefault();
+        break;
+      case e.key === "ArrowLeft" && tool === Tool.Move && tileset.selectedTiles.length === 1:
+        move(-1, 0);
+        e.preventDefault();
+        break;
+      case e.key === "ArrowRight" && tool === Tool.Move && tileset.selectedTiles.length === 1:
+        move(1, 0);
+        e.preventDefault();
+        break;
+      case e.key === "ArrowUp" && tool === Tool.Move && tileset.selectedTiles.length === 1:
+        move(0, -1);
+        e.preventDefault();
+        break;
+      case e.key === "ArrowDown" && tool === Tool.Move && tileset.selectedTiles.length === 1:
+        move(0, 1);
         e.preventDefault();
         break;
       case e.key === "ArrowLeft":
@@ -396,43 +416,59 @@
   }
 
   function flip(axis: string) {
-    // TODO: Flip - something is wrong with the math
     copy();
-    if (copyBuffer) {
-      const flip = new ImageData(copyBuffer.width, copyBuffer.height);
-      for (let x = 0; x < flip.width; x++) {
-        for (let y = 0; y < flip.height; y++) {
-          const i = (y * flip.width + x) * 4;
-          let j: number;
-          if (axis === 'x') {
-            j = (y * flip.width + (flip.width-x)) * 4;
-          } else {
-            j = ((flip.height-y) * flip.width + x) * 4;
-          }
-          flip.data[i+0] = copyBuffer.data[j+0];
-          flip.data[i+1] = copyBuffer.data[j+1];
-          flip.data[i+2] = copyBuffer.data[j+2];
-          flip.data[i+3] = copyBuffer.data[j+3];
+    if (!copyBuffer) return;
+    const flip = new ImageData(copyBuffer.width, copyBuffer.height);
+    for (let x = 0; x < flip.width; x++) {
+      for (let y = 0; y < flip.height; y++) {
+        const i = (y * flip.width + x) * 4;
+        let j: number;
+        if (axis === 'x') {
+          j = (y * flip.width + (flip.width-x)) * 4;
+        } else {
+          j = ((flip.height-y) * flip.width + x) * 4;
         }
+        flip.data[i+0] = copyBuffer.data[j+0];
+        flip.data[i+1] = copyBuffer.data[j+1];
+        flip.data[i+2] = copyBuffer.data[j+2];
+        flip.data[i+3] = copyBuffer.data[j+3];
       }
-      copyBuffer = flip;
-      paste();
-      copyBuffer = undefined;
     }
+    copyBuffer = flip;
+    paste();
+    copyBuffer = undefined;
   }
 
   function rotate() {
     copy();
-    if (copyBuffer) {
-      copyBuffer = rotsprite(copyBuffer, degrees);
-      // TODO: Rotated sprite needs centering for non-square tiles
-      paste();
-      copyBuffer = undefined;
+    if (!copyBuffer) return;
+    copyBuffer = rotsprite(copyBuffer, degrees);
+    // TODO: Rotated sprite needs centering for non-square tiles
+    paste();
+    copyBuffer = undefined;
+  }
+
+  function move(ox: number, oy: number) {
+    copy();
+    if (!copyBuffer) return;
+    const dest = new ImageData(copyBuffer.width, copyBuffer.height);
+    for (let x = 0; x < dest.width; x++) {
+      for (let y = 0; y < dest.height; y++) {
+        const i = (y * dest.width + x) * 4;
+        const j = ((y-oy) * dest.width + (x-ox)) * 4;
+        dest.data[i+0] = copyBuffer.data[j+0];
+        dest.data[i+1] = copyBuffer.data[j+1];
+        dest.data[i+2] = copyBuffer.data[j+2];
+        dest.data[i+3] = copyBuffer.data[j+3];
+      }
     }
+    copyBuffer = dest;
+    paste();
+    copyBuffer = undefined;
   }
 
   function triggerRedraw(..._args: any[]) {
-    if (tileset && tileset.loaded()) {
+    if (tileset && browser) {
       requestAnimationFrame(draw);
     }
   }
@@ -520,6 +556,9 @@
       </button>
       <button on:click={() => { tool = Tool.Erase }} class:active={tool === Tool.Erase}>
         <Icon name="erase" />
+      </button>
+      <button on:click={() => { tool = Tool.Move}} class:active={tool === Tool.Move}>
+        <Icon name="drag" />
       </button>
       <button on:click={() => flip('x')} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="flipHoriz" />

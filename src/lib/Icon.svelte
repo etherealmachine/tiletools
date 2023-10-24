@@ -2,6 +2,7 @@
   import copy from "../assets/icons/copy.svg?raw";
   import cropRotateTl from "../assets/icons/crop-rotate-tl.svg?raw";
   import download from "../assets/icons/download.svg?raw";
+  import drag from "../assets/icons/drag.svg?raw";
   import editPencil from "../assets/icons/edit-pencil.svg?raw";
   import erase from "../assets/icons/erase.svg?raw";
   import eyeEmpty from "../assets/icons/eye-empty.svg?raw";
@@ -23,6 +24,7 @@
     copy,
     cropRotateTl,
     download,
+    drag,
     editPencil,
     erase,
     eyeEmpty,
