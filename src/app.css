@@ -98,6 +98,9 @@ button > input[type="number"] {
 button > input {
   z-index: 200;
 }
+input[type="color"] {
+  min-width: 3em;
+}
 
 @media (prefers-color-scheme: light) {
   :root {

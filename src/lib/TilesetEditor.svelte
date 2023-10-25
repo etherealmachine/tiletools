@@ -26,7 +26,7 @@
   let dirty: boolean = false;
   let bitmap: ImageBitmap | undefined;
   let color: string = "#ffffff";
-  let alpha: number = 0;
+  let alpha: number = 255;
   let palette: Set<string> = new Set<string>();
   let copyBuffer: ImageData | undefined;
   let undoStack: ImageData[] = [];
@@ -152,6 +152,11 @@
       }
     }
     tagString = Array.from(tileset.selectionTags().values()).join(',');
+    computePalette();
+    tileset = tileset;
+  }
+
+  function computePalette() {
     palette.clear();
     tileset.selectedTiles.forEach(([x, y]) => {
       const [x1, y1] = tileset.tileToImgCoords(x, y);
@@ -171,14 +176,20 @@
         }
       }
     });
-    tileset = tileset;
     palette = palette;
   }
 
-  function parseColor(color: string): number[] {
-    const match = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*(0\.\d+)?\)$/);
-    if (!match) return [0, 0, 0];
-    return [parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), parseFloat(match[4])];
+  function parseColor(color: string): number[] | undefined {
+    if (color.startsWith("#")) {
+      const match = color.match(/^#(\w{2})(\w{2})(\w{2})(\w{2})?$/);
+      if (!match) return undefined;
+      return [parseInt(match[1], 16), parseInt(match[2], 16), parseInt(match[3], 16), parseInt(match[4], 16) || 255];
+    } else if (color.startsWith("rgb")) {
+      const match = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*(0\.\d+)?\)$/);
+      if (!match) return undefined;
+      return [parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), Math.round(parseFloat(match[4])*255) || 255];
+    }
+    return undefined;
   }
 
   function rgbaToHex(rgba: number[]): string {
@@ -191,13 +202,18 @@
   }
 
   function setColor(e: Event) {
-    const rgba = parseColor((e.target as HTMLButtonElement).style.backgroundColor);
-    color = rgbaToHex(rgba);
-    if (!isNaN(rgba[3])) {
-      alpha = 255*rgba[3];
+    let colorString: string;
+    if (e.target instanceof HTMLButtonElement) {
+      colorString = (e.target as HTMLButtonElement).style.backgroundColor;
+    } else if (e.target instanceof HTMLInputElement) {
+      colorString = (e.target as HTMLInputElement).value;
     } else {
-      alpha = 255;
+      return;
     }
+    const rgba = parseColor(colorString);
+    if (!rgba) return;
+    color = rgbaToHex(rgba);
+    alpha = rgba[3];
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -230,6 +246,7 @@
           imgData.data[i+2] = 0;
           imgData.data[i+3] = 0;
         }
+        computePalette();
         updateBitmap();
       }
     } else {
@@ -645,7 +662,7 @@
         bind:this={tagInput}
       />
     </div>
-    <input type="color" name="color" bind:value={color} />
+    <input type="color" name="color" on:change={setColor} value={color.substring(0, Math.min(color.length, 7))} />
     <input type="range" min="0" max="255" bind:value={alpha} />
     <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px;">
       {#each palette as color}
