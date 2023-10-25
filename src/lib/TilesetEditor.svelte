@@ -8,6 +8,7 @@
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
+    import { drawHexagon, drawRect, drawTile } from "./draw";
   import rotsprite from "./rotsprite";
 
   export let tileset: Tileset = new Tileset({});
@@ -37,16 +38,6 @@
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
   }
 
-  function drawRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number) {
-    ctx.beginPath();
-    ctx.lineTo(x, y);
-    ctx.lineTo(x+width, y);
-    ctx.lineTo(x+width, y+height);
-    ctx.lineTo(x, y+height);
-    ctx.closePath();
-    ctx.stroke();
-  }
-
   function updateBitmap(redraw: boolean = false) {
     if (!imgData) return;
     createImageBitmap(imgData).then(img => {
@@ -74,6 +65,7 @@
       for (let tileX = 0; tileX < tileset.widthInTiles(); tileX++) {
         for (let tileY = 0; tileY < tileset.heightInTiles(); tileY++) {
           if (filter === "" || tileset.getTileData(tileX, tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
+            // TODO: replace with drawTile, need to update tileset img with bitmap
             const [x, y] = tileset.tileToImgCoords(tileX, tileY);
             ctx.drawImage(bitmap, x, y, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
           }
@@ -119,6 +111,10 @@
       const [x1, y1] = tileset.tileToImgCoords(loc[0], loc[1]);
       const [x2, y2] = tileset.tileToImgCoords(loc[0]+1, loc[1]+1);
       drawRect(ctx, x1, y1, x2-x1, y2-y1);
+      if ((tool === Tool.Edit || tool === Tool.Erase) && tileset.type === "hex") {
+        const r = tileset.radius();
+        drawHexagon(ctx, x1+0.5*tileset.tilewidth, y1+tileset.tileheight-r, r);
+      }
     });
   }
 
@@ -135,25 +131,28 @@
   }
 
   function onClick(e: MouseEvent) {
-    if (tool !== Tool.Select) return;
-    const [x, y] = screenToWorld(e.offsetX, e.offsetY);
-    if (!tileset.img) return;
-    if (x < 0 || x >= tileset.img.width || y < 0 || y >= tileset.img.height) {
-      return;
-    }
-    const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
-    // TODO: Multi-select with drag
-    if (e.shiftKey) {
-      tileset.addSelectedTile(tileX, tileY);
-    } else {
-      tileset.setSelectedTile(tileX, tileY);
-      if (tagInput) {
-        tagInput.focus();
+    if ((tool === Tool.Edit || tool === Tool.Erase) && mouseX !== undefined && mouseY !== undefined) {
+      updatePixel(Math.floor(mouseX), Math.floor(mouseY));
+    } else if (tool == Tool.Select) {
+      const [x, y] = screenToWorld(e.offsetX, e.offsetY);
+      if (!tileset.img) return;
+      if (x < 0 || x >= tileset.img.width || y < 0 || y >= tileset.img.height) {
+        return;
       }
+      const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
+      // TODO: Multi-select with drag
+      if (e.shiftKey) {
+        tileset.addSelectedTile(tileX, tileY);
+      } else {
+        tileset.setSelectedTile(tileX, tileY);
+        if (tagInput) {
+          tagInput.focus();
+        }
+      }
+      tagString = Array.from(tileset.selectionTags().values()).join(',');
+      computePalette();
+      tileset = tileset;
     }
-    tagString = Array.from(tileset.selectionTags().values()).join(',');
-    computePalette();
-    tileset = tileset;
   }
 
   function computePalette() {
@@ -214,6 +213,7 @@
     if (!rgba) return;
     color = rgbaToHex(rgba);
     alpha = rgba[3];
+    tool = Tool.Edit;
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -225,34 +225,35 @@
     }
     [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
 
-    if (!imgData) return;
     if (e.buttons === 1 && (tool === Tool.Edit || tool === Tool.Erase)) {
-      if (!dirty) {
-        pushStack(undoStack);
-        dirty = true;
-      }
-      const x = Math.floor(mouseX);
-      const y = Math.floor(mouseY);
-      if (tileset.inSelection(x, y)) {
-        const i = (y * imgData.width + x) * 4;
-        if (tool === Tool.Edit) {
-          imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
-          imgData.data[i+1] = parseInt(color.slice(3, 5), 16);
-          imgData.data[i+2] = parseInt(color.slice(5, 7), 16);
-          imgData.data[i+3] = Math.round(alpha);
-        } else {
-          imgData.data[i+0] = 0;
-          imgData.data[i+1] = 0;
-          imgData.data[i+2] = 0;
-          imgData.data[i+3] = 0;
-        }
-        computePalette();
-        updateBitmap();
-      }
+      updatePixel(Math.floor(mouseX), Math.floor(mouseY));
     } else {
       dirty = false;
     }
+  }
 
+  function updatePixel(x: number, y: number) {
+    if (!imgData) return;
+    if (!dirty) {
+      pushStack(undoStack);
+      dirty = true;
+    }
+    if (tileset.inSelection(x, y)) {
+      const i = (y * imgData.width + x) * 4;
+      if (tool === Tool.Edit) {
+        imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
+        imgData.data[i+1] = parseInt(color.slice(3, 5), 16);
+        imgData.data[i+2] = parseInt(color.slice(5, 7), 16);
+        imgData.data[i+3] = Math.round(alpha);
+      } else {
+        imgData.data[i+0] = 0;
+        imgData.data[i+1] = 0;
+        imgData.data[i+2] = 0;
+        imgData.data[i+3] = 0;
+      }
+      computePalette();
+      updateBitmap();
+    }
   }
 
   function onLoad(e: Event) {
@@ -435,6 +436,7 @@
         }
       }
     }
+    tool = Tool.Select;
   }
 
   function paste() {
@@ -518,6 +520,7 @@
     tileset,
     // Note: Adding bitmap here would make sense but has bad performance. Needs investigation.
     color, alpha,
+    tool,
     zoom, offsetX, offsetY, filter,
     mouseX, mouseY, mouseOver);
 </script>
