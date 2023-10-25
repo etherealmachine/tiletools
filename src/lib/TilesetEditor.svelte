@@ -16,7 +16,6 @@
   let canvas: HTMLCanvasElement | undefined;
   let zoom: number = 2;
   let mouseOver: boolean = false;
-  let mouseDown: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
   let mouseX: number | undefined, mouseY: number | undefined;
   let tagString: string = "";
@@ -71,7 +70,7 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
-    if (tileset && bitmap) {
+    if (bitmap) {
       for (let tileX = 0; tileX < tileset.widthInTiles(); tileX++) {
         for (let tileY = 0; tileY < tileset.heightInTiles(); tileY++) {
           if (filter === "" || tileset.getTileData(tileX, tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
@@ -96,35 +95,6 @@
     }
 
     if (mouseX === undefined || mouseY === undefined) return;
-
-    if (
-        imgData &&
-        (tool === Tool.Edit || tool === Tool.Erase) && mouseDown
-    ) {
-      if (!dirty) {
-        pushStack(undoStack);
-        dirty = true;
-      }
-      const x = Math.floor(mouseX);
-      const y = Math.floor(mouseY);
-      if (tileset.inSelection(x, y)) {
-        const i = (y * imgData.width + x) * 4;
-        if (tool === Tool.Edit) {
-          imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
-          imgData.data[i+1] = parseInt(color.slice(3, 5), 16);
-          imgData.data[i+2] = parseInt(color.slice(5, 7), 16);
-          imgData.data[i+3] = Math.round(alpha);
-        } else {
-          imgData.data[i+0] = 0;
-          imgData.data[i+1] = 0;
-          imgData.data[i+2] = 0;
-          imgData.data[i+3] = 0;
-        }
-        updateBitmap();
-      }
-    } else {
-      dirty = false;
-    }
 
     ctx.lineWidth = 1/zoom;
     if (mouseOver) {
@@ -238,6 +208,34 @@
       offsetY += e.movementY;
     }
     [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
+
+    if (!imgData) return;
+    if (e.buttons === 1 && (tool === Tool.Edit || tool === Tool.Erase)) {
+      if (!dirty) {
+        pushStack(undoStack);
+        dirty = true;
+      }
+      const x = Math.floor(mouseX);
+      const y = Math.floor(mouseY);
+      if (tileset.inSelection(x, y)) {
+        const i = (y * imgData.width + x) * 4;
+        if (tool === Tool.Edit) {
+          imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
+          imgData.data[i+1] = parseInt(color.slice(3, 5), 16);
+          imgData.data[i+2] = parseInt(color.slice(5, 7), 16);
+          imgData.data[i+3] = Math.round(alpha);
+        } else {
+          imgData.data[i+0] = 0;
+          imgData.data[i+1] = 0;
+          imgData.data[i+2] = 0;
+          imgData.data[i+3] = 0;
+        }
+        updateBitmap();
+      }
+    } else {
+      dirty = false;
+    }
+
   }
 
   function onLoad(e: Event) {
@@ -504,7 +502,7 @@
     // Note: Adding bitmap here would make sense but has bad performance. Needs investigation.
     color, alpha,
     zoom, offsetX, offsetY, filter,
-    mouseX, mouseY, mouseOver, mouseDown);
+    mouseX, mouseY, mouseOver);
 </script>
 
 <svelte:window on:keydown={onKeyDown} />
@@ -632,8 +630,6 @@
       on:wheel={onWheel}
       on:click={onClick}
       on:pointermove={onPointerMove}
-      on:pointerdown={() => { mouseDown = true; }}
-      on:pointerup={() => { mouseDown = false; }}
       on:pointerenter={() => { if (canvas) canvas.focus(); mouseOver = true; }}
       on:pointerleave={() => { mouseOver = false; }}
     />
