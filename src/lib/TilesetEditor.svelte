@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-    import { browser } from "$app/environment";
+  import { browser } from "$app/environment";
 
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
@@ -27,7 +27,7 @@
   let dirty: boolean = false;
   let bitmap: ImageBitmap | undefined;
   let color: string = "#ffffff";
-  let opacity: number = 100;
+  let alpha: number = 0;
   let palette: Set<string> = new Set<string>();
   let copyBuffer: ImageData | undefined;
   let undoStack: ImageData[] = [];
@@ -51,6 +51,7 @@
   function updateBitmap(redraw: boolean = false) {
     if (!imgData) return;
     createImageBitmap(imgData).then(img => {
+      bitmap?.close();
       bitmap = img;
       tileset.img = bitmap;
       if (redraw) { triggerRedraw() };
@@ -112,7 +113,7 @@
           imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
           imgData.data[i+1] = parseInt(color.slice(3, 5), 16);
           imgData.data[i+2] = parseInt(color.slice(5, 7), 16);
-          imgData.data[i+3] = Math.round(255*(opacity/100));
+          imgData.data[i+3] = Math.round(alpha);
         } else {
           imgData.data[i+0] = 0;
           imgData.data[i+1] = 0;
@@ -189,11 +190,13 @@
         for (let x = x1; x < x2; x++) {
           for (let y = y1; y < y2; y++) {
             const i = (y * imgData.width + x) * 4;
-            palette.add("#" + 
-              imgData.data[i+0].toString(16) +
-              imgData.data[i+1].toString(16) +
-              imgData.data[i+2].toString(16) +
-              imgData.data[i+3].toString(16));
+            if (imgData.data[i+0] && imgData.data[i+1] && imgData.data[i+2] && imgData.data[i+3]) {
+              palette.add("#" + 
+                imgData.data[i+0].toString(16) +
+                imgData.data[i+1].toString(16) +
+                imgData.data[i+2].toString(16) +
+                imgData.data[i+3].toString(16));
+            }
           }
         }
       }
@@ -202,20 +205,29 @@
     palette = palette;
   }
 
-  function rgb2hex(color: string): string {
-    const match = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*(\d*)\)$/);
-    if (!match) return color;
-    function hex(x: string) {
-      return ("0" + parseInt(x).toString(16)).slice(-2);
+  function parseColor(color: string): number[] {
+    const match = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*(0\.\d+)?\)$/);
+    if (!match) return [0, 0, 0];
+    return [parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), parseFloat(match[4])];
+  }
+
+  function rgbaToHex(rgba: number[]): string {
+    const [r, g, b, a] = rgba;
+    function hex(x: number) {
+      if (isNaN(x)) return "";
+      return ("0" + x.toString(16)).slice(-2);
     }
-    if (match[4]) {
-      return "#" + hex(match[1]) + hex(match[2]) + hex(match[3]) + hex(match[4]);
-    }
-    return "#" + hex(match[1]) + hex(match[2]) + hex(match[3]);
+    return "#" + hex(r) + hex(g) + hex(b) + hex(a);
   }
 
   function setColor(e: Event) {
-    color = rgb2hex((e.target as HTMLButtonElement).style.backgroundColor);
+    const rgba = parseColor((e.target as HTMLButtonElement).style.backgroundColor);
+    color = rgbaToHex(rgba);
+    if (!isNaN(rgba[3])) {
+      alpha = 255*rgba[3];
+    } else {
+      alpha = 255;
+    }
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -490,7 +502,7 @@
   $: triggerRedraw(
     tileset,
     // Note: Adding bitmap here would make sense but has bad performance. Needs investigation.
-    color, opacity,
+    color, alpha,
     zoom, offsetX, offsetY, filter,
     mouseX, mouseY, mouseOver, mouseDown);
 </script>
@@ -638,7 +650,7 @@
       />
     </div>
     <input type="color" name="color" bind:value={color} />
-    <input type="range" min="0" max="100" bind:value={opacity} />
+    <input type="range" min="0" max="255" bind:value={alpha} />
     <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px;">
       {#each palette as color}
         <button
