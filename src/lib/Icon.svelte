@@ -1,6 +1,7 @@
 <script lang="ts">
   import copy from "../assets/icons/copy.svg?raw";
   import cropRotateTl from "../assets/icons/crop-rotate-tl.svg?raw";
+  import deleteCircle from "../assets/icons/delete-circle.svg?raw";
   import download from "../assets/icons/download.svg?raw";
   import drag from "../assets/icons/drag.svg?raw";
   import editPencil from "../assets/icons/edit-pencil.svg?raw";
@@ -23,6 +24,7 @@
   const icons: { [key: string]: string } = {
     copy,
     cropRotateTl,
+    deleteCircle,
     download,
     drag,
     editPencil,

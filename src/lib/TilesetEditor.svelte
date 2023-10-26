@@ -8,7 +8,7 @@
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
-    import { drawHexagon, drawRect, drawTile } from "./draw";
+  import { drawHexagon, drawRect } from "./draw";
   import rotsprite from "./rotsprite";
 
   export let tileset: Tileset = new Tileset({});
@@ -111,7 +111,7 @@
       const [x1, y1] = tileset.tileToImgCoords(loc[0], loc[1]);
       const [x2, y2] = tileset.tileToImgCoords(loc[0]+1, loc[1]+1);
       drawRect(ctx, x1, y1, x2-x1, y2-y1);
-      if ((tool === Tool.Edit || tool === Tool.Erase) && tileset.type === "hex") {
+      if ((tool === Tool.Edit || tool === Tool.Erase || tool === Tool.Move) && tileset.type === "hex") {
         const r = tileset.radius();
         drawHexagon(ctx, x1+0.5*tileset.tilewidth, y1+tileset.tileheight-r, r);
       }
@@ -324,6 +324,10 @@
         paste();
         e.preventDefault();
         break;
+      case (e.key === "Backspace" || e.key === "Delete") && tileset.selectedTiles.length === 1:
+        clear();
+        e.preventDefault();
+        break;
       case e.key === "z" && tileset.selectedTiles.length === 1:
         const [w, h] = [canvas?.width || 0, canvas?.height || 0];
         const maxZoom = Math.min(w, h)/Math.max(tileset.tilewidth, tileset.tileheight);
@@ -436,10 +440,9 @@
         }
       }
     }
-    tool = Tool.Select;
   }
 
-  function paste() {
+  function paste(overwrite: boolean = true) {
     // TODO: What about expanding the width/height of the tileset?
     if (copyBuffer && imgData && tileset.selectedTiles.length === 1) {
       pushStack(undoStack);
@@ -448,10 +451,17 @@
         for (let y = 0; y < tileset.tileheight; y++) {
           const i = ((y1+y) * imgData.width + (x1+x)) * 4;
           const j = (y * copyBuffer.width + x) * 4;
-          imgData.data[i+0] = copyBuffer.data[j+0];
-          imgData.data[i+1] = copyBuffer.data[j+1];
-          imgData.data[i+2] = copyBuffer.data[j+2];
-          imgData.data[i+3] = copyBuffer.data[j+3];
+          if (overwrite) {
+            imgData.data[i+0] = copyBuffer.data[j+0];
+            imgData.data[i+1] = copyBuffer.data[j+1];
+            imgData.data[i+2] = copyBuffer.data[j+2];
+            imgData.data[i+3] = copyBuffer.data[j+3];
+          } else {
+            imgData.data[i+0] ||= copyBuffer.data[j+0];
+            imgData.data[i+1] ||= copyBuffer.data[j+1];
+            imgData.data[i+2] ||= copyBuffer.data[j+2];
+            imgData.data[i+3] ||= copyBuffer.data[j+3];
+          }
         }
       }
       updateBitmap(true);
@@ -486,7 +496,6 @@
     copy();
     if (!copyBuffer) return;
     copyBuffer = rotsprite(copyBuffer, degrees);
-    // TODO: Rotated sprite needs centering for non-square tiles
     paste();
     copyBuffer = undefined;
   }
@@ -506,6 +515,14 @@
       }
     }
     copyBuffer = dest;
+    paste();
+    copyBuffer = undefined;
+  }
+
+  function clear() {
+    copy();
+    if (!copyBuffer) return;
+    copyBuffer = new ImageData(copyBuffer.width, copyBuffer.height);
     paste();
     copyBuffer = undefined;
   }
@@ -624,10 +641,13 @@
       <button on:click={redo} disabled={redoStack.length === 0}>
         <Icon name="redo" />
       </button>
+      <button on:click={clear} disabled={tileset.selectedTiles.length !== 1}>
+        <Icon name="deleteCircle" />
+      </button>
       <button on:click={copy} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="copy" />
       </button>
-      <button on:click={paste} disabled={tileset.selectedTiles.length !== 1 || !copyBuffer}>
+      <button on:click={() => paste(false)} disabled={tileset.selectedTiles.length !== 1 || !copyBuffer}>
         <Icon name="pasteClipboard" />
       </button>
       <button disabled={!tileset.loaded()} on:click={save}>
