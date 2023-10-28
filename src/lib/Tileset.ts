@@ -2,7 +2,7 @@ import { PNGWithMetadata } from "./PNGWithMetadata"
 
 export default class Tileset {
   name: string
-  img?: HTMLImageElement | ImageBitmap
+  img: ImageBitmap | undefined
   type: "square" | "hex"
   tilewidth: number
   tileheight: number
@@ -20,10 +20,6 @@ export default class Tileset {
     this.margin = args.margin || 0;
     this.spacing = args.spacing || 0;
     this.tiledata = args.tiledata || {};
-  }
-
-  loaded(): boolean {
-    return !!(this.img && (this.img instanceof ImageBitmap || this.img.complete));
   }
 
   worldToTile(x: number, y: number): number[] {
@@ -119,8 +115,13 @@ export default class Tileset {
     this.selectedTiles = [[x, y]]
   }
 
-  addSelectedTile(x: number, y: number) {
-    this.selectedTiles.push([x, y]);
+  toggleSelectedTile(x: number, y: number) {
+    const i = this.selectedTiles.findIndex(([a, b]) => a === x && b === y);
+    if (i !== -1) {
+      this.selectedTiles.splice(i, 1);
+    } else {
+      this.selectedTiles.push([x, y]);
+    }
   }
 
   setSelectionTags(tags: Set<string>) {
@@ -219,15 +220,21 @@ export default class Tileset {
     return new PNGWithMetadata(this.name, this.metadata(), this.img || "");
   }
 
+  setImageFromDataURL(url: string) {
+    const img = document.createElement('img');
+    img.onload = () => {
+      createImageBitmap(img).then(bitmap => {
+        this.img = bitmap;
+      });
+    };
+    img.src = url;
+  }
+
   static fromPNGWithMetadata(png: PNGWithMetadata, into?: Tileset): Tileset {
-    const url = png.dataURL();
-    if (!into) {
-      into = new Tileset({});
-    }
-    into.img = document.createElement('img');
-    into.img.src = url;
-    Object.assign(into, png.metadata);
-    return into;
+    const ts = into || new Tileset({});
+    ts.setImageFromDataURL(png.dataURL());
+    Object.assign(ts, png.metadata);
+    return ts;
   }
 
   static loadFromFile(file: File, into?: Tileset): Promise<Tileset> {

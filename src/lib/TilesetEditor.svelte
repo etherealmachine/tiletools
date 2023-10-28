@@ -12,16 +12,12 @@
 
 <script lang="ts">
   import { browser } from "$app/environment";
-  import { goto } from "$app/navigation";
-  import { base } from "$app/paths";
-    import { onMount } from "svelte";
 
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
   import { drawHexagon, drawRect, drawTile } from "./draw";
   import rotsprite from "./rotsprite";
-    import { page } from "$app/stores";
 
   export let tileset: Tileset = new Tileset({});
   export let maxWidth: string | undefined = undefined;
@@ -32,28 +28,22 @@
   let mouseDown: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
   let mouseX: number | undefined, mouseY: number | undefined;
+  let dragX: number | undefined, dragY: number | undefined;
   let tagString: string = "";
   let tagInput: HTMLInputElement | undefined;
   let filter: string = "";
   let tool: Tool = Tool.Select;
   let color: string = "#ffffff";
   let alpha: number = 255;
+  // TODO: Move tileBuffer into Tileset and make available to map editor
+  // Maybe a re-think - what about splitting Tileset into tiles, each with an
+  // editable bitmap?
   let tileBuffer: TileImageData | undefined;
   let palette: Set<string> = new Set<string>();
   let copyBuffer: ImageData | undefined;
   let undoStack: TileImageData[] = [];
   let redoStack: TileImageData[] = [];
   let degrees: number = 90;
-
-  onMount(() => {
-    requestAnimationFrame(() => {
-      const _tileset = $page.url.searchParams.get('tileset');
-      if (_tileset) {
-        const png = PNGWithMetadata.fromDataURL(decodeURIComponent(_tileset));
-        tileset = Tileset.fromPNGWithMetadata(png);
-      }
-    });
-  });
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
@@ -87,9 +77,6 @@
     createImageBitmap(ctx.getImageData(0, 0, tmp.width, tmp.height)).then(img => {
       tileset.img = img;
       triggerRedraw();
-      const url = tileset.dataURL();
-      // TODO: Remove path and just set url param
-      goto(`${base}/tileset-editor?tileset=${encodeURIComponent(url)}`);
     });
   }
 
@@ -106,7 +93,7 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
-    if (tileset.img && tileset.loaded()) {
+    if (tileset.img) {
       const [w, h] = [tileset.widthInTiles(), tileset.heightInTiles()];
       if (w > 0 && h > 0) {
         for (let tileX = 0; tileX < w; tileX++) {
@@ -183,18 +170,22 @@
       // TODO: Eliminate lag between tileBuffer being changed and the updated image being ready to draw
       updateTilesetImage();
     }
+    tileBuffer = makeTileBuffer(tileX, tileY);
+    return tileBuffer;
+  }
+  
+  function makeTileBuffer(tileX: number, tileY: number): TileImageData | undefined {
     const tmp = document.createElement('canvas');
     tmp.width = tileset.tilewidth;
     tmp.height = tileset.tileheight;
     const ctx = tmp.getContext('2d');
     if (!ctx) return undefined;
     drawTile(ctx, 0, 0, tileset, tileX, tileY);
-    tileBuffer = {
+    return {
       tileX, tileY,
       data: ctx.getImageData(0, 0, tmp.width, tmp.height),
       dirty: false,
     };
-    return tileBuffer;
   }
 
   function setTileBuffer(buf: TileImageData | undefined) {
@@ -266,6 +257,7 @@
 
   function onPointerDown(e: PointerEvent) {
     [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
+    [dragX, dragY] = [mouseX, mouseY];
     mouseDown = true;
     if (e.buttons === 1 && (tool === Tool.Edit || tool === Tool.Erase)) {
       const t = getTileBuffer();
@@ -279,9 +271,8 @@
         return;
       }
       const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
-      // TODO: Multi-select with drag
       if (e.shiftKey) {
-        tileset.addSelectedTile(tileX, tileY);
+        tileset.toggleSelectedTile(tileX, tileY);
       } else {
         tileset.setSelectedTile(tileX, tileY);
         computePalette();
@@ -301,13 +292,35 @@
     }
     [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
 
-    if (mouseDown && (tool === Tool.Edit || tool === Tool.Erase)) {
-      updatePixel(Math.floor(mouseX), Math.floor(mouseY));
+    if (mouseDown) {
+      if (tool === Tool.Edit || tool === Tool.Erase) {
+        updatePixel(Math.floor(mouseX), Math.floor(mouseY));
+      } else if (tool == Tool.Select && dragX !== undefined && dragY !== undefined) {
+        tileset.clearSelectedTiles();
+        let [x1, y1] = tileset.imgCoordsToTile(dragX, dragY);
+        let [x2, y2] = tileset.imgCoordsToTile(mouseX, mouseY);
+        if (x1 > x2) {
+          [x1, x2] = [x2, x1];
+        }
+        if (y1 > y2) {
+          [y1, y2] = [y2, y1];
+        }
+        for (let x = x1; x <= x2; x++) {
+          for (let y = y1; y <= y2; y++) {
+            tileset.toggleSelectedTile(x, y);
+          }
+        }
+      }
     }
+  }
+
+  function onPointerCancel(e: PointerEvent) {
+    [dragX, dragY] = [undefined, undefined];
   }
 
   function onPointerUp(e: PointerEvent) {
     mouseDown = false;
+    [dragX, dragY] = [undefined, undefined];
   }
 
   function updatePixel(x: number, y: number) {
@@ -451,19 +464,19 @@
         tileset = tileset;
         e.preventDefault();
         break;
-      case e.key === "ArrowLeft" && tool === Tool.Move && tileset.selectedTiles.length === 1:
+      case e.key === "ArrowLeft" && tool === Tool.Move:
         move(-1, 0);
         e.preventDefault();
         break;
-      case e.key === "ArrowRight" && tool === Tool.Move && tileset.selectedTiles.length === 1:
+      case e.key === "ArrowRight" && tool === Tool.Move:
         move(1, 0);
         e.preventDefault();
         break;
-      case e.key === "ArrowUp" && tool === Tool.Move && tileset.selectedTiles.length === 1:
+      case e.key === "ArrowUp" && tool === Tool.Move:
         move(0, -1);
         e.preventDefault();
         break;
-      case e.key === "ArrowDown" && tool === Tool.Move && tileset.selectedTiles.length === 1:
+      case e.key === "ArrowDown" && tool === Tool.Move:
         move(0, 1);
         e.preventDefault();
         break;
@@ -622,23 +635,52 @@
     copyBuffer = undefined;
   }
 
-  function move(ox: number, oy: number) {
-    copy();
-    if (!copyBuffer) return;
-    const dest = new ImageData(copyBuffer.width, copyBuffer.height);
-    for (let x = 0; x < dest.width; x++) {
-      for (let y = 0; y < dest.height; y++) {
-        const i = (y * dest.width + x) * 4;
-        const j = ((y-oy) * dest.width + (x-ox)) * 4;
-        dest.data[i+0] = copyBuffer.data[j+0];
-        dest.data[i+1] = copyBuffer.data[j+1];
-        dest.data[i+2] = copyBuffer.data[j+2];
-        dest.data[i+3] = copyBuffer.data[j+3];
+  async function move(ox: number, oy: number) {
+    if (tileset.selectedTiles.length === 1) {
+      copy();
+      if (!copyBuffer) return;
+      const dest = new ImageData(copyBuffer.width, copyBuffer.height);
+      for (let x = 0; x < dest.width; x++) {
+        for (let y = 0; y < dest.height; y++) {
+          const i = (y * dest.width + x) * 4;
+          const j = ((y-oy) * dest.width + (x-ox)) * 4;
+          dest.data[i+0] = copyBuffer.data[j+0];
+          dest.data[i+1] = copyBuffer.data[j+1];
+          dest.data[i+2] = copyBuffer.data[j+2];
+          dest.data[i+3] = copyBuffer.data[j+3];
+        }
       }
+      copyBuffer = dest;
+      paste();
+      copyBuffer = undefined;
+    } else if (tileset.img) {
+      // TODO: Undo whole selection move
+      const bufs = tileset.selectedTiles.map(([tileX, tileY]) => makeTileBuffer(tileX, tileY));
+      const tmp = document.createElement('canvas');
+      tmp.width = tileset.img.width;
+      tmp.height = tileset.img.height;
+      const ctx = tmp.getContext('2d');
+      if (!ctx) return undefined;
+      ctx.drawImage(tileset.img, 0, 0);
+      for (let i = 0; i < bufs.length; i++) {
+        const buf = bufs[i];
+        if (!buf) continue;
+        const [x1, y1] = tileset.tileToImgCoords(buf.tileX, buf.tileY);
+        ctx.clearRect(x1, y1, tileset.tilewidth, tileset.tileheight);
+        const [x2, y2] = tileset.tileToImgCoords(buf.tileX+ox, buf.tileY+oy);
+        ctx.clearRect(x2, y2, tileset.tilewidth, tileset.tileheight);
+      }
+      for (let i = 0; i < bufs.length; i++) {
+        const buf = bufs[i];
+        if (!buf) continue;
+        const [x, y] = tileset.tileToImgCoords(buf.tileX+ox, buf.tileY+oy);
+        const tileImg = await createImageBitmap(buf.data);
+        ctx.drawImage(tileImg, x, y);
+        // TODO: Update selection with moved tile
+      }
+      tileset.img = await createImageBitmap(ctx.getImageData(0, 0, tmp.width, tmp.height));
+      triggerRedraw();
     }
-    copyBuffer = dest;
-    paste();
-    copyBuffer = undefined;
   }
 
   function clear() {
@@ -770,7 +812,7 @@
       <button on:click={() => paste(false)} disabled={tileset.selectedTiles.length !== 1 || !copyBuffer}>
         <Icon name="pasteClipboard" />
       </button>
-      <button disabled={!tileset.loaded()} on:click={save}>
+      <button disabled={!tileset.img} on:click={save}>
         <Icon name="saveFloppyDisk" />
       </button>
     </div>
@@ -791,6 +833,7 @@
       on:pointerup={onPointerUp}
       on:pointerdown={onPointerDown}
       on:pointermove={onPointerMove}
+      on:pointercancel={onPointerCancel}
       on:pointerenter={() => { if (canvas) canvas.focus(); mouseOver = true; }}
       on:pointerleave={() => { mouseOver = false; }}
     />

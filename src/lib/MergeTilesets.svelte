@@ -28,11 +28,9 @@
       ctx.drawImage(left.img, 0, 0);
       ctx.drawImage(right.img, 0, left.img.height+left.spacing);
     }
-    const src = canvas.toDataURL();
-    result.img = document.createElement('img');
+    result.setImageFromDataURL(canvas.toDataURL());
     Object.assign(result, Object.fromEntries(
       Object.entries(left).filter(([k, _]) => !['name', 'img'].includes(k))));
-    result.img.src = src;
   }
 
   function loadTileset(tileset: Tileset) {

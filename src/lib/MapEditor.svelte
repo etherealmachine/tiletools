@@ -96,7 +96,7 @@
         }
       }
     }
-    if (tileset && tileset.loaded()) {
+    if (tileset) {
       const ts = tileset;
       layers.forEach(layer => {
         if (!layer.visible) return;
@@ -230,10 +230,7 @@
     if (files === null) return;
     const file = files[0];
     PNGWithMetadata.fromFile(file).then(png => {
-      const tilesetPNG = PNGWithMetadata.fromDataURL(png.metadata.tileset);
-      tileset = new Tileset(tilesetPNG.metadata);
-      tileset.img = document.createElement('img');
-      tileset.img.src = tilesetPNG.dataURL();
+      tileset = Tileset.fromPNGWithMetadata(PNGWithMetadata.fromDataURL(png.metadata.tileset));
       layers = png.metadata.layers;
       name = png.metadata.name;
       pushStack(undoStack);
@@ -329,7 +326,7 @@
   }
 
   function triggerRedraw(..._args: any[]) {
-    if (tileset && tileset.loaded()) {
+    if (tileset && tileset.img) {
       requestAnimationFrame(draw);
     }
   }
