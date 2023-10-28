@@ -166,12 +166,20 @@ export default class Tileset {
 
   widthInTiles(): number {
     if (!this.img) return 0;
-    return (this.img.width - this.margin) / this.offsetWidth();
+    const w = this.offsetWidth();
+    if (w === 0) {
+      return 0;
+    }
+    return (this.img.width - this.margin) / w;
   }
 
   heightInTiles(): number {
     if (!this.img) return 0;
-    return (this.img.height - this.margin) / this.offsetHeight();
+    const h = this.offsetHeight();
+    if (h === 0) {
+      return 0;
+    }
+    return (this.img.height - this.margin) / h;
   }
 
   // Is x and y contained in the tileset's image?
@@ -204,11 +212,12 @@ export default class Tileset {
   static loadFromFile(file: File, into?: Tileset): Promise<Tileset> {
     return new Promise((resolve, reject) => {
       PNGWithMetadata.fromFile(file).then(png => {
+        const url = png.dataURL();
         if (!into) {
           into = new Tileset({});
         }
         into.img = document.createElement('img');
-        into.img.src = png.dataURL();
+        into.img.src = url;
         Object.assign(into, png.metadata);
         resolve(into);
       });

@@ -12,10 +12,12 @@
 </script>
 
 <script lang="ts">
+    import { goto } from "$app/navigation";
+
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
-    import { drawHexagon, drawRect, drawTile } from "./draw";
+  import { drawHexagon, drawRect, drawTile } from "./draw";
 
   export let tileset: Tileset | undefined;
   // TODO: Select location, copy/paste layers
@@ -36,6 +38,7 @@
   let zoom: number = 1;
   let mouseOver: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
+  let dirty: boolean = false;
   let undoStack: Layer[][] = [];
   let redoStack: Layer[][] = [];
 
@@ -109,21 +112,10 @@
         });
       });
       if (mouseX !== undefined && mouseY !== undefined && mouseOver) {
-        let [x1, y1] = [dragX || mouseX, dragY || mouseY];
-        let [x2, y2] = [mouseX, mouseY];
-        if (x1 > x2) {
-          [x1, x2] = [x2, x1];
-        }
-        if (y1 > y2) {
-          [y1, y2] = [y2, y1];
-        }
-        for (let x = x1; x <= x2; x++) {
-          for (let y = y1; y <= y2; y++) {
-            const randTile = tileset.randSelectedTile();
-            if (randTile) {
-              drawTile(ctx, x, y, ts, randTile[0], randTile[1]);
-            }
-          }
+        // TODO: Shift drag to preview filling area
+        const randTile = tileset.randSelectedTile();
+        if (randTile) {
+          drawTile(ctx, mouseX, mouseY, ts, randTile[0], randTile[1]);
         }
       }
     }
@@ -135,34 +127,6 @@
   }
 
   function onPointerUp(e: PointerEvent) {
-    if (!tileset || !tileset.img) return;
-    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
-    // TODO: Flood fill with shift
-    let [x1, y1] = [dragX || mouseX, dragY || mouseY];
-    let [x2, y2] = [mouseX, mouseY];
-    if (x1 > x2) {
-      [x1, x2] = [x2, x1];
-    }
-    if (y1 > y2) {
-      [y1, y2] = [y2, y1];
-    }
-    pushStack(undoStack);
-    for (let x = x1; x <= x2; x++) {
-      for (let y = y1; y <= y2; y++) {
-        const loc = `${x},${y}`;
-        if (e.ctrlKey || erase) {
-          delete layers[selectedLayerIndex].tiles[loc];
-        } else {
-          const randTile = tileset.randSelectedTile();
-          if (randTile) {
-            layers[selectedLayerIndex].tiles[loc] = {
-              tileX: randTile[0],
-              tileY: randTile[1],
-            };
-          }
-        }
-      }
-    }
     [dragX, dragY] = [undefined, undefined];
   }
 
@@ -171,12 +135,32 @@
   }
 
   function onPointerMove(e: PointerEvent) {
+    if (!tileset || !tileset.img) return;
     [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
     if (e.buttons === 1) {
-      // TODO: Draw while dragging
-    } else if (e.ctrlKey) {
-      offsetX += e.movementX;
-      offsetY += e.movementY;
+      // TODO: Shift drag to fill area
+      if (!dirty) {
+        pushStack(undoStack);
+        dirty = true;
+      }
+      const loc = `${mouseX},${mouseY}`;
+      if (e.ctrlKey || erase) {
+        delete layers[selectedLayerIndex].tiles[loc];
+      } else {
+        const randTile = tileset.randSelectedTile();
+        if (randTile) {
+          layers[selectedLayerIndex].tiles[loc] = {
+            tileX: randTile[0],
+            tileY: randTile[1],
+          };
+        }
+      }
+    } else {
+      dirty = false;
+      if (e.ctrlKey) {
+        offsetX += e.movementX;
+        offsetY += e.movementY;
+      }
     }
   }
 
@@ -228,6 +212,10 @@
         offsetY -= zoom*tileset.offsetHeight();
         e.preventDefault();
         break;
+      case mouseOver && e.key === "Shift":
+        // TODO: Flood fill with shift
+        e.preventDefault();
+        break;
     }
   }
 
@@ -238,12 +226,14 @@
     const file = files[0];
     PNGWithMetadata.fromFile(file).then(png => {
       const tilesetPNG = PNGWithMetadata.fromDataURL(png.metadata.tileset);
-      tileset = new Tileset(tilesetPNG.metadata);
-      tileset.img = document.createElement('img');
-      tileset.img.src = tilesetPNG.dataURL();
-      layers = png.metadata.layers;
-      name = png.metadata.name;
-      pushStack(undoStack);
+      tilesetPNG.dataURL().then(url => {
+        tileset = new Tileset(tilesetPNG.metadata);
+        tileset.img = document.createElement('img');
+        tileset.img.src = url;
+        layers = png.metadata.layers;
+        name = png.metadata.name;
+        pushStack(undoStack);
+      });
     });
   }
 
@@ -280,6 +270,19 @@
     }
     const png = new PNGWithMetadata(name, metadata, canvas);
     png.download();
+  }
+
+  function loadScene() {
+    const metadata: any = {
+      layers: layers,
+    };
+    if (tileset && tileset.img) {
+      const tilesetPNG = new PNGWithMetadata(tileset.name, tileset.metadata(), tileset.img);
+      tilesetPNG.metadata.name = tileset.name;
+      metadata.tileset = tilesetPNG.dataURL();
+      metadata.name = name;
+    }
+    goto(`/scene?map=${new PNGWithMetadata(name, metadata, canvas).dataURL()}`);
   }
 
   function setLayerName(i: number) {
@@ -360,6 +363,9 @@
     </button>
     <button on:click={save}>
         <Icon name="saveFloppyDisk" />
+    </button>
+    <button on:click={loadScene}>
+        <Icon name="hexagonDice" />
     </button>
     <input
       type="file"

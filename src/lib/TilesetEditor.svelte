@@ -25,7 +25,6 @@
   let tool: Tool = Tool.Select;
   let imgData: ImageData | undefined;
   let dirty: boolean = false;
-  let bitmap: ImageBitmap | undefined;
   let color: string = "#ffffff";
   let alpha: number = 255;
   let palette: Set<string> = new Set<string>();
@@ -41,9 +40,10 @@
   function updateBitmap(redraw: boolean = false) {
     if (!imgData) return;
     createImageBitmap(imgData).then(img => {
-      bitmap?.close();
-      bitmap = img;
-      tileset.img = bitmap;
+      if (tileset.img instanceof ImageBitmap) {
+        tileset.img.close();
+      }
+      tileset.img = img;
       if (redraw) { triggerRedraw() };
     });
   }
@@ -61,26 +61,31 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
-    if (bitmap) {
-      for (let tileX = 0; tileX < tileset.widthInTiles(); tileX++) {
-        for (let tileY = 0; tileY < tileset.heightInTiles(); tileY++) {
-          if (filter === "" || tileset.getTileData(tileX, tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
-            // TODO: replace with drawTile, need to update tileset img with bitmap
-            const [x, y] = tileset.tileToImgCoords(tileX, tileY);
-            ctx.drawImage(bitmap, x, y, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
+    if (tileset.img && tileset.loaded()) {
+      const [w, h] = [tileset.widthInTiles(), tileset.heightInTiles()];
+      if (w > 0 && h > 0) {
+        for (let tileX = 0; tileX < w; tileX++) {
+          for (let tileY = 0; tileY < h; tileY++) {
+            if (filter === "" || tileset.getTileData(tileX, tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
+              const [x, y] = tileset.tileToImgCoords(tileX, tileY);
+              ctx.drawImage(tileset.img, x, y, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
+            }
           }
         }
+      } else {
+        ctx.drawImage(tileset.img, 0, 0);
       }
-    } else if (tileset && tileset.img && tileset.loaded() && !imgData) {
-      const tmp = document.createElement('canvas');
-      tmp.width = tileset.img.width;
-      tmp.height = tileset.img.height;
-      const context = tmp.getContext('2d');
-      if (!context) return;
-      context.resetTransform();
-      context.drawImage(tileset.img, 0, 0, tmp.width, tmp.height);
-      imgData = context.getImageData(0, 0, tmp.width, tmp.height);
-      updateBitmap();
+      if (!imgData) {
+        const tmp = document.createElement('canvas');
+        tmp.width = tileset.img.width;
+        tmp.height = tileset.img.height;
+        const context = tmp.getContext('2d');
+        if (!context) return;
+        context.resetTransform();
+        context.drawImage(tileset.img, 0, 0, tmp.width, tmp.height);
+        imgData = context.getImageData(0, 0, tmp.width, tmp.height);
+        updateBitmap();
+      }
     } else {
       triggerRedraw();
       return;
@@ -276,17 +281,16 @@
     tagString = Array.from(tileset.selectionTags().values()).join(',');
   }
 
-  // TODO: Make save different from download
+  // TODO: Make save different from download, roll in to reload persistance
   function save() {
-    if (bitmap) {
-      const png = new PNGWithMetadata(tileset.name, tileset.metadata(), bitmap);
+    if (tileset.img) {
+      const png = new PNGWithMetadata(tileset.name, tileset.metadata(), tileset.img);
       png.download();
     }
   }
 
   function onKeyDown(e: KeyboardEvent) {
     if (!mouseOver) return;
-    // TODO: Allow smaller offsets than a full tile
     switch (true) {
       case e.key === "s":
         tool = Tool.Select;
@@ -375,19 +379,35 @@
         e.preventDefault();
         break;
       case e.key === "ArrowLeft":
-        offsetX += zoom*tileset.offsetWidth();
+        if (e.shiftKey) {
+          offsetX += zoom;
+        } else {
+          offsetX += zoom*tileset.offsetWidth();
+        }
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
-        offsetX -= zoom*tileset.offsetWidth();
+        if (e.shiftKey) {
+          offsetX -= zoom;
+        } else {
+          offsetX -= zoom*tileset.offsetWidth();
+        }
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
-        offsetY += zoom*tileset.offsetHeight();
+        if (e.shiftKey) {
+          offsetY += zoom;
+        } else {
+          offsetY += zoom*tileset.offsetHeight();
+        }
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
-        offsetY -= zoom*tileset.offsetHeight();
+        if (e.shiftKey) {
+          offsetY -= zoom;
+        } else {
+          offsetY -= zoom*tileset.offsetHeight();
+        }
         e.preventDefault();
         break;
     }

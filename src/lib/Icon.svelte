@@ -11,6 +11,7 @@
   import flipHoriz from "../assets/icons/flip-horiz.svg?raw";
   import flipVert from "../assets/icons/flip-vert.svg?raw";
   import gitMerge from "../assets/icons/git-merge.svg?raw";
+  import hexagonDice from "../assets/icons/hexagon-dice.svg?raw";
   import minus from "../assets/icons/minus.svg?raw";
   import openSelectHandGesture from "../assets/icons/open-select-hand-gesture.svg?raw";
   import pasteClipboard from "../assets/icons/paste-clipboard.svg?raw";
@@ -34,6 +35,7 @@
     flipHoriz,
     flipVert,
     gitMerge,
+    hexagonDice,
     minus,
     openSelectHandGesture,
     pasteClipboard,
