@@ -97,11 +97,10 @@
     if (mouseOver) {
       if (tool === Tool.Select) {
         const [tileX, tileY] = tileset.imgCoordsToTile(mouseX, mouseY);
-        const [x1, y1] = tileset.tileToImgCoords(tileX, tileY);
-        const [x2, y2] = tileset.tileToImgCoords(tileX+1, tileY+1);
+        const [x, y] = tileset.tileToImgCoords(tileX, tileY);
         if (tileX != undefined && tileY !== undefined) {
           ctx.strokeStyle = "#ffffffaa";
-          drawRect(ctx, x1, y1, x2-x1, y2-y1);
+          drawRect(ctx, x, y, tileset.tilewidth, tileset.tileheight);
         }
       } else if (tool === Tool.Edit || tool === Tool.Erase) {
         ctx.fillStyle = color;
@@ -113,12 +112,11 @@
     }
     ctx.strokeStyle = "white";
     tileset.selectedTiles.forEach(loc => {
-      const [x1, y1] = tileset.tileToImgCoords(loc[0], loc[1]);
-      const [x2, y2] = tileset.tileToImgCoords(loc[0]+1, loc[1]+1);
-      drawRect(ctx, x1, y1, x2-x1, y2-y1);
+      const [x, y] = tileset.tileToImgCoords(loc[0], loc[1]);
+      drawRect(ctx, x, y, tileset.tilewidth, tileset.tileheight);
       if ((tool === Tool.Edit || tool === Tool.Erase || tool === Tool.Move) && tileset.type === "hex") {
         const r = tileset.radius();
-        drawHexagon(ctx, x1+0.5*tileset.tilewidth, y1+tileset.tileheight-r, r);
+        drawHexagon(ctx, x+0.5*tileset.tilewidth, y+tileset.tileheight-r, r);
       }
     });
   }
