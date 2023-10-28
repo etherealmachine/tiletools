@@ -1,5 +1,5 @@
 <script lang="ts">
-    import Icon from "./Icon.svelte";
+  import Icon from "./Icon.svelte";
   import Tileset from "./Tileset";
 
   let left: Tileset = new Tileset({});
@@ -29,9 +29,7 @@
       ctx.drawImage(right.img, 0, left.img.height+left.spacing);
     }
     const src = canvas.toDataURL();
-    if (!result.img) {
-      result.img = document.createElement('img');
-    }
+    result.img = document.createElement('img');
     Object.assign(result, Object.fromEntries(
       Object.entries(left).filter(([k, _]) => !['name', 'img'].includes(k))));
     result.img.src = src;
@@ -70,7 +68,7 @@
     </label>
     <img
       class="tileset-preview"  
-      src={left?.img?.src}
+      src={left?.img instanceof HTMLImageElement ? left?.img?.src : ''}
       alt="Left Tileset" />
   </div>
 
@@ -84,7 +82,7 @@
     </label>
     <img
       class="tileset-preview"  
-      src={right?.img?.src}
+      src={right?.img instanceof HTMLImageElement ? right?.img?.src : ''}
       alt="Right Tileset" />
   </div>
 
@@ -105,13 +103,13 @@
       <button on:click={() => merge(landscape)}>
         <Icon name="gitMerge" />
       </button>
-      <button disabled={!result.img || !result.img.src} on:click={onSave}>
+      <button disabled={!result.img} on:click={onSave}>
         <Icon name="saveFloppyDisk" />
       </button>
     </div>
     <img
       class="tileset-preview"  
-      src={result?.img?.src}
+      src={result?.img instanceof HTMLImageElement ? result?.img?.src : ''}
       alt="Merged Tileset" />
   </div>
 </div>

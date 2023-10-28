@@ -226,14 +226,12 @@
     const file = files[0];
     PNGWithMetadata.fromFile(file).then(png => {
       const tilesetPNG = PNGWithMetadata.fromDataURL(png.metadata.tileset);
-      tilesetPNG.dataURL().then(url => {
-        tileset = new Tileset(tilesetPNG.metadata);
-        tileset.img = document.createElement('img');
-        tileset.img.src = url;
-        layers = png.metadata.layers;
-        name = png.metadata.name;
-        pushStack(undoStack);
-      });
+      tileset = new Tileset(tilesetPNG.metadata);
+      tileset.img = document.createElement('img');
+      tileset.img.src = tilesetPNG.dataURL();
+      layers = png.metadata.layers;
+      name = png.metadata.name;
+      pushStack(undoStack);
     });
   }
 
