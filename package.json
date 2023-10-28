@@ -1,9 +1,9 @@
 {
-	"name": "weave-sveltekit",
+	"name": "weave",
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"dev": "vite dev",
+		"dev": "NODE_OPTIONS=\"--max-http-header-size=2000000\" vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

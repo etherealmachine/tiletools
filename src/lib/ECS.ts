@@ -30,6 +30,10 @@ export default class ECS {
   }
 
   get<T>(...components: string[]): T | undefined {
-    return this.entities.find(e => components.includes(e.component)) as (T | undefined);
+    const e = this.entities.find(e => components.includes(e.component));
+    if (e) {
+      return e.data;
+    }
+    return undefined;
   }
 }

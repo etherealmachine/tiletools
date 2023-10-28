@@ -12,8 +12,8 @@
 </script>
 
 <script lang="ts">
-    import { goto } from "$app/navigation";
-
+  import { goto } from "$app/navigation";
+  import { base } from "$app/paths";
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
@@ -280,7 +280,8 @@
       metadata.tileset = tilesetPNG.dataURL();
       metadata.name = name;
     }
-    goto(`/scene?map=${new PNGWithMetadata(name, metadata, canvas).dataURL()}`);
+    const url = new PNGWithMetadata(name, metadata, canvas).dataURL();
+    goto(`${base}/scene?map=${encodeURIComponent(url)}`);
   }
 
   function setLayerName(i: number) {

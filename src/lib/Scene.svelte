@@ -2,17 +2,26 @@
 </script>
 
 <script lang="ts">
+    import { onMount } from "svelte";
+
   import type { Camera, Tilemap } from "./ECS";
   import type ECS from "./ECS";
-    import { drawTile } from "./draw";
+  import { drawTile } from "./draw";
 
   export let ecs: ECS;
 
-  let canvas: HTMLCanvasElement;
+  let canvas: HTMLCanvasElement | undefined;
 
   function draw() {
+    if (!canvas) {
+      requestAnimationFrame(draw);
+      return;
+    }
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      requestAnimationFrame(draw);
+      return;
+    }
     const W = (canvas.parentElement?.scrollWidth || 0) - 4;
     const H = (canvas.parentElement?.scrollHeight || 0) - 4;
     canvas.width = W;
@@ -40,7 +49,12 @@
         });
       });
     }
+    requestAnimationFrame(draw);
   }
+
+  onMount(() => {
+    requestAnimationFrame(draw);
+  });
 </script>
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">
