@@ -1,5 +1,13 @@
 <script lang="ts" context="module">
   enum Tool { Select, Edit, Erase, Move };
+
+  interface TileImageData {
+    tileX: number
+    tileY: number
+    data: ImageData
+    dirty: boolean
+    img?: ImageBitmap
+  }
 </script>
 
 <script lang="ts">
@@ -8,7 +16,7 @@
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
-  import { drawHexagon, drawRect } from "./draw";
+  import { drawHexagon, drawRect, drawTile } from "./draw";
   import rotsprite from "./rotsprite";
 
   export let tileset: Tileset = new Tileset({});
@@ -17,34 +25,52 @@
   let canvas: HTMLCanvasElement | undefined;
   let zoom: number = 2;
   let mouseOver: boolean = false;
+  let mouseDown: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
   let mouseX: number | undefined, mouseY: number | undefined;
   let tagString: string = "";
   let tagInput: HTMLInputElement | undefined;
   let filter: string = "";
   let tool: Tool = Tool.Select;
-  let imgData: ImageData | undefined;
-  let dirty: boolean = false;
   let color: string = "#ffffff";
   let alpha: number = 255;
+  let tileBuffer: TileImageData | undefined;
   let palette: Set<string> = new Set<string>();
   let copyBuffer: ImageData | undefined;
-  let undoStack: ImageData[] = [];
-  let redoStack: ImageData[] = [];
+  let undoStack: TileImageData[] = [];
+  let redoStack: TileImageData[] = [];
   let degrees: number = 90;
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
   }
 
-  function updateBitmap(redraw: boolean = false) {
-    if (!imgData) return;
-    createImageBitmap(imgData).then(img => {
-      if (tileset.img instanceof ImageBitmap) {
-        tileset.img.close();
-      }
+  function worldToScreen(x: number, y: number): number[] {
+    return [x*zoom+offsetX, y*zoom+offsetY];
+  }
+
+  function tileBufferChanged(redraw: boolean = false) {
+    const buf = tileBuffer;
+    if (!buf) return;
+    if (buf.img && !buf.dirty) return;
+    createImageBitmap(buf.data).then(img => {
+      buf.img = img;
+      if (redraw) triggerRedraw();
+    });
+  }
+
+  function updateTilesetImage() {
+    if (!tileBuffer || !tileBuffer.dirty || !tileBuffer.img || !tileset.img) return;
+    const [x, y] = tileset.tileToImgCoords(tileBuffer.tileX, tileBuffer.tileY);
+    const tmp = document.createElement('canvas');
+    tmp.width = tileset.img.width;
+    tmp.height = tileset.img.height;
+    const ctx = tmp.getContext('2d');
+    if (!ctx) return undefined;
+    ctx.drawImage(tileset.img, 0, 0);
+    ctx.drawImage(tileBuffer.img, x, y);
+    createImageBitmap(ctx.getImageData(0, 0, tmp.width, tmp.height)).then(img => {
       tileset.img = img;
-      if (redraw) { triggerRedraw() };
     });
   }
 
@@ -66,25 +92,21 @@
       if (w > 0 && h > 0) {
         for (let tileX = 0; tileX < w; tileX++) {
           for (let tileY = 0; tileY < h; tileY++) {
+            const [x, y] = tileset.tileToImgCoords(tileX, tileY);
+            const [sx, sy] = worldToScreen(x, y);
+            if (sx < -tileset.tilewidth*zoom || sy < -tileset.tileheight*zoom || sx > W || sy > H) continue;
+            if (tileBuffer && tileBuffer.tileX === tileX && tileBuffer.tileY === tileY && tileBuffer.img) {
+              ctx.drawImage(tileBuffer.img, 0, 0, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
+              continue;
+            }
             if (filter === "" || tileset.getTileData(tileX, tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
-              const [x, y] = tileset.tileToImgCoords(tileX, tileY);
+              // Can't use drawTile because of margins and spacing
               ctx.drawImage(tileset.img, x, y, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
             }
           }
         }
       } else {
         ctx.drawImage(tileset.img, 0, 0);
-      }
-      if (!imgData) {
-        const tmp = document.createElement('canvas');
-        tmp.width = tileset.img.width;
-        tmp.height = tileset.img.height;
-        const context = tmp.getContext('2d');
-        if (!context) return;
-        context.resetTransform();
-        context.drawImage(tileset.img, 0, 0, tmp.width, tmp.height);
-        imgData = context.getImageData(0, 0, tmp.width, tmp.height);
-        updateBitmap();
       }
     } else {
       triggerRedraw();
@@ -133,51 +155,49 @@
     offsetY = -zoom*(e.offsetY-offsetY)/prevZoom + e.offsetY;
   }
 
-  function onClick(e: MouseEvent) {
-    if ((tool === Tool.Edit || tool === Tool.Erase) && mouseX !== undefined && mouseY !== undefined) {
-      updatePixel(Math.floor(mouseX), Math.floor(mouseY));
-    } else if (tool == Tool.Select) {
-      const [x, y] = screenToWorld(e.offsetX, e.offsetY);
-      if (!tileset.img) return;
-      if (x < 0 || x >= tileset.img.width || y < 0 || y >= tileset.img.height) {
-        return;
-      }
-      const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
-      // TODO: Multi-select with drag
-      if (e.shiftKey) {
-        tileset.addSelectedTile(tileX, tileY);
-      } else {
-        tileset.setSelectedTile(tileX, tileY);
-        if (tagInput) {
-          tagInput.focus();
-        }
-      }
-      tagString = Array.from(tileset.selectionTags().values()).join(',');
-      computePalette();
-      tileset = tileset;
+  function getTileBuffer(): TileImageData | undefined {
+    if (tileset.selectedTiles.length !== 1) return undefined;
+    const [tileX, tileY] = [tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]];
+    if (tileBuffer && tileBuffer.tileX === tileX && tileBuffer.tileY === tileY) {
+      return tileBuffer;
+    } else if (tileBuffer && tileBuffer.dirty) {
+      // TODO: Eliminate lag between tileBuffer being changed and the updated image being ready to draw
+      updateTilesetImage();
     }
+    const tmp = document.createElement('canvas');
+    tmp.width = tileset.tilewidth;
+    tmp.height = tileset.tileheight;
+    const ctx = tmp.getContext('2d');
+    if (!ctx) return undefined;
+    drawTile(ctx, 0, 0, tileset, tileX, tileY);
+    tileBuffer = {
+      tileX, tileY,
+      data: ctx.getImageData(0, 0, tmp.width, tmp.height),
+      dirty: false,
+    };
+    return tileBuffer;
   }
 
   function computePalette() {
+    const t = getTileBuffer();
+    if (!t) return;
     palette.clear();
-    tileset.selectedTiles.forEach(([x, y]) => {
-      const [x1, y1] = tileset.tileToImgCoords(x, y);
-      const [x2, y2] = tileset.tileToImgCoords(x+1, y+1);
-      if (imgData) {
-        for (let x = x1; x < x2; x++) {
-          for (let y = y1; y < y2; y++) {
-            const i = (y * imgData.width + x) * 4;
-            if (imgData.data[i+0] && imgData.data[i+1] && imgData.data[i+2] && imgData.data[i+3]) {
-              palette.add("#" + 
-                imgData.data[i+0].toString(16) +
-                imgData.data[i+1].toString(16) +
-                imgData.data[i+2].toString(16) +
-                imgData.data[i+3].toString(16));
-            }
-          }
+    for (let x = 0; x < t.data.width; x++) {
+      for (let y = 0; y < t.data.height; y++) {
+        const i = (y * t.data.width + x) * 4;
+        const r = t.data.data[i+0];
+        const g = t.data.data[i+1];
+        const b = t.data.data[i+2];
+        const a = t.data.data[i+3];
+        if (r || g || b || a) {
+          palette.add("#" + 
+            r.toString(16) +
+            g.toString(16) +
+            b.toString(16) +
+            a.toString(16));
         }
       }
-    });
+    }
     palette = palette;
   }
 
@@ -216,46 +236,78 @@
     if (!rgba) return;
     color = rgbaToHex(rgba);
     alpha = rgba[3];
-    tool = Tool.Edit;
+    setTool(Tool.Edit);
+  }
+
+  function onPointerDown(e: PointerEvent) {
+    [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
+    mouseDown = true;
+    if (e.buttons === 1 && (tool === Tool.Edit || tool === Tool.Erase)) {
+      const t = getTileBuffer();
+      if (!t) return;
+      pushStack(t, undoStack);
+      updatePixel(Math.floor(mouseX), Math.floor(mouseY));
+    } else if (tool == Tool.Select) {
+      const [x, y] = screenToWorld(e.offsetX, e.offsetY);
+      if (!tileset.img) return;
+      if (x < 0 || x >= tileset.img.width || y < 0 || y >= tileset.img.height) {
+        return;
+      }
+      const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
+      // TODO: Multi-select with drag
+      if (e.shiftKey) {
+        tileset.addSelectedTile(tileX, tileY);
+      } else {
+        tileset.setSelectedTile(tileX, tileY);
+        computePalette();
+        if (tagInput) {
+          tagInput.focus();
+        }
+      }
+      tagString = Array.from(tileset.selectionTags().values()).join(',');
+      tileset = tileset;
+    }
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (e.buttons === 1) {
-      onClick(e);
-    } else if (e.ctrlKey) {
+    if (e.ctrlKey) {
       offsetX += e.movementX;
       offsetY += e.movementY;
     }
     [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
 
-    if (e.buttons === 1 && (tool === Tool.Edit || tool === Tool.Erase)) {
+    if (mouseDown && (tool === Tool.Edit || tool === Tool.Erase)) {
       updatePixel(Math.floor(mouseX), Math.floor(mouseY));
-    } else {
-      dirty = false;
     }
   }
 
+  function onPointerUp(e: PointerEvent) {
+    mouseDown = false;
+  }
+
   function updatePixel(x: number, y: number) {
-    if (!imgData) return;
-    if (!dirty) {
-      pushStack(undoStack);
-      dirty = true;
-    }
+    const t = getTileBuffer();
+    if (!t) return;
+    const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
+    if (t.tileX !== tileX || t.tileY !== tileY) return;
     if (tileset.inSelection(x, y)) {
-      const i = (y * imgData.width + x) * 4;
+      x = x % tileset.offsetWidth();
+      y = y % tileset.offsetHeight();
+      const i = (y * t.data.width + x) * 4;
+      let [r, g, b, a] = [0, 0, 0, 0];
       if (tool === Tool.Edit) {
-        imgData.data[i+0] = parseInt(color.slice(1, 3), 16);
-        imgData.data[i+1] = parseInt(color.slice(3, 5), 16);
-        imgData.data[i+2] = parseInt(color.slice(5, 7), 16);
-        imgData.data[i+3] = Math.round(alpha);
-      } else {
-        imgData.data[i+0] = 0;
-        imgData.data[i+1] = 0;
-        imgData.data[i+2] = 0;
-        imgData.data[i+3] = 0;
+        r = parseInt(color.slice(1, 3), 16);
+        g = parseInt(color.slice(3, 5), 16);
+        b = parseInt(color.slice(5, 7), 16);
+        a = Math.round(alpha);
       }
+      t.data.data[i+0] = r;
+      t.data.data[i+1] = g;
+      t.data.data[i+2] = b;
+      t.data.data[i+3] = a;
+      t.dirty = true;
+      tileBufferChanged();
       computePalette();
-      updateBitmap();
     }
   }
 
@@ -287,23 +339,33 @@
     }
   }
 
+  function setTool(_tool: Tool) {
+    switch (_tool) {
+      case Tool.Edit:
+      case Tool.Erase:
+        computePalette();
+        break;
+    }
+    tool = _tool;
+  }
+
   function onKeyDown(e: KeyboardEvent) {
     if (!mouseOver) return;
     switch (true) {
       case e.key === "s":
-        tool = Tool.Select;
+        setTool(Tool.Select);
         e.preventDefault();
         break;
       case e.key === "e":
-        tool = Tool.Erase;
+        setTool(Tool.Erase);
         e.preventDefault();
         break;
       case e.key === "d":
-        tool = Tool.Edit;
+        setTool(Tool.Edit);
         e.preventDefault();
         break;
       case e.key === "m":
-        tool = Tool.Move;
+        setTool(Tool.Move);
         e.preventDefault();
         break;
       case e.key === "z" && e.ctrlKey:
@@ -342,21 +404,25 @@
         break;
       case e.key === "i" && tileset.selectedTiles.length === 1:
         tileset.setSelectedTile(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]-1);
+        computePalette();
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "k" && tileset.selectedTiles.length === 1:
         tileset.setSelectedTile(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]+1);
+        computePalette();
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "j" && tileset.selectedTiles.length === 1:
         tileset.setSelectedTile(tileset.selectedTiles[0][0]-1, tileset.selectedTiles[0][1]);
+        computePalette();
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "l" && tileset.selectedTiles.length === 1:
         tileset.setSelectedTile(tileset.selectedTiles[0][0]+1, tileset.selectedTiles[0][1]);
+        computePalette();
         tileset = tileset;
         e.preventDefault();
         break;
@@ -408,82 +474,97 @@
         }
         e.preventDefault();
         break;
+      case e.key === "Escape":
+        tileset.clearSelectedTiles();
+        tileBuffer = undefined;
+        e.preventDefault();
+        break;
     }
   }
 
-  function pushStack(stack: ImageData[], clearRedo: boolean = true) {
-    if (!imgData) return;
-    const copy = new ImageData(imgData.width, imgData.height);
-    for (let i = 0; i < imgData.width*imgData.height*4; i++) {
-      copy.data[i] = imgData.data[i];
+  function pushStack(buf: TileImageData, stack: TileImageData[], clearRedo: boolean = true) {
+    const copy = new ImageData(buf.data.width, buf.data.height);
+    for (let i = 0; i < copy.width*copy.height*4; i++) {
+      copy.data[i] = buf.data.data[i];
     }
-    stack.push(copy);
+    stack.push({
+      tileX: buf.tileX,
+      tileY: buf.tileY,
+      data: copy,
+      dirty: buf.dirty,
+    });
     if (clearRedo) {
       redoStack = [];
     }
-    undoStack = undoStack;
-    redoStack = redoStack;
+    undoStack = undoStack.slice(0, Math.min(undoStack.length, 10));
+    redoStack = redoStack.slice(0, Math.min(redoStack.length, 10));
   }
 
   function undo() {
-    if (!imgData) return;
+    // TODO: Undo doesn't work on tileBuffers from different tiles are touched
+    const t = getTileBuffer();
+    if (!t) return;
     const last = undoStack.pop();
     if (!last) return;
-    pushStack(redoStack, false);
-    imgData = last;
-    updateBitmap(true);
+    pushStack(t, redoStack, false);
+    tileBuffer = last;
+    tileBufferChanged(true);
   }
 
   function redo() {
-    if (!imgData) return;
+    // TODO: Redo doesn't work on tileBuffers from different tiles are touched
+    const t = getTileBuffer();
+    if (!t) return;
     const last = redoStack.pop();
     if (!last) return;
-    pushStack(undoStack, false);
-    imgData = last;
-    updateBitmap(true);
+    pushStack(t, undoStack, false);
+    tileBuffer = last;
+    tileBufferChanged(true);
   }
 
   function copy() {
-    if (imgData && tileset.selectedTiles.length === 1) {
-      const [x1, y1] = tileset.tileToImgCoords(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]);
-      copyBuffer = new ImageData(tileset.tilewidth, tileset.tileheight);
-      for (let x = 0; x < tileset.tilewidth; x++) {
-        for (let y = 0; y < tileset.tileheight; y++) {
-          const i = ((y1+y) * imgData.width + (x1+x)) * 4;
-          const j = (y * copyBuffer.width + x) * 4;
-          copyBuffer.data[j+0] = imgData.data[i+0];
-          copyBuffer.data[j+1] = imgData.data[i+1];
-          copyBuffer.data[j+2] = imgData.data[i+2];
-          copyBuffer.data[j+3] = imgData.data[i+3];
-        }
+    const t = getTileBuffer();
+    if (!t) return;
+    copyBuffer = new ImageData(t.data.width, t.data.height);
+    for (let x = 0; x < copyBuffer.width; x++) {
+      for (let y = 0; y < copyBuffer.height; y++) {
+        const i = (y * copyBuffer.width + x) * 4;
+        copyBuffer.data[i+0] = t.data.data[i+0];
+        copyBuffer.data[i+1] = t.data.data[i+1];
+        copyBuffer.data[i+2] = t.data.data[i+2];
+        copyBuffer.data[i+3] = t.data.data[i+3];
       }
     }
   }
 
   function paste(overwrite: boolean = true) {
     // TODO: What about expanding the width/height of the tileset?
-    if (copyBuffer && imgData && tileset.selectedTiles.length === 1) {
-      pushStack(undoStack);
-      const [x1, y1] = tileset.tileToImgCoords(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]);
-      for (let x = 0; x < tileset.tilewidth; x++) {
-        for (let y = 0; y < tileset.tileheight; y++) {
-          const i = ((y1+y) * imgData.width + (x1+x)) * 4;
-          const j = (y * copyBuffer.width + x) * 4;
-          if (overwrite) {
-            imgData.data[i+0] = copyBuffer.data[j+0];
-            imgData.data[i+1] = copyBuffer.data[j+1];
-            imgData.data[i+2] = copyBuffer.data[j+2];
-            imgData.data[i+3] = copyBuffer.data[j+3];
-          } else {
-            imgData.data[i+0] ||= copyBuffer.data[j+0];
-            imgData.data[i+1] ||= copyBuffer.data[j+1];
-            imgData.data[i+2] ||= copyBuffer.data[j+2];
-            imgData.data[i+3] ||= copyBuffer.data[j+3];
-          }
+    const t = getTileBuffer();
+    if (!t) return;
+    if (!copyBuffer) return;
+    pushStack(t, undoStack);
+    for (let x = 0; x < copyBuffer.width; x++) {
+      for (let y = 0; y < copyBuffer.height; y++) {
+        const i = (y * copyBuffer.width + x) * 4;
+        const r = copyBuffer.data[i+0];
+        const g = copyBuffer.data[i+1];
+        const b = copyBuffer.data[i+2];
+        const a = copyBuffer.data[i+3];
+        if (overwrite) {
+          t.data.data[i+0] = r;
+          t.data.data[i+1] = g;
+          t.data.data[i+2] = b;
+          t.data.data[i+3] = a;
+        } else {
+          t.data.data[i+0] ||= r;
+          t.data.data[i+1] ||= g;
+          t.data.data[i+2] ||= b;
+          t.data.data[i+3] ||= a;
         }
       }
-      updateBitmap(true);
     }
+    t.dirty = true;
+    tileBufferChanged(true);
   }
 
   function flip(axis: string) {
@@ -627,16 +708,16 @@
       </select>
     </div>
     <div style="margin-left: auto; display: flex; gap: 8px;">
-      <button on:click={() => { tool = Tool.Select }} class:active={tool === Tool.Select}>
+      <button on:click={() => setTool(Tool.Select)} class:active={tool === Tool.Select}>
         <Icon name="openSelectHandGesture" />
       </button>
-      <button on:click={() => { tool = Tool.Edit }} class:active={tool === Tool.Edit}>
+      <button on:click={() => setTool(Tool.Edit)} class:active={tool === Tool.Edit}>
         <Icon name="editPencil" />
       </button>
-      <button on:click={() => { tool = Tool.Erase }} class:active={tool === Tool.Erase}>
+      <button on:click={() => setTool(Tool.Erase)} class:active={tool === Tool.Erase}>
         <Icon name="erase" />
       </button>
-      <button on:click={() => { tool = Tool.Move}} class:active={tool === Tool.Move}>
+      <button on:click={() => setTool(Tool.Move)} class:active={tool === Tool.Move}>
         <Icon name="drag" />
       </button>
       <button on:click={() => flip('x')} disabled={tileset.selectedTiles.length !== 1}>
@@ -686,7 +767,8 @@
       style="position: absolute;"
       bind:this={canvas}
       on:wheel={onWheel}
-      on:click={onClick}
+      on:pointerup={onPointerUp}
+      on:pointerdown={onPointerDown}
       on:pointermove={onPointerMove}
       on:pointerenter={() => { if (canvas) canvas.focus(); mouseOver = true; }}
       on:pointerleave={() => { mouseOver = false; }}

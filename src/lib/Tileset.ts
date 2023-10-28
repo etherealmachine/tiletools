@@ -111,6 +111,10 @@ export default class Tileset {
     return this.tileheight + this.spacing;
   }
 
+  clearSelectedTiles() {
+    this.selectedTiles = [];
+  }
+
   setSelectedTile(x: number, y: number) {
     this.selectedTiles = [[x, y]]
   }
