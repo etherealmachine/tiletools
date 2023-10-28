@@ -121,22 +121,7 @@
     }
   }
 
-  function onPointerDown(e: PointerEvent) {
-    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
-    [dragX, dragY] = [mouseX, mouseY];
-  }
-
-  function onPointerUp(e: PointerEvent) {
-    [dragX, dragY] = [undefined, undefined];
-  }
-
-  function onPointerCancel() {
-    [dragX, dragY] = [undefined, undefined];
-  }
-
-  function onPointerMove(e: PointerEvent) {
-    if (!tileset || !tileset.img) return;
-    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
+  function onClick(e: PointerEvent) {
     if (e.buttons === 1) {
       // TODO: Shift drag to fill area
       if (!dirty) {
@@ -146,7 +131,7 @@
       const loc = `${mouseX},${mouseY}`;
       if (e.ctrlKey || erase) {
         delete layers[selectedLayerIndex].tiles[loc];
-      } else {
+      } else if (tileset) {
         const randTile = tileset.randSelectedTile();
         if (randTile) {
           layers[selectedLayerIndex].tiles[loc] = {
@@ -162,6 +147,26 @@
         offsetY += e.movementY;
       }
     }
+  }
+
+  function onPointerDown(e: PointerEvent) {
+    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
+    [dragX, dragY] = [mouseX, mouseY];
+    onClick(e);
+  }
+
+  function onPointerUp(e: PointerEvent) {
+    [dragX, dragY] = [undefined, undefined];
+  }
+
+  function onPointerCancel() {
+    [dragX, dragY] = [undefined, undefined];
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    if (!tileset || !tileset.img) return;
+    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
+    onClick(e);
   }
 
   function onWheel(e: WheelEvent) {

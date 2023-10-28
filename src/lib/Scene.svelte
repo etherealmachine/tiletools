@@ -2,8 +2,7 @@
 </script>
 
 <script lang="ts">
-    import { onMount } from "svelte";
-
+  import { onMount } from "svelte";
   import type { Camera, Tilemap } from "./ECS";
   import type ECS from "./ECS";
   import { drawTile } from "./draw";
@@ -52,6 +51,24 @@
     requestAnimationFrame(draw);
   }
 
+  function onPointerDown(e: PointerEvent) {
+  }
+
+  function onPointerUp(e: PointerEvent) {
+  }
+
+  function onPointerCancel(e: PointerEvent) {
+  }
+
+  function onPointerMove(e: PointerEvent) {
+  }
+
+  function onWheel(e: WheelEvent) {
+  }
+
+  function onKeyDown(e: KeyboardEvent) {
+  }
+
   onMount(() => {
     requestAnimationFrame(draw);
   });
@@ -62,6 +79,12 @@
     <canvas
       style="position: absolute;"
       tabindex="1"
+      on:wheel={onWheel}
+      on:pointerdown={onPointerDown}
+      on:pointerup={onPointerUp}
+      on:pointercancel={onPointerCancel}
+      on:pointermove={onPointerMove}
+      on:keydown={onKeyDown}
       bind:this={canvas}
     />
   </div>
