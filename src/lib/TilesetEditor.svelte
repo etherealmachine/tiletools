@@ -12,12 +12,16 @@
 
 <script lang="ts">
   import { browser } from "$app/environment";
+  import { goto } from "$app/navigation";
+  import { base } from "$app/paths";
+    import { onMount } from "svelte";
 
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
   import { drawHexagon, drawRect, drawTile } from "./draw";
   import rotsprite from "./rotsprite";
+    import { page } from "$app/stores";
 
   export let tileset: Tileset = new Tileset({});
   export let maxWidth: string | undefined = undefined;
@@ -41,6 +45,16 @@
   let redoStack: TileImageData[] = [];
   let degrees: number = 90;
 
+  onMount(() => {
+    requestAnimationFrame(() => {
+      const _tileset = $page.url.searchParams.get('tileset');
+      if (_tileset) {
+        const png = PNGWithMetadata.fromDataURL(decodeURIComponent(_tileset));
+        tileset = Tileset.fromPNGWithMetadata(png);
+      }
+    });
+  });
+
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
   }
@@ -49,13 +63,13 @@
     return [x*zoom+offsetX, y*zoom+offsetY];
   }
 
-  function tileBufferChanged(redraw: boolean = false) {
+  function tileBufferChanged() {
     const buf = tileBuffer;
     if (!buf) return;
     if (buf.img && !buf.dirty) return;
     createImageBitmap(buf.data).then(img => {
       buf.img = img;
-      if (redraw) triggerRedraw();
+      triggerRedraw();
     });
   }
 
@@ -68,9 +82,14 @@
     const ctx = tmp.getContext('2d');
     if (!ctx) return undefined;
     ctx.drawImage(tileset.img, 0, 0);
+    ctx.clearRect(x, y, tileset.tilewidth, tileset.tileheight);
     ctx.drawImage(tileBuffer.img, x, y);
     createImageBitmap(ctx.getImageData(0, 0, tmp.width, tmp.height)).then(img => {
       tileset.img = img;
+      triggerRedraw();
+      const url = tileset.dataURL();
+      // TODO: Remove path and just set url param
+      goto(`${base}/tileset-editor?tileset=${encodeURIComponent(url)}`);
     });
   }
 
@@ -176,6 +195,12 @@
       dirty: false,
     };
     return tileBuffer;
+  }
+
+  function setTileBuffer(buf: TileImageData | undefined) {
+    tileBuffer = buf;
+    tileBufferChanged();
+    updateTilesetImage();
   }
 
   function computePalette() {
@@ -385,7 +410,7 @@
         e.preventDefault();
         break;
       case e.key === "v" && e.ctrlKey:
-        paste();
+        paste(false);
         e.preventDefault();
         break;
       case (e.key === "Backspace" || e.key === "Delete") && tileset.selectedTiles.length === 1:
@@ -476,7 +501,7 @@
         break;
       case e.key === "Escape":
         tileset.clearSelectedTiles();
-        tileBuffer = undefined;
+        setTileBuffer(undefined);
         e.preventDefault();
         break;
     }
@@ -507,8 +532,7 @@
     const last = undoStack.pop();
     if (!last) return;
     pushStack(t, redoStack, false);
-    tileBuffer = last;
-    tileBufferChanged(true);
+    setTileBuffer(last);
   }
 
   function redo() {
@@ -518,8 +542,7 @@
     const last = redoStack.pop();
     if (!last) return;
     pushStack(t, undoStack, false);
-    tileBuffer = last;
-    tileBufferChanged(true);
+    setTileBuffer(last);
   }
 
   function copy() {
@@ -564,7 +587,7 @@
       }
     }
     t.dirty = true;
-    tileBufferChanged(true);
+    setTileBuffer(t);
   }
 
   function flip(axis: string) {
@@ -619,9 +642,7 @@
   }
 
   function clear() {
-    copy();
-    if (!copyBuffer) return;
-    copyBuffer = new ImageData(copyBuffer.width, copyBuffer.height);
+    copyBuffer = new ImageData(tileset.tilewidth, tileset.tileheight);
     paste();
     copyBuffer = undefined;
   }

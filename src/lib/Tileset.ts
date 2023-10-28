@@ -208,22 +208,32 @@ export default class Tileset {
   }
 
   download() {
-    if (!this.img) return;
-    const png = new PNGWithMetadata(this.name, this.metadata(), this.img);
-    png.download();
+    this.png().download();
+  }
+
+  dataURL(): string {
+    return this.png().dataURL();
+  }
+
+  png(): PNGWithMetadata {
+    return new PNGWithMetadata(this.name, this.metadata(), this.img || "");
+  }
+
+  static fromPNGWithMetadata(png: PNGWithMetadata, into?: Tileset): Tileset {
+    const url = png.dataURL();
+    if (!into) {
+      into = new Tileset({});
+    }
+    into.img = document.createElement('img');
+    into.img.src = url;
+    Object.assign(into, png.metadata);
+    return into;
   }
 
   static loadFromFile(file: File, into?: Tileset): Promise<Tileset> {
     return new Promise((resolve, reject) => {
       PNGWithMetadata.fromFile(file).then(png => {
-        const url = png.dataURL();
-        if (!into) {
-          into = new Tileset({});
-        }
-        into.img = document.createElement('img');
-        into.img.src = url;
-        Object.assign(into, png.metadata);
-        resolve(into);
+        resolve(this.fromPNGWithMetadata(png, into));
       });
     });
   }

@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { page } from '$app/stores';
+  import { onMount } from "svelte";
+
   import { PNGWithMetadata } from "$lib/PNGWithMetadata";
   import Scene from "$lib/Scene.svelte";
-  import { page } from '$app/stores';
   import Tileset from "$lib/Tileset";
   import ECS, { type Tilemap } from "$lib/ECS";
-    import { onMount } from "svelte";
 
   const ecs = new ECS();
   onMount(() => {
