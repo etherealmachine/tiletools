@@ -1,13 +1,5 @@
 <script lang="ts" context="module">
   enum Tool { Select, Edit, Erase, Move };
-
-  interface TileImageData {
-    tileX: number
-    tileY: number
-    data: ImageData
-    dirty: boolean
-    img?: ImageBitmap
-  }
 </script>
 
 <script lang="ts">
@@ -35,14 +27,6 @@
   let tool: Tool = Tool.Select;
   let color: string = "#ffffff";
   let alpha: number = 255;
-  // TODO: Move tileBuffer into Tileset and make available to map editor
-  // Maybe a re-think - what about splitting Tileset into tiles, each with an
-  // editable bitmap?
-  let tileBuffer: TileImageData | undefined;
-  let palette: Set<string> = new Set<string>();
-  let copyBuffer: ImageData | undefined;
-  let undoStack: TileImageData[] = [];
-  let redoStack: TileImageData[] = [];
   let degrees: number = 90;
 
   function screenToWorld(x: number, y: number): number[] {
@@ -51,33 +35,6 @@
 
   function worldToScreen(x: number, y: number): number[] {
     return [x*zoom+offsetX, y*zoom+offsetY];
-  }
-
-  function tileBufferChanged() {
-    const buf = tileBuffer;
-    if (!buf) return;
-    if (buf.img && !buf.dirty) return;
-    createImageBitmap(buf.data).then(img => {
-      buf.img = img;
-      triggerRedraw();
-    });
-  }
-
-  function updateTilesetImage() {
-    if (!tileBuffer || !tileBuffer.dirty || !tileBuffer.img || !tileset.img) return;
-    const [x, y] = tileset.tileToImgCoords(tileBuffer.tileX, tileBuffer.tileY);
-    const tmp = document.createElement('canvas');
-    tmp.width = tileset.img.width;
-    tmp.height = tileset.img.height;
-    const ctx = tmp.getContext('2d');
-    if (!ctx) return undefined;
-    ctx.drawImage(tileset.img, 0, 0);
-    ctx.clearRect(x, y, tileset.tilewidth, tileset.tileheight);
-    ctx.drawImage(tileBuffer.img, x, y);
-    createImageBitmap(ctx.getImageData(0, 0, tmp.width, tmp.height)).then(img => {
-      tileset.img = img;
-      triggerRedraw();
-    });
   }
 
   function draw() {
@@ -101,12 +58,7 @@
             const [x, y] = tileset.tileToImgCoords(tileX, tileY);
             const [sx, sy] = worldToScreen(x, y);
             if (sx < -tileset.tilewidth*zoom || sy < -tileset.tileheight*zoom || sx > W || sy > H) continue;
-            if (tileBuffer && tileBuffer.tileX === tileX && tileBuffer.tileY === tileY && tileBuffer.img) {
-              ctx.drawImage(tileBuffer.img, 0, 0, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
-              continue;
-            }
             if (filter === "" || tileset.getTileData(tileX, tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
-              // Can't use drawTile because of margins and spacing
               ctx.drawImage(tileset.img, x, y, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
             }
           }
@@ -161,62 +113,6 @@
     offsetY = -zoom*(e.offsetY-offsetY)/prevZoom + e.offsetY;
   }
 
-  function getTileBuffer(): TileImageData | undefined {
-    if (tileset.selectedTiles.length !== 1) return undefined;
-    const [tileX, tileY] = [tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]];
-    if (tileBuffer && tileBuffer.tileX === tileX && tileBuffer.tileY === tileY) {
-      return tileBuffer;
-    } else if (tileBuffer && tileBuffer.dirty) {
-      // TODO: Eliminate lag between tileBuffer being changed and the updated image being ready to draw
-      updateTilesetImage();
-    }
-    tileBuffer = makeTileBuffer(tileX, tileY);
-    return tileBuffer;
-  }
-  
-  function makeTileBuffer(tileX: number, tileY: number): TileImageData | undefined {
-    const tmp = document.createElement('canvas');
-    tmp.width = tileset.tilewidth;
-    tmp.height = tileset.tileheight;
-    const ctx = tmp.getContext('2d');
-    if (!ctx) return undefined;
-    drawTile(ctx, 0, 0, tileset, tileX, tileY);
-    return {
-      tileX, tileY,
-      data: ctx.getImageData(0, 0, tmp.width, tmp.height),
-      dirty: false,
-    };
-  }
-
-  function setTileBuffer(buf: TileImageData | undefined) {
-    tileBuffer = buf;
-    tileBufferChanged();
-    updateTilesetImage();
-  }
-
-  function computePalette() {
-    const t = getTileBuffer();
-    if (!t) return;
-    palette.clear();
-    for (let x = 0; x < t.data.width; x++) {
-      for (let y = 0; y < t.data.height; y++) {
-        const i = (y * t.data.width + x) * 4;
-        const r = t.data.data[i+0];
-        const g = t.data.data[i+1];
-        const b = t.data.data[i+2];
-        const a = t.data.data[i+3];
-        if (r || g || b || a) {
-          palette.add("#" + 
-            r.toString(16) +
-            g.toString(16) +
-            b.toString(16) +
-            a.toString(16));
-        }
-      }
-    }
-    palette = palette;
-  }
-
   function parseColor(color: string): number[] | undefined {
     if (color.startsWith("#")) {
       const match = color.match(/^#(\w{2})(\w{2})(\w{2})(\w{2})?$/);
@@ -259,11 +155,15 @@
     [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
     [dragX, dragY] = [mouseX, mouseY];
     mouseDown = true;
-    if (e.buttons === 1 && (tool === Tool.Edit || tool === Tool.Erase)) {
-      const t = getTileBuffer();
-      if (!t) return;
-      pushStack(t, undoStack);
-      updatePixel(Math.floor(mouseX), Math.floor(mouseY));
+    if (tool === Tool.Edit) {
+      tileset.setPixel(
+        Math.floor(mouseX), Math.floor(mouseY),
+        parseInt(color.slice(1, 3), 16),
+        parseInt(color.slice(3, 5), 16),
+        parseInt(color.slice(5, 7), 16),
+        Math.round(alpha));
+    } else if (tool === Tool.Erase) {
+      tileset.setPixel(Math.floor(mouseX), Math.floor(mouseY), 0, 0, 0, 0);
     } else if (tool == Tool.Select) {
       const [x, y] = screenToWorld(e.offsetX, e.offsetY);
       if (!tileset.img) return;
@@ -275,7 +175,6 @@
         tileset.toggleSelectedTile(tileX, tileY);
       } else {
         tileset.setSelectedTile(tileX, tileY);
-        computePalette();
         if (tagInput) {
           tagInput.focus();
         }
@@ -293,8 +192,15 @@
     [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
 
     if (mouseDown) {
-      if (tool === Tool.Edit || tool === Tool.Erase) {
-        updatePixel(Math.floor(mouseX), Math.floor(mouseY));
+      if (tool === Tool.Edit) {
+        tileset.setPixel(
+          Math.floor(mouseX), Math.floor(mouseY),
+          parseInt(color.slice(1, 3), 16),
+          parseInt(color.slice(3, 5), 16),
+          parseInt(color.slice(5, 7), 16),
+          Math.round(alpha));
+      } else if (tool === Tool.Erase) {
+        tileset.setPixel(Math.floor(mouseX), Math.floor(mouseY), 0, 0, 0, 0);
       } else if (tool == Tool.Select && dragX !== undefined && dragY !== undefined) {
         tileset.clearSelectedTiles();
         let [x1, y1] = tileset.imgCoordsToTile(dragX, dragY);
@@ -323,32 +229,6 @@
     [dragX, dragY] = [undefined, undefined];
   }
 
-  function updatePixel(x: number, y: number) {
-    const t = getTileBuffer();
-    if (!t) return;
-    const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
-    if (t.tileX !== tileX || t.tileY !== tileY) return;
-    if (tileset.inSelection(x, y)) {
-      x = x % tileset.offsetWidth();
-      y = y % tileset.offsetHeight();
-      const i = (y * t.data.width + x) * 4;
-      let [r, g, b, a] = [0, 0, 0, 0];
-      if (tool === Tool.Edit) {
-        r = parseInt(color.slice(1, 3), 16);
-        g = parseInt(color.slice(3, 5), 16);
-        b = parseInt(color.slice(5, 7), 16);
-        a = Math.round(alpha);
-      }
-      t.data.data[i+0] = r;
-      t.data.data[i+1] = g;
-      t.data.data[i+2] = b;
-      t.data.data[i+3] = a;
-      t.dirty = true;
-      tileBufferChanged();
-      computePalette();
-    }
-  }
-
   function onLoad(e: Event) {
     if (e.target === null) return;
     const files = (e.target as HTMLInputElement).files;
@@ -367,23 +247,9 @@
     const tags = new Set((e.target as HTMLInputElement).value.split(','));
     tileset.setSelectionTags(tags);
     tagString = Array.from(tileset.selectionTags().values()).join(',');
-  }
-
-  // TODO: Make save different from download, roll in to reload persistance
-  function save() {
-    if (tileset.img) {
-      const png = new PNGWithMetadata(tileset.name, tileset.metadata(), tileset.img);
-      png.download();
-    }
-  }
+  } 
 
   function setTool(_tool: Tool) {
-    switch (_tool) {
-      case Tool.Edit:
-      case Tool.Erase:
-        computePalette();
-        break;
-    }
     tool = _tool;
   }
 
@@ -407,27 +273,27 @@
         e.preventDefault();
         break;
       case e.key === "z" && e.ctrlKey:
-        undo();
+        tileset.undo();
         e.preventDefault();
         break;
       case e.key === "y" && e.ctrlKey:
-        redo();
+        tileset.redo();
         e.preventDefault();
         break;
       case e.key === "s" && e.ctrlKey:
-        save();
+        tileset.download();
         e.preventDefault();
         break;
       case e.key === "c" && e.ctrlKey:
-        copy();
+        tileset.copy();
         e.preventDefault();
         break;
       case e.key === "v" && e.ctrlKey:
-        paste(false);
+        tileset.paste();
         e.preventDefault();
         break;
       case (e.key === "Backspace" || e.key === "Delete") && tileset.selectedTiles.length === 1:
-        clear();
+        tileset.clear();
         e.preventDefault();
         break;
       case e.key === "z" && tileset.selectedTiles.length === 1:
@@ -442,42 +308,38 @@
         break;
       case e.key === "i" && tileset.selectedTiles.length === 1:
         tileset.setSelectedTile(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]-1);
-        computePalette();
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "k" && tileset.selectedTiles.length === 1:
         tileset.setSelectedTile(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]+1);
-        computePalette();
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "j" && tileset.selectedTiles.length === 1:
         tileset.setSelectedTile(tileset.selectedTiles[0][0]-1, tileset.selectedTiles[0][1]);
-        computePalette();
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "l" && tileset.selectedTiles.length === 1:
         tileset.setSelectedTile(tileset.selectedTiles[0][0]+1, tileset.selectedTiles[0][1]);
-        computePalette();
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "ArrowLeft" && tool === Tool.Move:
-        move(-1, 0);
+        tileset.move(-1, 0);
         e.preventDefault();
         break;
       case e.key === "ArrowRight" && tool === Tool.Move:
-        move(1, 0);
+        tileset.move(1, 0);
         e.preventDefault();
         break;
       case e.key === "ArrowUp" && tool === Tool.Move:
-        move(0, -1);
+        tileset.move(0, -1);
         e.preventDefault();
         break;
       case e.key === "ArrowDown" && tool === Tool.Move:
-        move(0, 1);
+        tileset.move(0, 1);
         e.preventDefault();
         break;
       case e.key === "ArrowLeft":
@@ -514,179 +376,9 @@
         break;
       case e.key === "Escape":
         tileset.clearSelectedTiles();
-        setTileBuffer(undefined);
         e.preventDefault();
         break;
     }
-  }
-
-  function pushStack(buf: TileImageData, stack: TileImageData[], clearRedo: boolean = true) {
-    const copy = new ImageData(buf.data.width, buf.data.height);
-    for (let i = 0; i < copy.width*copy.height*4; i++) {
-      copy.data[i] = buf.data.data[i];
-    }
-    stack.push({
-      tileX: buf.tileX,
-      tileY: buf.tileY,
-      data: copy,
-      dirty: buf.dirty,
-    });
-    if (clearRedo) {
-      redoStack = [];
-    }
-    undoStack = undoStack.slice(0, Math.min(undoStack.length, 10));
-    redoStack = redoStack.slice(0, Math.min(redoStack.length, 10));
-  }
-
-  function undo() {
-    // TODO: Undo doesn't work on tileBuffers from different tiles are touched
-    const t = getTileBuffer();
-    if (!t) return;
-    const last = undoStack.pop();
-    if (!last) return;
-    pushStack(t, redoStack, false);
-    setTileBuffer(last);
-  }
-
-  function redo() {
-    // TODO: Redo doesn't work on tileBuffers from different tiles are touched
-    const t = getTileBuffer();
-    if (!t) return;
-    const last = redoStack.pop();
-    if (!last) return;
-    pushStack(t, undoStack, false);
-    setTileBuffer(last);
-  }
-
-  function copy() {
-    const t = getTileBuffer();
-    if (!t) return;
-    copyBuffer = new ImageData(t.data.width, t.data.height);
-    for (let x = 0; x < copyBuffer.width; x++) {
-      for (let y = 0; y < copyBuffer.height; y++) {
-        const i = (y * copyBuffer.width + x) * 4;
-        copyBuffer.data[i+0] = t.data.data[i+0];
-        copyBuffer.data[i+1] = t.data.data[i+1];
-        copyBuffer.data[i+2] = t.data.data[i+2];
-        copyBuffer.data[i+3] = t.data.data[i+3];
-      }
-    }
-  }
-
-  function paste(overwrite: boolean = true) {
-    // TODO: What about expanding the width/height of the tileset?
-    const t = getTileBuffer();
-    if (!t) return;
-    if (!copyBuffer) return;
-    pushStack(t, undoStack);
-    for (let x = 0; x < copyBuffer.width; x++) {
-      for (let y = 0; y < copyBuffer.height; y++) {
-        const i = (y * copyBuffer.width + x) * 4;
-        const r = copyBuffer.data[i+0];
-        const g = copyBuffer.data[i+1];
-        const b = copyBuffer.data[i+2];
-        const a = copyBuffer.data[i+3];
-        if (overwrite) {
-          t.data.data[i+0] = r;
-          t.data.data[i+1] = g;
-          t.data.data[i+2] = b;
-          t.data.data[i+3] = a;
-        } else {
-          t.data.data[i+0] ||= r;
-          t.data.data[i+1] ||= g;
-          t.data.data[i+2] ||= b;
-          t.data.data[i+3] ||= a;
-        }
-      }
-    }
-    t.dirty = true;
-    setTileBuffer(t);
-  }
-
-  function flip(axis: string) {
-    copy();
-    if (!copyBuffer) return;
-    const flip = new ImageData(copyBuffer.width, copyBuffer.height);
-    for (let x = 0; x < flip.width; x++) {
-      for (let y = 0; y < flip.height; y++) {
-        const i = (y * flip.width + x) * 4;
-        let j: number;
-        if (axis === 'x') {
-          j = (y * flip.width + (flip.width-x)) * 4;
-        } else {
-          j = ((flip.height-y) * flip.width + x) * 4;
-        }
-        flip.data[i+0] = copyBuffer.data[j+0];
-        flip.data[i+1] = copyBuffer.data[j+1];
-        flip.data[i+2] = copyBuffer.data[j+2];
-        flip.data[i+3] = copyBuffer.data[j+3];
-      }
-    }
-    copyBuffer = flip;
-    paste();
-    copyBuffer = undefined;
-  }
-
-  function rotate() {
-    copy();
-    if (!copyBuffer) return;
-    copyBuffer = rotsprite(copyBuffer, degrees);
-    paste();
-    copyBuffer = undefined;
-  }
-
-  async function move(ox: number, oy: number) {
-    if (tileset.selectedTiles.length === 1) {
-      copy();
-      if (!copyBuffer) return;
-      const dest = new ImageData(copyBuffer.width, copyBuffer.height);
-      for (let x = 0; x < dest.width; x++) {
-        for (let y = 0; y < dest.height; y++) {
-          const i = (y * dest.width + x) * 4;
-          const j = ((y-oy) * dest.width + (x-ox)) * 4;
-          dest.data[i+0] = copyBuffer.data[j+0];
-          dest.data[i+1] = copyBuffer.data[j+1];
-          dest.data[i+2] = copyBuffer.data[j+2];
-          dest.data[i+3] = copyBuffer.data[j+3];
-        }
-      }
-      copyBuffer = dest;
-      paste();
-      copyBuffer = undefined;
-    } else if (tileset.img) {
-      // TODO: Undo whole selection move
-      const bufs = tileset.selectedTiles.map(([tileX, tileY]) => makeTileBuffer(tileX, tileY));
-      const tmp = document.createElement('canvas');
-      tmp.width = tileset.img.width;
-      tmp.height = tileset.img.height;
-      const ctx = tmp.getContext('2d');
-      if (!ctx) return undefined;
-      ctx.drawImage(tileset.img, 0, 0);
-      for (let i = 0; i < bufs.length; i++) {
-        const buf = bufs[i];
-        if (!buf) continue;
-        const [x1, y1] = tileset.tileToImgCoords(buf.tileX, buf.tileY);
-        ctx.clearRect(x1, y1, tileset.tilewidth, tileset.tileheight);
-        const [x2, y2] = tileset.tileToImgCoords(buf.tileX+ox, buf.tileY+oy);
-        ctx.clearRect(x2, y2, tileset.tilewidth, tileset.tileheight);
-      }
-      for (let i = 0; i < bufs.length; i++) {
-        const buf = bufs[i];
-        if (!buf) continue;
-        const [x, y] = tileset.tileToImgCoords(buf.tileX+ox, buf.tileY+oy);
-        const tileImg = await createImageBitmap(buf.data);
-        ctx.drawImage(tileImg, x, y);
-        // TODO: Update selection with moved tile
-      }
-      tileset.img = await createImageBitmap(ctx.getImageData(0, 0, tmp.width, tmp.height));
-      triggerRedraw();
-    }
-  }
-
-  function clear() {
-    copyBuffer = new ImageData(tileset.tilewidth, tileset.tileheight);
-    paste();
-    copyBuffer = undefined;
   }
 
   function triggerRedraw(..._args: any[]) {
@@ -783,13 +475,13 @@
       <button on:click={() => setTool(Tool.Move)} class:active={tool === Tool.Move}>
         <Icon name="drag" />
       </button>
-      <button on:click={() => flip('x')} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={() => tileset.flip('x')} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="flipHoriz" />
       </button>
-      <button on:click={() => flip('y')} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={() => tileset.flip('y')} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="flipVert" />
       </button>
-      <button on:click={rotate} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={tileset.rotate} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="cropRotateTl" />
         <input
           type="number"
@@ -797,22 +489,22 @@
           on:click={(e) => e.stopPropagation()}
           disabled={tileset.selectedTiles.length !== 1} />
       </button>
-      <button on:click={undo} disabled={undoStack.length === 0}>
+      <button on:click={tileset.undo} disabled={tileset.undoStack.length === 0}>
         <Icon name="undo" />
       </button>
-      <button on:click={redo} disabled={redoStack.length === 0}>
+      <button on:click={tileset.redo} disabled={tileset.redoStack.length === 0}>
         <Icon name="redo" />
       </button>
-      <button on:click={clear} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={tileset.clear}>
         <Icon name="deleteCircle" />
       </button>
-      <button on:click={copy} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={tileset.copy}>
         <Icon name="copy" />
       </button>
-      <button on:click={() => paste(false)} disabled={tileset.selectedTiles.length !== 1 || !copyBuffer}>
+      <button on:click={tileset.paste}>
         <Icon name="pasteClipboard" />
       </button>
-      <button disabled={!tileset.img} on:click={save}>
+      <button disabled={!tileset.img} on:click={tileset.download}>
         <Icon name="saveFloppyDisk" />
       </button>
     </div>
@@ -852,7 +544,7 @@
     <input type="color" name="color" on:change={setColor} value={color.substring(0, Math.min(color.length, 7))} />
     <input type="range" min="0" max="255" bind:value={alpha} />
     <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px;">
-      {#each palette as color}
+      {#each tileset.palette() as color}
         <button
           on:click={setColor}
           style:background-color={color}
