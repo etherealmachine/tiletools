@@ -1,11 +1,12 @@
 import { PNGWithMetadata } from "./PNGWithMetadata"
+import { copy, drawTile } from "./draw"
 
 interface TileBuffer {
   tileX: number
   tileY: number
-  data: ImageData
+  buf: ImageData
   dirty: boolean
-  img: ImageBitmap | undefined
+  img?: ImageBitmap
 }
 
 export default class Tileset {
@@ -18,6 +19,7 @@ export default class Tileset {
   spacing: number
   tiledata: { [key: number]: { [key: number]: { [key: string]: any } } }
   selectedTiles: number[][] = []
+  tiles: TileBuffer[] = []
 
   undoStack: TileBuffer[] = [];
   redoStack: TileBuffer[] = [];
@@ -273,12 +275,48 @@ export default class Tileset {
     img.onload = () => {
       createImageBitmap(img).then(bitmap => {
         this.img = bitmap;
+        if (!this.tilewidth || !this.tileheight) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = this.tilewidth;
+        canvas.height = this.tileheight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const [w, h] = [this.widthInTiles(), this.heightInTiles()];
+        this.tiles = [];
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const [sx, sy] = this.tileToImgCoords(x, y);
+            ctx.drawImage(
+              this.img,
+              sx, sy,
+              this.tilewidth, this.tileheight,
+              0, 0,
+              this.tilewidth, this.tileheight);
+            const tile: TileBuffer = {
+              tileX: x,
+              tileY: y,
+              dirty: false,
+              buf: ctx.getImageData(0, 0, this.tilewidth, this.tileheight),
+            };
+            this.tiles.push(tile);
+            createImageBitmap(tile.buf).then(img => { 
+              tile.img = img;
+            });
+          }
+        }
       });
     };
     img.src = url;
   }
 
+  getTileBuffer(x: number, y: number): TileBuffer {
+    return this.tiles[y*this.widthInTiles()+x];
+  }
+
   setPixel(x: number, y: number, r: number, g: number, b: number, a: number) {
+    const [tileX, tileY] = this.imgCoordsToTile(x, y);
+    const buf = this.getTileBuffer(tileX, tileY);
     /*
     const t = getTileBuffer();
     if (!t) return;

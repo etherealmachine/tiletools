@@ -50,22 +50,19 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
-    if (tileset.img) {
-      const [w, h] = [tileset.widthInTiles(), tileset.heightInTiles()];
-      if (w > 0 && h > 0) {
-        for (let tileX = 0; tileX < w; tileX++) {
-          for (let tileY = 0; tileY < h; tileY++) {
-            const [x, y] = tileset.tileToImgCoords(tileX, tileY);
-            const [sx, sy] = worldToScreen(x, y);
-            if (sx < -tileset.tilewidth*zoom || sy < -tileset.tileheight*zoom || sx > W || sy > H) continue;
-            if (filter === "" || tileset.getTileData(tileX, tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
-              ctx.drawImage(tileset.img, x, y, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
-            }
-          }
+    if (tileset.tiles) {
+      for (let i = 0; i < tileset.tiles.length; i++) {
+        const tile = tileset.tiles[i];
+        if (!tile.img) continue;
+        const [x, y] = tileset.tileToImgCoords(tile.tileX, tile.tileY);
+        const [sx, sy] = worldToScreen(x, y);
+        if (sx < -tileset.tilewidth*zoom || sy < -tileset.tileheight*zoom || sx > W || sy > H) continue;
+        if (filter === "" || tileset.getTileData(tile.tileX, tile.tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
+          ctx.drawImage(tile.img, 0, 0, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
         }
-      } else {
-        ctx.drawImage(tileset.img, 0, 0);
       }
+    } else if (tileset.img) {
+      ctx.drawImage(tileset.img, 0, 0);
     } else {
       triggerRedraw();
       return;
@@ -162,8 +159,10 @@
         parseInt(color.slice(3, 5), 16),
         parseInt(color.slice(5, 7), 16),
         Math.round(alpha));
+      tileset = tileset;
     } else if (tool === Tool.Erase) {
       tileset.setPixel(Math.floor(mouseX), Math.floor(mouseY), 0, 0, 0, 0);
+      tileset = tileset;
     } else if (tool == Tool.Select) {
       const [x, y] = screenToWorld(e.offsetX, e.offsetY);
       if (!tileset.img) return;
@@ -199,8 +198,10 @@
           parseInt(color.slice(3, 5), 16),
           parseInt(color.slice(5, 7), 16),
           Math.round(alpha));
+        tileset = tileset;
       } else if (tool === Tool.Erase) {
         tileset.setPixel(Math.floor(mouseX), Math.floor(mouseY), 0, 0, 0, 0);
+        tileset = tileset;
       } else if (tool == Tool.Select && dragX !== undefined && dragY !== undefined) {
         tileset.clearSelectedTiles();
         let [x1, y1] = tileset.imgCoordsToTile(dragX, dragY);
@@ -216,6 +217,7 @@
             tileset.toggleSelectedTile(x, y);
           }
         }
+        tileset = tileset;
       }
     }
   }

@@ -36,3 +36,17 @@ export function drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, ti
     dx, dy,
     tileset.tilewidth, tileset.tileheight);
 }
+
+export function copy(buf: ImageData): ImageData {
+  const copy = new ImageData(buf.width, buf.height);
+  for (let y = 0; y < buf.height; y++) {
+    for (let x = 0; x < buf.width; x++) {
+      const i = (y*buf.width+x)*4;
+      copy.data[i+0] = buf.data[i+0];
+      copy.data[i+1] = buf.data[i+1];
+      copy.data[i+2] = buf.data[i+2];
+      copy.data[i+3] = buf.data[i+3];
+    }
+  }
+  return copy;
+}
