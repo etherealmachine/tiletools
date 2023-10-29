@@ -232,16 +232,16 @@ export default class Tileset {
     return this.selectedTiles[Math.floor(Math.random()*this.selectedTiles.length)];
   }
 
-  download() {
-    this.png().download();
+  async download() {
+    (await this.png()).download();
   }
 
-  dataURL(): string {
-    return this.png().dataURL();
+  async dataURL(): Promise<string> {
+    return (await this.png()).dataURL();
   }
 
-  png(): PNGWithMetadata {
-    // TODO: Blit dirty tiles
+  async png(): Promise<PNGWithMetadata> {
+    this.img = await this.syncTiles();
     return new PNGWithMetadata(this.name, this.metadata(), this.img || "");
   }
 
@@ -400,6 +400,24 @@ export default class Tileset {
         this.tilewidth, this.tileheight);
     }
     return tile.dirty;
+  }
+
+  async syncTiles(): Promise<ImageBitmap> {
+    if (this.rendering) throw new Error('cannot sync until tiles are fully rendered');
+    const canvas = document.createElement('canvas');
+    canvas.width = 2*this.margin+this.offsetWidth()*this.widthInTiles();
+    canvas.height = 2*this.margin+this.offsetHeight()*this.heightInTiles();
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return new Promise((_resolve, reject) => reject('cannot create ctx from canvas'));
+    for (let i = 0; i < this.tiles.length; i++) {
+      const tile = this.tiles[i];
+      if (!tile.img) throw new Error('cannot sync until tiles are fully rendered');
+      const x = this.margin + tile.tileX*this.offsetWidth();
+      const y = this.margin + tile.tileY*this.offsetHeight();
+      ctx.drawImage(tile.img, x, y);
+    }
+    const buf = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return createImageBitmap(buf);
   }
 
   static fromPNGWithMetadata(png: PNGWithMetadata, into?: Tileset): Tileset {
