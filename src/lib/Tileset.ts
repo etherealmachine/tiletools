@@ -10,6 +10,11 @@ interface TileBuffer {
   img?: ImageBitmap
 }
 
+interface Undoable {
+  undo: (tileset: Tileset) => void
+  redo: (tileset: Tileset) => void
+}
+
 export default class Tileset {
   name: string
   img: ImageBitmap | undefined
@@ -24,8 +29,8 @@ export default class Tileset {
   tiles: TileBuffer[] = []
   rendering: number = 0
   copyBuffer: TileBuffer[] = []
-  undoStack: TileBuffer[] = []
-  redoStack: TileBuffer[] = []
+  undoStack: Undoable[] = []
+  redoStack: Undoable[] = []
 
   constructor(args: { [key: string]: any }) {
     this.name = args.name || "";
@@ -313,11 +318,17 @@ export default class Tileset {
   }
 
   undo() {
-    // TODO
+    const op = this.undoStack.pop();
+    if (!op) return;
+    op.undo(this);
+    this.redoStack.push(op);
   }
 
   redo() {
-    // TODO
+    const op = this.redoStack.pop();
+    if (!op) return;
+    op.redo(this);
+    this.undoStack.push(op);
   }
 
   cut() {

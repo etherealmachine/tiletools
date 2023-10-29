@@ -524,7 +524,7 @@
       <button on:click={() => { tileset.copy(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
         <Icon name="copy" />
       </button>
-      <button on:click={() => { tileset.paste(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
+      <button on:click={() => { tileset.paste(); tileset = tileset; }} disabled={!tileset.copyBuffer.length || !tileset.selectedTiles.length}>
         <Icon name="pasteClipboard" />
       </button>
       <button disabled={!tileset.img} on:click={() => tileset.download()}>
