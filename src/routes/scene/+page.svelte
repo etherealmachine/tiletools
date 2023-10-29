@@ -14,8 +14,7 @@
       const png = PNGWithMetadata.fromDataURL(decodeURIComponent(map));
       const tilesetPNG = PNGWithMetadata.fromDataURL(png.metadata.tileset);
       const tileset = new Tileset(tilesetPNG.metadata);
-      tileset.img = document.createElement('img');
-      tileset.img.src = tilesetPNG.dataURL();
+      tileset.setImageFromDataURL(tilesetPNG.dataURL());
       ecs.add<Tilemap>("Tilemap", {
         layers: png.metadata.layers,
         tileset: tileset,
