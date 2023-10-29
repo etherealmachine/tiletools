@@ -1,5 +1,6 @@
 import { PNGWithMetadata } from "./PNGWithMetadata"
-import { clear } from "./draw"
+import { clear, flip } from "./draw"
+import rotsprite from "./rotsprite"
 
 interface TileBuffer {
   tileX: number
@@ -297,12 +298,13 @@ export default class Tileset {
             const tile: TileBuffer = {
               tileX: x,
               tileY: y,
-              dirty: false,
+              dirty: true,
               buf: ctx.getImageData(0, 0, this.tilewidth, this.tileheight),
             };
             this.tiles.push(tile);
             createImageBitmap(tile.buf).then(img => { 
               tile.img = img;
+              tile.dirty = false;
             });
           }
         }
@@ -329,6 +331,7 @@ export default class Tileset {
     tile.dirty = true;
     createImageBitmap(tile.buf).then(img => { 
       tile.img = img;
+      tile.dirty = false;
     });
   }
 
@@ -422,40 +425,28 @@ export default class Tileset {
     */
   }
 
-  flip(axis: string) {
-    /*
-    copy();
-    if (!copyBuffer) return;
-    const flip = new ImageData(copyBuffer.width, copyBuffer.height);
-    for (let x = 0; x < flip.width; x++) {
-      for (let y = 0; y < flip.height; y++) {
-        const i = (y * flip.width + x) * 4;
-        let j: number;
-        if (axis === 'x') {
-          j = (y * flip.width + (flip.width-x)) * 4;
-        } else {
-          j = ((flip.height-y) * flip.width + x) * 4;
-        }
-        flip.data[i+0] = copyBuffer.data[j+0];
-        flip.data[i+1] = copyBuffer.data[j+1];
-        flip.data[i+2] = copyBuffer.data[j+2];
-        flip.data[i+3] = copyBuffer.data[j+3];
-      }
+  flip(axis: 'x' | 'y') {
+    for (let i = 0; i < this.selectedTiles.length; i++) {
+      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
+      tile.buf = flip(tile.buf, axis);
+      tile.dirty = true;
+      createImageBitmap(tile.buf).then(img => { 
+        tile.img = img;
+        tile.dirty = false;
+      });
     }
-    copyBuffer = flip;
-    paste();
-    copyBuffer = undefined;
-    */
   }
 
   rotate(degrees: number) {
-    /*
-    copy();
-    if (!copyBuffer) return;
-    copyBuffer = rotsprite(copyBuffer, degrees);
-    paste();
-    copyBuffer = undefined;
-    */
+    for (let i = 0; i < this.selectedTiles.length; i++) {
+      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
+      tile.buf = rotsprite(tile.buf, degrees);
+      tile.dirty = true;
+      createImageBitmap(tile.buf).then(img => { 
+        tile.img = img;
+        tile.dirty = false;
+      });
+    } 
   }
 
   move(ox: number, oy: number) {
@@ -516,13 +507,14 @@ export default class Tileset {
       tile.dirty = true;
       createImageBitmap(tile.buf).then(img => { 
         tile.img = img;
+        tile.dirty = false;
       });
     }
   }
 
   // x, y is location in world, tileX, tileY is location in tileset
-  drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileX: number, tileY: number) {
-    if (!this.img) return;
+  drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileX: number, tileY: number): boolean {
+    if (!this.img) return true;
     let [dx, dy] = this.tileToWorld(x, y);
     const [sx, sy] = this.tileToImgCoords(tileX, tileY);
     if (this.type === "hex") {
@@ -530,7 +522,7 @@ export default class Tileset {
       dy -= this.hexHeight() + 4 // TODO: Why?;
     }
     const tile = this.getTileBuffer(tileX, tileY);
-    if (tile.dirty && tile.img) {
+    if (tile.img) {
       ctx.drawImage(
         tile.img,
         0, 0,
@@ -545,6 +537,7 @@ export default class Tileset {
         dx, dy,
         this.tilewidth, this.tileheight);
     }
+    return tile.dirty;
   }
 
   static fromPNGWithMetadata(png: PNGWithMetadata, into?: Tileset): Tileset {

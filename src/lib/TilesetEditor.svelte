@@ -49,15 +49,23 @@
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
     if (tileset.tiles) {
+      let dirty = false;
       for (let i = 0; i < tileset.tiles.length; i++) {
         const tile = tileset.tiles[i];
-        if (!tile.img) continue;
+        if (!tile.img) {
+          dirty = true;
+          continue;
+        }
+        dirty ||= tile.dirty;
         const [x, y] = tileset.tileToImgCoords(tile.tileX, tile.tileY);
         const [sx, sy] = worldToScreen(x, y);
         if (sx < -tileset.tilewidth*zoom || sy < -tileset.tileheight*zoom || sx > W || sy > H) continue;
         if (filter === "" || tileset.getTileData(tile.tileX, tile.tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
           ctx.drawImage(tile.img, 0, 0, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
         }
+      }
+      if (dirty) {
+        triggerRedraw();
       }
     } else if (tileset.img) {
       ctx.drawImage(tileset.img, 0, 0);
@@ -274,26 +282,32 @@
         break;
       case e.key === "z" && e.ctrlKey:
         tileset.undo();
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "y" && e.ctrlKey:
         tileset.redo();
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "s" && e.ctrlKey:
         tileset.download();
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "c" && e.ctrlKey:
         tileset.copy();
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "v" && e.ctrlKey:
         tileset.paste();
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "Backspace" || e.key === "Delete":
         tileset.clear();
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "z" && tileset.selectedTiles.length === 1:
@@ -328,18 +342,22 @@
         break;
       case e.key === "ArrowLeft" && tool === Tool.Move:
         tileset.move(-1, 0);
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "ArrowRight" && tool === Tool.Move:
         tileset.move(1, 0);
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "ArrowUp" && tool === Tool.Move:
         tileset.move(0, -1);
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "ArrowDown" && tool === Tool.Move:
         tileset.move(0, 1);
+        tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "ArrowLeft":
@@ -376,6 +394,7 @@
         break;
       case e.key === "Escape":
         tileset.clearSelectedTiles();
+        tileset = tileset;
         e.preventDefault();
         break;
     }
@@ -466,22 +485,22 @@
       <button on:click={() => setTool(Tool.Select)} class:active={tool === Tool.Select}>
         <Icon name="openSelectHandGesture" />
       </button>
-      <button on:click={() => setTool(Tool.Edit)} class:active={tool === Tool.Edit}>
+      <button on:click={() => setTool(Tool.Edit)} class:active={tool === Tool.Edit} disabled={!tileset.selectedTiles.length}>
         <Icon name="editPencil" />
       </button>
-      <button on:click={() => setTool(Tool.Erase)} class:active={tool === Tool.Erase}>
+      <button on:click={() => setTool(Tool.Erase)} class:active={tool === Tool.Erase} disabled={!tileset.selectedTiles.length}>
         <Icon name="erase" />
       </button>
-      <button on:click={() => setTool(Tool.Move)} class:active={tool === Tool.Move}>
+      <button on:click={() => setTool(Tool.Move)} class:active={tool === Tool.Move} disabled={!tileset.selectedTiles.length}>
         <Icon name="drag" />
       </button>
-      <button on:click={() => tileset.flip('x')} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={() => { tileset.flip('y'); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
         <Icon name="flipHoriz" />
       </button>
-      <button on:click={() => tileset.flip('y')} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={() => { tileset.flip('x'); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
         <Icon name="flipVert" />
       </button>
-      <button on:click={() => tileset.rotate(degrees)} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={() => { tileset.rotate(degrees); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
         <Icon name="cropRotateTl" />
         <input
           type="number"
@@ -489,19 +508,19 @@
           on:click={(e) => e.stopPropagation()}
           disabled={tileset.selectedTiles.length !== 1} />
       </button>
-      <button on:click={() => tileset.undo()} disabled={tileset.undoStack.length === 0}>
+      <button on:click={() => { tileset.undo(); tileset = tileset; }} disabled={tileset.undoStack.length === 0}>
         <Icon name="undo" />
       </button>
-      <button on:click={() => tileset.redo()} disabled={tileset.redoStack.length === 0}>
+      <button on:click={() => { tileset.redo(); tileset = tileset; }} disabled={tileset.redoStack.length === 0}>
         <Icon name="redo" />
       </button>
-      <button on:click={() => tileset.clear()}>
+      <button on:click={() => { tileset.clear(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
         <Icon name="deleteCircle" />
       </button>
-      <button on:click={() => tileset.copy()}>
+      <button on:click={() => { tileset.copy(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
         <Icon name="copy" />
       </button>
-      <button on:click={() => tileset.paste()}>
+      <button on:click={() => { tileset.paste(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
         <Icon name="pasteClipboard" />
       </button>
       <button disabled={!tileset.img} on:click={() => tileset.download()}>

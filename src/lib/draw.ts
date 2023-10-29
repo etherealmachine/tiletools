@@ -46,3 +46,19 @@ export function clear(buf: ImageData): ImageData {
   }
   return buf;
 }
+
+export function flip(buf: ImageData, axis: 'x' | 'y'): ImageData {
+  const [w, h] = [buf.width, buf.height];
+  const flipped = new ImageData(w, h);
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) {
+      const i = (y*w+x)*4;
+      const j = axis === 'y' ? (y*w+(w-x-1))*4 : ((h-y-1)*w+x)*4;
+      flipped.data[i+0] = buf.data[j+0];
+      flipped.data[i+1] = buf.data[j+1];
+      flipped.data[i+2] = buf.data[j+2];
+      flipped.data[i+3] = buf.data[j+3];
+    }
+  }
+  return flipped
+}
