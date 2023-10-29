@@ -1,5 +1,5 @@
 import { PNGWithMetadata } from "./PNGWithMetadata"
-import { copy, drawTile } from "./draw"
+import { clear } from "./draw"
 
 interface TileBuffer {
   tileX: number
@@ -225,7 +225,7 @@ export default class Tileset {
     if (w === 0) {
       return 0;
     }
-    return (this.img.width - this.margin) / w;
+    return Math.ceil((this.img.width - this.margin) / w);
   }
 
   heightInTiles(): number {
@@ -234,7 +234,7 @@ export default class Tileset {
     if (h === 0) {
       return 0;
     }
-    return (this.img.height - this.margin) / h;
+    return Math.ceil((this.img.height - this.margin) / h);
   }
 
   // Is x and y contained in the tileset's image?
@@ -267,6 +267,7 @@ export default class Tileset {
   }
 
   png(): PNGWithMetadata {
+    // TODO: Blit dirty tiles
     return new PNGWithMetadata(this.name, this.metadata(), this.img || "");
   }
 
@@ -316,32 +317,19 @@ export default class Tileset {
 
   setPixel(x: number, y: number, r: number, g: number, b: number, a: number) {
     const [tileX, tileY] = this.imgCoordsToTile(x, y);
-    const buf = this.getTileBuffer(tileX, tileY);
-    /*
-    const t = getTileBuffer();
-    if (!t) return;
-    const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
-    if (t.tileX !== tileX || t.tileY !== tileY) return;
-    if (tileset.inSelection(x, y)) {
-      x = x % tileset.offsetWidth();
-      y = y % tileset.offsetHeight();
-      const i = (y * t.data.width + x) * 4;
-      let [r, g, b, a] = [0, 0, 0, 0];
-      if (tool === Tool.Edit) {
-        r = parseInt(color.slice(1, 3), 16);
-        g = parseInt(color.slice(3, 5), 16);
-        b = parseInt(color.slice(5, 7), 16);
-        a = Math.round(alpha);
-      }
-      t.data.data[i+0] = r;
-      t.data.data[i+1] = g;
-      t.data.data[i+2] = b;
-      t.data.data[i+3] = a;
-      t.dirty = true;
-      tileBufferChanged();
-      computePalette();
-    }
-    */
+    const tile = this.getTileBuffer(tileX, tileY);
+    x = x % this.offsetWidth();
+    y = y % this.offsetHeight();
+    if (x >= this.tilewidth || y >= this.tilewidth) return;
+    const i = (y*tile.buf.width+x)*4;
+    tile.buf.data[i+0] = r;
+    tile.buf.data[i+1] = g;
+    tile.buf.data[i+2] = b;
+    tile.buf.data[i+3] = a;
+    tile.dirty = true;
+    createImageBitmap(tile.buf).then(img => { 
+      tile.img = img;
+    });
   }
 
   /*
@@ -460,7 +448,7 @@ export default class Tileset {
     */
   }
 
-  rotate() {
+  rotate(degrees: number) {
     /*
     copy();
     if (!copyBuffer) return;
@@ -521,11 +509,42 @@ export default class Tileset {
   }
 
   clear() {
-    /*
-    copyBuffer = new ImageData(tileset.tilewidth, tileset.tileheight);
-    paste();
-    copyBuffer = undefined;
-    */
+    for (let i = 0; i < this.selectedTiles.length; i++) {
+      const [x, y] = this.selectedTiles[i];
+      const tile = this.getTileBuffer(x, y);
+      clear(tile.buf);
+      tile.dirty = true;
+      createImageBitmap(tile.buf).then(img => { 
+        tile.img = img;
+      });
+    }
+  }
+
+  // x, y is location in world, tileX, tileY is location in tileset
+  drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileX: number, tileY: number) {
+    if (!this.img) return;
+    let [dx, dy] = this.tileToWorld(x, y);
+    const [sx, sy] = this.tileToImgCoords(tileX, tileY);
+    if (this.type === "hex") {
+      dx -= this.radius();
+      dy -= this.hexHeight() + 4 // TODO: Why?;
+    }
+    const tile = this.getTileBuffer(tileX, tileY);
+    if (tile.dirty && tile.img) {
+      ctx.drawImage(
+        tile.img,
+        0, 0,
+        this.tilewidth, this.tileheight,
+        dx, dy,
+        this.tilewidth, this.tileheight);
+    } else {
+      ctx.drawImage(
+        this.img,
+        sx, sy,
+        this.tilewidth, this.tileheight,
+        dx, dy,
+        this.tilewidth, this.tileheight);
+    }
   }
 
   static fromPNGWithMetadata(png: PNGWithMetadata, into?: Tileset): Tileset {

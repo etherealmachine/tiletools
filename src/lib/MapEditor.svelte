@@ -17,7 +17,7 @@
   import Icon from "./Icon.svelte";
   import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
-  import { drawHexagon, drawRect, drawTile } from "./draw";
+  import { drawHexagon, drawRect } from "./draw";
 
   export let tileset: Tileset | undefined;
   // TODO: Select location, copy/paste layers
@@ -108,14 +108,14 @@
         }).forEach(entry => {
           const [x, y] = entry[0].split(',').map(v => parseInt(v));
           const tile = entry[1];
-          drawTile(ctx, x, y, ts, tile.tileX, tile.tileY);
+          ts.drawTile(ctx, x, y, tile.tileX, tile.tileY);
         });
       });
       if (mouseX !== undefined && mouseY !== undefined && mouseOver) {
         // TODO: Shift drag to preview filling area
         const randTile = tileset.randSelectedTile();
         if (randTile) {
-          drawTile(ctx, mouseX, mouseY, ts, randTile[0], randTile[1]);
+          ts.drawTile(ctx, mouseX, mouseY, randTile[0], randTile[1]);
         }
       }
     }

@@ -5,7 +5,6 @@
   import { onMount } from "svelte";
   import type { Camera, Tilemap } from "./ECS";
   import type ECS from "./ECS";
-  import { drawTile } from "./draw";
 
   export let ecs: ECS;
 
@@ -44,7 +43,7 @@
         }).forEach(entry => {
           const [x, y] = entry[0].split(',').map(v => parseInt(v));
           const tile = entry[1];
-          drawTile(ctx, x, y, tilemap.tileset, tile.tileX, tile.tileY);
+          tilemap.tileset.drawTile(ctx, x, y, tile.tileX, tile.tileY);
         });
       });
     }

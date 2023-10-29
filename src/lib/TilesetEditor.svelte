@@ -6,10 +6,8 @@
   import { browser } from "$app/environment";
 
   import Icon from "./Icon.svelte";
-  import { PNGWithMetadata } from "./PNGWithMetadata";
   import Tileset from "./Tileset";
-  import { drawHexagon, drawRect, drawTile } from "./draw";
-  import rotsprite from "./rotsprite";
+  import { drawHexagon, drawRect } from "./draw";
 
   export let tileset: Tileset = new Tileset({});
   export let maxWidth: string | undefined = undefined;
@@ -294,7 +292,7 @@
         tileset.paste();
         e.preventDefault();
         break;
-      case (e.key === "Backspace" || e.key === "Delete") && tileset.selectedTiles.length === 1:
+      case e.key === "Backspace" || e.key === "Delete":
         tileset.clear();
         e.preventDefault();
         break;
@@ -483,7 +481,7 @@
       <button on:click={() => tileset.flip('y')} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="flipVert" />
       </button>
-      <button on:click={tileset.rotate} disabled={tileset.selectedTiles.length !== 1}>
+      <button on:click={() => tileset.rotate(degrees)} disabled={tileset.selectedTiles.length !== 1}>
         <Icon name="cropRotateTl" />
         <input
           type="number"
@@ -491,22 +489,22 @@
           on:click={(e) => e.stopPropagation()}
           disabled={tileset.selectedTiles.length !== 1} />
       </button>
-      <button on:click={tileset.undo} disabled={tileset.undoStack.length === 0}>
+      <button on:click={() => tileset.undo()} disabled={tileset.undoStack.length === 0}>
         <Icon name="undo" />
       </button>
-      <button on:click={tileset.redo} disabled={tileset.redoStack.length === 0}>
+      <button on:click={() => tileset.redo()} disabled={tileset.redoStack.length === 0}>
         <Icon name="redo" />
       </button>
-      <button on:click={tileset.clear}>
+      <button on:click={() => tileset.clear()}>
         <Icon name="deleteCircle" />
       </button>
-      <button on:click={tileset.copy}>
+      <button on:click={() => tileset.copy()}>
         <Icon name="copy" />
       </button>
-      <button on:click={tileset.paste}>
+      <button on:click={() => tileset.paste()}>
         <Icon name="pasteClipboard" />
       </button>
-      <button disabled={!tileset.img} on:click={tileset.download}>
+      <button disabled={!tileset.img} on:click={() => tileset.download()}>
         <Icon name="saveFloppyDisk" />
       </button>
     </div>

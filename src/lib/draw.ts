@@ -11,30 +11,13 @@ export function drawHexagon(ctx: CanvasRenderingContext2D, x: number, y: number,
   }
 
 export function drawRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number) {
-    ctx.beginPath();
-    ctx.lineTo(x, y);
-    ctx.lineTo(x+width, y);
-    ctx.lineTo(x+width, y+height);
-    ctx.lineTo(x, y+height);
-    ctx.closePath();
-    ctx.stroke();
-  }
-
-// x, y is location in world, tileX, tileY is location in tileset
-export function drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileset: Tileset, tileX: number, tileY: number) {
-  if (!tileset.img) return;
-  let [dx, dy] = tileset.tileToWorld(x, y);
-  const [sx, sy] = tileset.tileToImgCoords(tileX, tileY);
-  if (tileset.type === "hex") {
-    dx -= tileset.radius();
-    dy -= tileset.hexHeight() + 4 // TODO: Why?;
-  }
-  ctx.drawImage(
-    tileset.img,
-    sx, sy,
-    tileset.tilewidth, tileset.tileheight,
-    dx, dy,
-    tileset.tilewidth, tileset.tileheight);
+  ctx.beginPath();
+  ctx.lineTo(x, y);
+  ctx.lineTo(x+width, y);
+  ctx.lineTo(x+width, y+height);
+  ctx.lineTo(x, y+height);
+  ctx.closePath();
+  ctx.stroke();
 }
 
 export function copy(buf: ImageData): ImageData {
@@ -49,4 +32,17 @@ export function copy(buf: ImageData): ImageData {
     }
   }
   return copy;
+}
+
+export function clear(buf: ImageData): ImageData {
+  for (let y = 0; y < buf.height; y++) {
+    for (let x = 0; x < buf.width; x++) {
+      const i = (y*buf.width+x)*4;
+      buf.data[i+0] = 0;
+      buf.data[i+1] = 0;
+      buf.data[i+2] = 0;
+      buf.data[i+3] = 0;
+    }
+  }
+  return buf;
 }
