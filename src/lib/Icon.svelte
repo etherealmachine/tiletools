@@ -1,6 +1,7 @@
 <script lang="ts">
   import copy from "../assets/icons/copy.svg?raw";
   import cropRotateTl from "../assets/icons/crop-rotate-tl.svg?raw";
+  import cut from "../assets/icons/cut.svg?raw";
   import deleteCircle from "../assets/icons/delete-circle.svg?raw";
   import download from "../assets/icons/download.svg?raw";
   import drag from "../assets/icons/drag.svg?raw";
@@ -22,9 +23,10 @@
   import undo from "../assets/icons/undo.svg?raw";
   import upload from "../assets/icons/upload.svg?raw";
 
-  const icons: { [key: string]: string } = {
+  const icons = {
     copy,
     cropRotateTl,
+    cut,
     deleteCircle,
     download,
     drag,
@@ -47,7 +49,7 @@
     upload,
   };
 
-  export let name: string;
+  export let name: keyof typeof icons;
 </script>
 
 {@html icons[name]}

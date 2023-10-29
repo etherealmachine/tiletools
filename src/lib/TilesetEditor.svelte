@@ -291,6 +291,11 @@
         tileset = tileset;
         e.preventDefault();
         break;
+      case e.key === "x" && e.ctrlKey:
+        tileset.cut();
+        tileset = tileset;
+        e.preventDefault();
+        break;
       case e.key === "c" && e.ctrlKey:
         tileset.copy();
         tileset = tileset;
@@ -512,6 +517,9 @@
       </button>
       <button on:click={() => { tileset.clear(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
         <Icon name="deleteCircle" />
+      </button>
+      <button on:click={() => { tileset.cut(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
+        <Icon name="cut" />
       </button>
       <button on:click={() => { tileset.copy(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
         <Icon name="copy" />

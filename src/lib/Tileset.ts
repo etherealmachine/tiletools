@@ -1,5 +1,5 @@
 import { PNGWithMetadata } from "./PNGWithMetadata"
-import { clear, colors, flip } from "./draw"
+import { clear, colors, copy, flip } from "./draw"
 import rotsprite from "./rotsprite"
 
 interface TileBuffer {
@@ -22,9 +22,10 @@ export default class Tileset {
   selectedTiles: number[][] = []
 
   tiles: TileBuffer[] = []
-  rendering: number = 0;
-  undoStack: TileBuffer[] = [];
-  redoStack: TileBuffer[] = [];
+  rendering: number = 0
+  copyBuffer: TileBuffer[] = []
+  undoStack: TileBuffer[] = []
+  redoStack: TileBuffer[] = []
 
   constructor(args: { [key: string]: any }) {
     this.name = args.name || "";
@@ -319,12 +320,58 @@ export default class Tileset {
     // TODO
   }
 
+  cut() {
+    this.copyBuffer = [];
+    for (let i = 0; i < this.selectedTiles.length; i++) {
+      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
+      this.copyBuffer.push({
+        tileX: tile.tileX,
+        tileY: tile.tileY,
+        buf: copy(tile.buf),
+        dirty: tile.dirty,
+      });
+      tile.buf = clear(tile.buf);
+      tile.dirty = true;
+      this.rendering++;
+      createImageBitmap(tile.buf).then(img => { 
+        tile.img?.close();
+        tile.img = img;
+        this.rendering--;
+      });
+    }
+  }
+
   copy() {
-    // TODO
+    this.copyBuffer = [];
+    for (let i = 0; i < this.selectedTiles.length; i++) {
+      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
+      this.copyBuffer.push({
+        tileX: tile.tileX,
+        tileY: tile.tileY,
+        buf: copy(tile.buf),
+        dirty: tile.dirty,
+      });
+    }
   }
 
   paste() {
-    // TODO
+    if (this.selectedTiles.length === 0 || this.copyBuffer.length === 0) return;
+    const dx = this.selectedTiles[0][0] - this.copyBuffer[0].tileX;
+    const dy = this.selectedTiles[0][1] - this.copyBuffer[0].tileY;
+    for (let i = 0; i < this.copyBuffer.length; i++) {
+      const copy = this.copyBuffer[i];
+      const tile = this.getTileBuffer(copy.tileX+dx, copy.tileY+dy);
+      if (copy) {
+        tile.buf = copy.buf;
+        tile.dirty = copy.dirty;
+        this.rendering++;
+        createImageBitmap(tile.buf).then(img => { 
+          tile.img?.close();
+          tile.img = img;
+          this.rendering--;
+        });
+      }
+    }
   }
 
   flip(axis: 'x' | 'y') {
