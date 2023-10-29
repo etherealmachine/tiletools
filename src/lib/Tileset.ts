@@ -1,5 +1,5 @@
 import { PNGWithMetadata } from "./PNGWithMetadata"
-import { clear, colors, copy, flip } from "./draw"
+import { clear, colors, copy, flip, shift } from "./draw"
 import rotsprite from "./rotsprite"
 
 interface TileBuffer {
@@ -334,7 +334,8 @@ export default class Tileset {
   cut() {
     this.copyBuffer = [];
     for (let i = 0; i < this.selectedTiles.length; i++) {
-      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
+      const [x, y] = this.selectedTiles[i];
+      const tile = this.getTileBuffer(x, y);
       this.copyBuffer.push({
         tileX: tile.tileX,
         tileY: tile.tileY,
@@ -355,7 +356,8 @@ export default class Tileset {
   copy() {
     this.copyBuffer = [];
     for (let i = 0; i < this.selectedTiles.length; i++) {
-      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
+      const [x, y] = this.selectedTiles[i];
+      const tile = this.getTileBuffer(x, y);
       this.copyBuffer.push({
         tileX: tile.tileX,
         tileY: tile.tileY,
@@ -387,8 +389,9 @@ export default class Tileset {
 
   flip(axis: 'x' | 'y') {
     for (let i = 0; i < this.selectedTiles.length; i++) {
-      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
-      tile.buf = flip(tile.buf, axis);
+      const [x, y] = this.selectedTiles[i];
+      const tile = this.getTileBuffer(x, y);
+      flip(tile.buf, axis);
       tile.dirty = true;
       this.rendering++;
       createImageBitmap(tile.buf).then(img => { 
@@ -401,7 +404,8 @@ export default class Tileset {
 
   rotate(degrees: number) {
     for (let i = 0; i < this.selectedTiles.length; i++) {
-      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
+      const [x, y] = this.selectedTiles[i];
+      const tile = this.getTileBuffer(x, y);
       tile.buf = rotsprite(tile.buf, degrees);
       tile.dirty = true;
       this.rendering++;
@@ -414,7 +418,18 @@ export default class Tileset {
   }
 
   move(ox: number, oy: number) {
-    // TODO
+    for (let i = 0; i < this.selectedTiles.length; i++) {
+      const [x, y] = this.selectedTiles[i];
+      const tile = this.getTileBuffer(x, y);
+      shift(tile.buf, ox, oy);
+      tile.dirty = true;
+      this.rendering++;
+      createImageBitmap(tile.buf).then(img => { 
+        tile.img?.close();
+        tile.img = img;
+        this.rendering--;
+      });
+    }
   }
 
   clear() {

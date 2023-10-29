@@ -20,8 +20,8 @@ export function drawRect(ctx: CanvasRenderingContext2D, x: number, y: number, wi
   ctx.stroke();
 }
 
-export function copy(buf: ImageData): ImageData {
-  const copy = new ImageData(buf.width, buf.height);
+export function copy(buf: ImageData, into?: ImageData): ImageData {
+  const copy = into || new ImageData(buf.width, buf.height);
   for (let y = 0; y < buf.height; y++) {
     for (let x = 0; x < buf.width; x++) {
       const i = (y*buf.width+x)*4;
@@ -34,7 +34,7 @@ export function copy(buf: ImageData): ImageData {
   return copy;
 }
 
-export function clear(buf: ImageData): ImageData {
+export function clear(buf: ImageData) {
   for (let y = 0; y < buf.height; y++) {
     for (let x = 0; x < buf.width; x++) {
       const i = (y*buf.width+x)*4;
@@ -47,7 +47,7 @@ export function clear(buf: ImageData): ImageData {
   return buf;
 }
 
-export function flip(buf: ImageData, axis: 'x' | 'y'): ImageData {
+export function flip(buf: ImageData, axis: 'x' | 'y') {
   const [w, h] = [buf.width, buf.height];
   const flipped = new ImageData(w, h);
   for (let x = 0; x < w; x++) {
@@ -60,7 +60,25 @@ export function flip(buf: ImageData, axis: 'x' | 'y'): ImageData {
       flipped.data[i+3] = buf.data[j+3];
     }
   }
-  return flipped
+  copy(flipped, buf);
+}
+
+export function shift(buf: ImageData, ox: number, oy: number) {
+  const [w, h] = [buf.width, buf.height];
+  const shifted = new ImageData(w, h);
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) {
+      const [x1, y1] = [x+ox, y+oy];
+      if (x1 < 0 || x1 >= w || y1 < 0 || y1 >= h) continue;
+      const i = (y*w+x)*4;
+      const j = (y1*w+x1)*4;
+      shifted.data[j+0] = buf.data[i+0];
+      shifted.data[j+1] = buf.data[i+1];
+      shifted.data[j+2] = buf.data[i+2];
+      shifted.data[j+3] = buf.data[i+3];
+    }
+  }
+  copy(shifted, buf);
 }
 
 export function colors(buf: ImageData): Set<string> {
