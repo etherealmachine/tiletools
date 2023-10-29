@@ -155,6 +155,7 @@
     [dragX, dragY] = [mouseX, mouseY];
     mouseDown = true;
     if (tool === Tool.Edit) {
+      tileset.beginUndoable();
       tileset.setPixel(
         Math.floor(mouseX), Math.floor(mouseY),
         parseInt(color.slice(1, 3), 16),
@@ -163,6 +164,7 @@
         Math.round(alpha));
       tileset = tileset;
     } else if (tool === Tool.Erase) {
+      tileset.beginUndoable();
       tileset.setPixel(Math.floor(mouseX), Math.floor(mouseY), 0, 0, 0, 0);
       tileset = tileset;
     } else if (tool == Tool.Select) {
@@ -226,11 +228,13 @@
 
   function onPointerCancel(e: PointerEvent) {
     [dragX, dragY] = [undefined, undefined];
+    tileset.endUndoable();
   }
 
   function onPointerUp(e: PointerEvent) {
     mouseDown = false;
     [dragX, dragY] = [undefined, undefined];
+    tileset.endUndoable();
   }
 
   function onLoad(e: Event) {

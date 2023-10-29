@@ -317,6 +317,14 @@ export default class Tileset {
     });
   }
 
+  beginUndoable() {
+    // TODO: Undo/redo
+  }
+
+  endUndoable() {
+    // TODO: Undo/redo
+  }
+
   undo() {
     const op = this.undoStack.pop();
     if (!op) return;
@@ -477,9 +485,17 @@ export default class Tileset {
 
   async syncTiles(): Promise<ImageBitmap> {
     if (this.rendering) throw new Error('cannot sync until tiles are fully rendered');
+    let [maxX, maxY] = [0, 0];
+    for (let i = 0; i < this.tiles.length; i++) {
+      const tile = this.tiles[i];
+      if (colors(tile.buf).size > 0) {
+        maxX = Math.max(maxX, tile.tileX);
+        maxY = Math.max(maxY, tile.tileY);
+      }
+    }
     const canvas = document.createElement('canvas');
-    canvas.width = 2*this.margin+this.offsetWidth()*this.widthInTiles();
-    canvas.height = 2*this.margin+this.offsetHeight()*this.heightInTiles();
+    canvas.width = 2*this.margin+this.offsetWidth()*(maxX+1);
+    canvas.height = 2*this.margin+this.offsetHeight()*(maxY+1);
     const ctx = canvas.getContext('2d');
     if (!ctx) return new Promise((_resolve, reject) => reject('cannot create ctx from canvas'));
     for (let i = 0; i < this.tiles.length; i++) {
