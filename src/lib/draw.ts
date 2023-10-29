@@ -62,3 +62,21 @@ export function flip(buf: ImageData, axis: 'x' | 'y'): ImageData {
   }
   return flipped
 }
+
+export function colors(buf: ImageData): Set<string> {
+  const colors = new Set<string>();
+  for (let i = 0; i < buf.width*buf.height*4; i += 4) {
+    const r = buf.data[i+0];
+    const g = buf.data[i+1];
+    const b = buf.data[i+2];
+    const a = buf.data[i+3];
+    if (r || g || b || a) {
+      colors.add("#" + 
+        r.toString(16) +
+        g.toString(16) +
+        b.toString(16) +
+        a.toString(16));
+    }
+  }
+  return colors;
+}

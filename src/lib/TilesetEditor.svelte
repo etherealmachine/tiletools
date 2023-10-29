@@ -49,23 +49,15 @@
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
 
     if (tileset.tiles) {
-      let dirty = false;
       for (let i = 0; i < tileset.tiles.length; i++) {
         const tile = tileset.tiles[i];
-        if (!tile.img) {
-          dirty = true;
-          continue;
-        }
-        dirty ||= tile.dirty;
+        if (!tile.img) continue;
         const [x, y] = tileset.tileToImgCoords(tile.tileX, tile.tileY);
         const [sx, sy] = worldToScreen(x, y);
         if (sx < -tileset.tilewidth*zoom || sy < -tileset.tileheight*zoom || sx > W || sy > H) continue;
         if (filter === "" || tileset.getTileData(tile.tileX, tile.tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
           ctx.drawImage(tile.img, 0, 0, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
         }
-      }
-      if (dirty) {
-        triggerRedraw();
       }
     } else if (tileset.img) {
       ctx.drawImage(tileset.img, 0, 0);
@@ -102,6 +94,10 @@
         drawHexagon(ctx, x+0.5*tileset.tilewidth, y+tileset.tileheight-r, r);
       }
     });
+
+    if (tileset.rendering) {
+      triggerRedraw();
+    }
   }
 
   function onWheel(e: WheelEvent) {

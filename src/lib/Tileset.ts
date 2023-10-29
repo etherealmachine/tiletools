@@ -1,5 +1,5 @@
 import { PNGWithMetadata } from "./PNGWithMetadata"
-import { clear, flip } from "./draw"
+import { clear, colors, flip } from "./draw"
 import rotsprite from "./rotsprite"
 
 interface TileBuffer {
@@ -20,18 +20,11 @@ export default class Tileset {
   spacing: number
   tiledata: { [key: number]: { [key: number]: { [key: string]: any } } }
   selectedTiles: number[][] = []
-  tiles: TileBuffer[] = []
 
+  tiles: TileBuffer[] = []
+  rendering: number = 0;
   undoStack: TileBuffer[] = [];
   redoStack: TileBuffer[] = [];
-
-  /*
-  let tileBuffer: TileImageData | undefined;
-  let palette: Set<string> = new Set<string>();
-  let copyBuffer: ImageData | undefined;
-  let undoStack: TileImageData[] = [];
-  let redoStack: TileImageData[] = [];
-  */
 
   constructor(args: { [key: string]: any }) {
     this.name = args.name || "";
@@ -147,32 +140,12 @@ export default class Tileset {
   }
 
   palette(): Set<string> {
-    // TODO: palette from selection
-    /*
-  function computePalette() {
-    const t = getTileBuffer();
-    if (!t) return;
-    palette.clear();
-    for (let x = 0; x < t.data.width; x++) {
-      for (let y = 0; y < t.data.height; y++) {
-        const i = (y * t.data.width + x) * 4;
-        const r = t.data.data[i+0];
-        const g = t.data.data[i+1];
-        const b = t.data.data[i+2];
-        const a = t.data.data[i+3];
-        if (r || g || b || a) {
-          palette.add("#" + 
-            r.toString(16) +
-            g.toString(16) +
-            b.toString(16) +
-            a.toString(16));
-        }
-      }
+    let palette = new Set<string>();
+    for (let i = 0; i < this.selectedTiles.length; i++) {
+      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
+      palette = new Set([...palette, ...colors(tile.buf)]);
     }
-    palette = palette;
-  }
-    */
-    return new Set<string>();
+    return palette;
   }
 
   setSelectionTags(tags: Set<string>) {
@@ -298,13 +271,14 @@ export default class Tileset {
             const tile: TileBuffer = {
               tileX: x,
               tileY: y,
-              dirty: true,
+              dirty: false,
               buf: ctx.getImageData(0, 0, this.tilewidth, this.tileheight),
             };
             this.tiles.push(tile);
+            this.rendering++;
             createImageBitmap(tile.buf).then(img => { 
               tile.img = img;
-              tile.dirty = false;
+              this.rendering--;
             });
           }
         }
@@ -329,100 +303,28 @@ export default class Tileset {
     tile.buf.data[i+2] = b;
     tile.buf.data[i+3] = a;
     tile.dirty = true;
+    this.rendering++;
     createImageBitmap(tile.buf).then(img => { 
+      tile.img?.close();
       tile.img = img;
-      tile.dirty = false;
+      this.rendering--;
     });
   }
-
-  /*
-  pushStack(buf: TileImageData, stack: TileImageData[], clearRedo: boolean = true) {
-    const copy = new ImageData(buf.data.width, buf.data.height);
-    for (let i = 0; i < copy.width*copy.height*4; i++) {
-      copy.data[i] = buf.data.data[i];
-    }
-    stack.push({
-      tileX: buf.tileX,
-      tileY: buf.tileY,
-      data: copy,
-      dirty: buf.dirty,
-    });
-    if (clearRedo) {
-      redoStack = [];
-    }
-    undoStack = undoStack.slice(0, Math.min(undoStack.length, 10));
-    redoStack = redoStack.slice(0, Math.min(redoStack.length, 10));
-  }
-    */
 
   undo() {
-    /*
-    const t = getTileBuffer();
-    if (!t) return;
-    const last = undoStack.pop();
-    if (!last) return;
-    pushStack(t, redoStack, false);
-    setTileBuffer(last);
-    */
+    // TODO
   }
 
   redo() {
-    /*
-    const t = getTileBuffer();
-    if (!t) return;
-    const last = redoStack.pop();
-    if (!last) return;
-    pushStack(t, undoStack, false);
-    setTileBuffer(last);
-    */
+    // TODO
   }
 
   copy() {
-    /*
-    const t = getTileBuffer();
-    if (!t) return;
-    copyBuffer = new ImageData(t.data.width, t.data.height);
-    for (let x = 0; x < copyBuffer.width; x++) {
-      for (let y = 0; y < copyBuffer.height; y++) {
-        const i = (y * copyBuffer.width + x) * 4;
-        copyBuffer.data[i+0] = t.data.data[i+0];
-        copyBuffer.data[i+1] = t.data.data[i+1];
-        copyBuffer.data[i+2] = t.data.data[i+2];
-        copyBuffer.data[i+3] = t.data.data[i+3];
-      }
-    }
-    */
+    // TODO
   }
 
   paste() {
-    /*
-    const t = getTileBuffer();
-    if (!t) return;
-    if (!copyBuffer) return;
-    pushStack(t, undoStack);
-    for (let x = 0; x < copyBuffer.width; x++) {
-      for (let y = 0; y < copyBuffer.height; y++) {
-        const i = (y * copyBuffer.width + x) * 4;
-        const r = copyBuffer.data[i+0];
-        const g = copyBuffer.data[i+1];
-        const b = copyBuffer.data[i+2];
-        const a = copyBuffer.data[i+3];
-        if (overwrite) {
-          t.data.data[i+0] = r;
-          t.data.data[i+1] = g;
-          t.data.data[i+2] = b;
-          t.data.data[i+3] = a;
-        } else {
-          t.data.data[i+0] ||= r;
-          t.data.data[i+1] ||= g;
-          t.data.data[i+2] ||= b;
-          t.data.data[i+3] ||= a;
-        }
-      }
-    }
-    t.dirty = true;
-    setTileBuffer(t);
-    */
+    // TODO
   }
 
   flip(axis: 'x' | 'y') {
@@ -430,9 +332,11 @@ export default class Tileset {
       const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
       tile.buf = flip(tile.buf, axis);
       tile.dirty = true;
+      this.rendering++;
       createImageBitmap(tile.buf).then(img => { 
+        tile.img?.close();
         tile.img = img;
-        tile.dirty = false;
+        this.rendering--;
       });
     }
   }
@@ -442,61 +346,17 @@ export default class Tileset {
       const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
       tile.buf = rotsprite(tile.buf, degrees);
       tile.dirty = true;
+      this.rendering++;
       createImageBitmap(tile.buf).then(img => { 
+        tile.img?.close();
         tile.img = img;
-        tile.dirty = false;
+        this.rendering--;
       });
     } 
   }
 
   move(ox: number, oy: number) {
-    /*
-    if (tileset.selectedTiles.length === 1) {
-      copy();
-      if (!copyBuffer) return;
-      const dest = new ImageData(copyBuffer.width, copyBuffer.height);
-      for (let x = 0; x < dest.width; x++) {
-        for (let y = 0; y < dest.height; y++) {
-          const i = (y * dest.width + x) * 4;
-          const j = ((y-oy) * dest.width + (x-ox)) * 4;
-          dest.data[i+0] = copyBuffer.data[j+0];
-          dest.data[i+1] = copyBuffer.data[j+1];
-          dest.data[i+2] = copyBuffer.data[j+2];
-          dest.data[i+3] = copyBuffer.data[j+3];
-        }
-      }
-      copyBuffer = dest;
-      paste();
-      copyBuffer = undefined;
-    } else if (tileset.img) {
-      // TODO: Undo whole selection move
-      const bufs = tileset.selectedTiles.map(([tileX, tileY]) => makeTileBuffer(tileX, tileY));
-      const tmp = document.createElement('canvas');
-      tmp.width = tileset.img.width;
-      tmp.height = tileset.img.height;
-      const ctx = tmp.getContext('2d');
-      if (!ctx) return undefined;
-      ctx.drawImage(tileset.img, 0, 0);
-      for (let i = 0; i < bufs.length; i++) {
-        const buf = bufs[i];
-        if (!buf) continue;
-        const [x1, y1] = tileset.tileToImgCoords(buf.tileX, buf.tileY);
-        ctx.clearRect(x1, y1, tileset.tilewidth, tileset.tileheight);
-        const [x2, y2] = tileset.tileToImgCoords(buf.tileX+ox, buf.tileY+oy);
-        ctx.clearRect(x2, y2, tileset.tilewidth, tileset.tileheight);
-      }
-      for (let i = 0; i < bufs.length; i++) {
-        const buf = bufs[i];
-        if (!buf) continue;
-        const [x, y] = tileset.tileToImgCoords(buf.tileX+ox, buf.tileY+oy);
-        const tileImg = await createImageBitmap(buf.data);
-        ctx.drawImage(tileImg, x, y);
-        // TODO: Update selection with moved tile
-      }
-      tileset.img = await createImageBitmap(ctx.getImageData(0, 0, tmp.width, tmp.height));
-      triggerRedraw();
-    }
-    */
+    // TODO
   }
 
   clear() {
@@ -505,9 +365,11 @@ export default class Tileset {
       const tile = this.getTileBuffer(x, y);
       clear(tile.buf);
       tile.dirty = true;
+      this.rendering++;
       createImageBitmap(tile.buf).then(img => { 
+        tile.img?.close();
         tile.img = img;
-        tile.dirty = false;
+        this.rendering--;
       });
     }
   }
