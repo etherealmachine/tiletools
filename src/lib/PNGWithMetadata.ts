@@ -63,6 +63,16 @@ export class PNGWithMetadata {
     ));
   }
 
+  bitmap(): Promise<ImageBitmap> {
+    return new Promise((resolve, reject) => {
+      const img = document.createElement('img');
+      img.onload = () => {
+        createImageBitmap(img).then(resolve).catch(reject);
+      };
+      img.src = this.dataURL();
+    });
+  }
+
   static fromDataURL(url: string): PNGWithMetadata {
     return new PNGWithMetadata("", {}, url);
   }

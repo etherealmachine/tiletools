@@ -159,10 +159,9 @@ export default class Tileset {
       // If a single tile is selected, tags replaces the current set
       if (this.selectedTiles.length === 1) {
         this.setTileData(x, y, "tags", Array.from(tags));
-      } else { // If multiple tiles are selected, tags add to their set
-        const currTags = new Set<string>(this.getTileData(x, y, "tags", []));
-        tags.forEach(tag => currTags.add(tag));
-        this.setTileData(x, y, "tags", Array.from(currTags));
+      } else {
+        // TODO: Union and intersection if multiple tiles are selected
+        this.setTileData(x, y, "tags", Array.from(tags));
       }
     });
   }

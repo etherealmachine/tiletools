@@ -8,8 +8,14 @@ export interface Camera {
 }
 
 export interface Tilemap {
-  layers: Layer[];
-  tileset: Tileset;
+  layers: Layer[]
+  tileset: Tileset
+}
+
+export interface Character {
+  name: string
+  portrait: string | ImageBitmap
+  position: { x: number, y: number }
 }
 
 interface Entity {
@@ -35,5 +41,11 @@ export default class ECS {
       return e.data;
     }
     return undefined;
+  }
+
+  all<T>(...components: string[]): T[] {
+    return this.entities.filter(e => components.includes(e.component)).map(e => {
+      return e.data;
+    });
   }
 }

@@ -365,9 +365,6 @@
     <button on:click={save}>
         <Icon name="saveFloppyDisk" />
     </button>
-    <button on:click={loadScene}>
-        <Icon name="hexagonDice" />
-    </button>
     <input
       type="file"
       accept="image/png"

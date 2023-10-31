@@ -3,8 +3,9 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { Camera, Tilemap } from "./ECS";
+  import type { Camera, Character, Tilemap } from "./ECS";
   import type ECS from "./ECS";
+    import { PNGWithMetadata } from "./PNGWithMetadata";
 
   export let ecs: ECS;
 
@@ -46,6 +47,15 @@
           tilemap.tileset.drawTile(ctx, x, y, tile.tileX, tile.tileY);
         });
       });
+      ecs.all<Character>('Character').forEach(c => {
+        if (typeof(c.portrait) === 'string') {
+          PNGWithMetadata.fromDataURL(c.portrait).bitmap().then(img => {
+            c.portrait = img;
+          });
+        } else if (c.portrait instanceof ImageBitmap) {
+          ctx.drawImage(c.portrait, c.position.x*tilemap.tileset.tilewidth, c.position.y*tilemap.tileset.tilewidth);
+        }
+      });
     }
     requestAnimationFrame(draw);
   }
@@ -66,6 +76,28 @@
   }
 
   function onKeyDown(e: KeyboardEvent) {
+    const camera = ecs.get<Camera>('Camera');
+    if (!camera) return;
+    const tilemap = ecs.get<Tilemap>('Tilemap');
+    if (!tilemap) return;
+    switch (true) {
+      case e.key === "ArrowLeft":
+        camera.centerX -= camera.zoom*tilemap.tileset.offsetWidth();
+        e.preventDefault();
+        break;
+      case e.key === "ArrowRight":
+        camera.centerX += camera.zoom*tilemap.tileset.offsetWidth();
+        e.preventDefault();
+        break;
+      case e.key === "ArrowUp":
+        camera.centerY -= camera.zoom*tilemap.tileset.offsetHeight();
+        e.preventDefault();
+        break;
+      case e.key === "ArrowDown":
+        camera.centerY += camera.zoom*tilemap.tileset.offsetHeight();
+        e.preventDefault();
+        break;
+    }
   }
 
   onMount(() => {
