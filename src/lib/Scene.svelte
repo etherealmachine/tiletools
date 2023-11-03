@@ -3,11 +3,11 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { Camera, Character, Tilemap } from "./ECS";
-  import type ECS from "./ECS";
-    import { PNGWithMetadata } from "./PNGWithMetadata";
+  import type { Camera, Character, Tilemap } from "./RPGEngine";
+  import type RPGEngine from "./RPGEngine";
+  import { PNGWithMetadata } from "./PNGWithMetadata";
 
-  export let ecs: ECS;
+  export let engine: RPGEngine;
 
   let canvas: HTMLCanvasElement | undefined;
 
@@ -28,35 +28,40 @@
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
-    const camera = ecs.get<Camera>('Camera');
-    if (camera) {
-      ctx.setTransform(camera.zoom, 0, 0, camera.zoom, -camera.centerX, -camera.centerY);
-    }
-    const tilemap = ecs.get<Tilemap>('Tilemap');
-    if (tilemap) {
-      tilemap.layers.forEach(layer => {
-        if (!layer.visible) return;
-        Object.entries(layer.tiles).sort((a, b): number => {
-          const [x1, y1] = a[0].split(',').map(v => parseInt(v));
-          const [x2, y2] = b[0].split(',').map(v => parseInt(v));
-          if (y1 === y2) return x1-x2;
-          return y1-y2;
-        }).forEach(entry => {
-          const [x, y] = entry[0].split(',').map(v => parseInt(v));
-          const tile = entry[1];
-          tilemap.tileset.drawTile(ctx, x, y, tile.tileX, tile.tileY);
+    const { camera, tilemap } = engine;
+    const [w, h] = [tilemap.tileset.tilewidth, tilemap.tileset.tileheight];
+    engine.characters.forEach(c => {
+      if (camera && c.name === 'Player') {
+        camera.centerX = c.position.x*w;
+        camera.centerY = c.position.y*h;
+      }
+    });
+    ctx.setTransform(camera.zoom, 0, 0, camera.zoom, (W/2)-camera.centerX*camera.zoom, (H/2)-camera.centerY*camera.zoom);
+    tilemap.layers.forEach(layer => {
+      if (!layer.visible) return;
+      Object.entries(layer.tiles).sort((a, b): number => {
+        const [x1, y1] = a[0].split(',').map(v => parseInt(v));
+        const [x2, y2] = b[0].split(',').map(v => parseInt(v));
+        if (y1 === y2) return x1-x2;
+        return y1-y2;
+      }).forEach(entry => {
+        const [x, y] = entry[0].split(',').map(v => parseInt(v));
+        const tile = entry[1];
+        tilemap.tileset.drawTile(ctx, x, y, tile.tileX, tile.tileY);
+      });
+    });
+    engine.characters.forEach(c => {
+      if (typeof(c.token) === 'string') {
+        PNGWithMetadata.fromDataURL(c.token).bitmap().then(img => {
+          c.token = img;
         });
-      });
-      ecs.all<Character>('Character').forEach(c => {
-        if (typeof(c.portrait) === 'string') {
-          PNGWithMetadata.fromDataURL(c.portrait).bitmap().then(img => {
-            c.portrait = img;
-          });
-        } else if (c.portrait instanceof ImageBitmap) {
-          ctx.drawImage(c.portrait, c.position.x*tilemap.tileset.tilewidth, c.position.y*tilemap.tileset.tilewidth);
-        }
-      });
-    }
+      } else if (c.token instanceof ImageBitmap) {
+        const [x, y] = [c.position.x*w, c.position.y*h];
+        ctx.drawImage(c.token, x, y, w, h);
+        ctx.fillStyle = "red";
+        ctx.fillRect(x, y-1, tilemap.tileset.tilewidth*(c.health.current/c.health.max), 1);
+      }
+    });
     requestAnimationFrame(draw);
   }
 
@@ -73,31 +78,48 @@
   }
 
   function onWheel(e: WheelEvent) {
+    const { camera } = engine;
+    if (e.deltaY < 0) {
+      camera.zoom *= 1.1;
+    } else if (e.deltaY > 0) {
+      camera.zoom *= 0.9;
+    }
+    camera.zoom = Math.min(Math.max(0.25, camera.zoom), 8);
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    const camera = ecs.get<Camera>('Camera');
-    if (!camera) return;
-    const tilemap = ecs.get<Tilemap>('Tilemap');
-    if (!tilemap) return;
+    const c = engine.characters.find(c => c.name === 'Player');
+    if (!c) return;
+    const { x, y } = c.position;
     switch (true) {
       case e.key === "ArrowLeft":
-        camera.centerX -= camera.zoom*tilemap.tileset.offsetWidth();
+        c.position.x--;
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
-        camera.centerX += camera.zoom*tilemap.tileset.offsetWidth();
+        c.position.x++;
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
-        camera.centerY -= camera.zoom*tilemap.tileset.offsetHeight();
+        c.position.y--;
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
-        camera.centerY += camera.zoom*tilemap.tileset.offsetHeight();
+        c.position.y++;
         e.preventDefault();
         break;
     }
+    engine.characters.forEach((e, i) => {
+      const d = Math.round(Math.sqrt(Math.pow(e.position.x-c.position.x, 2)+Math.pow(e.position.y-c.position.y, 2)));
+      if (e.name !== 'Player' && d === 0) {
+        c.position.x = x;
+        c.position.y = y;
+        e.health.current -= Math.ceil(Math.random()*3);
+        if (e.health.current <= 0) {
+          engine.characters.splice(i, 1);
+        }
+      }
+    });
   }
 
   onMount(() => {
