@@ -229,12 +229,14 @@
   function onPointerCancel(e: PointerEvent) {
     [dragX, dragY] = [undefined, undefined];
     tileset.endUndoable();
+    tileset = tileset;
   }
 
   function onPointerUp(e: PointerEvent) {
     mouseDown = false;
     [dragX, dragY] = [undefined, undefined];
     tileset.endUndoable();
+    tileset = tileset;
   }
 
   function onLoad(e: Event) {

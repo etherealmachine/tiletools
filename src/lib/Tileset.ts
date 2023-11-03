@@ -2,17 +2,112 @@ import { PNGWithMetadata } from "./PNGWithMetadata"
 import { clear, colors, copy, flip, shift } from "./draw"
 import rotsprite from "./rotsprite"
 
+const MAX_UNDO = 20;
+
 interface TileBuffer {
   tileX: number
   tileY: number
   buf: ImageData
-  dirty: boolean
   img?: ImageBitmap
 }
 
-interface Undoable {
-  undo: (tileset: Tileset) => void
-  redo: (tileset: Tileset) => void
+interface RGBA {
+  r: number
+  g: number
+  b: number
+  a: number
+}
+
+interface PixelChange {
+  tileX: number
+  tileY: number
+  x: number
+  y: number
+  from: RGBA
+  to: RGBA
+}
+
+class Undoable {
+
+  stack: Undoable[] = [];
+  tiles: TileBuffer[] = [];
+  pixels: PixelChange[] = [];
+
+  constructor(tiles?: TileBuffer[]) {
+    tiles?.forEach(tile => this.addTile(tile));
+  }
+
+  addTile({ tileX, tileY, buf }: TileBuffer) {
+    this.tiles.push({ tileX, tileY, buf: copy(buf) });
+  }
+
+  push(undoable: Undoable) {
+    this.stack.push(undoable);
+  }
+
+  undo(tileset: Tileset) {
+    for (let undoable of this.stack.toReversed()) {
+      undoable.undo(tileset);
+    }
+    this.tiles?.forEach(prev => {
+      const tmp = prev.buf;
+      const curr = tileset.getTileBuffer(prev.tileX, prev.tileY);
+      prev.buf = curr.buf;
+      curr.buf = tmp;
+      tileset.rendering++;
+      createImageBitmap(curr.buf).then(img => { 
+        curr.img?.close();
+        curr.img = img;
+        tileset.rendering--;
+      });
+    });
+    this.pixels.forEach(change => {
+      const curr = tileset.getTileBuffer(change.tileX, change.tileY);
+      const i = (change.y*curr.buf.width+change.x)*4;
+      curr.buf.data[i+0] = change.from.r;
+      curr.buf.data[i+1] = change.from.g;
+      curr.buf.data[i+2] = change.from.b;
+      curr.buf.data[i+3] = change.from.a;
+      tileset.rendering++;
+      createImageBitmap(curr.buf).then(img => { 
+        curr.img?.close();
+        curr.img = img;
+        tileset.rendering--;
+      });
+    });
+  }
+
+  redo(tileset: Tileset) {
+    for (let undoable of this.stack) {
+      undoable.redo(tileset);
+    }
+    this.tiles?.forEach(prev => {
+      const tmp = prev.buf;
+      const curr = tileset.getTileBuffer(prev.tileX, prev.tileY);
+      prev.buf = curr.buf;
+      curr.buf = tmp;
+      tileset.rendering++;
+      createImageBitmap(curr.buf).then(img => { 
+        curr.img?.close();
+        curr.img = img;
+        tileset.rendering--;
+      });
+    });
+    this.pixels.forEach(change => {
+      const curr = tileset.getTileBuffer(change.tileX, change.tileY);
+      const i = (change.y*curr.buf.width+change.x)*4;
+      curr.buf.data[i+0] = change.to.r;
+      curr.buf.data[i+1] = change.to.g;
+      curr.buf.data[i+2] = change.to.b;
+      curr.buf.data[i+3] = change.to.a;
+      tileset.rendering++;
+      createImageBitmap(curr.buf).then(img => { 
+        curr.img?.close();
+        curr.img = img;
+        tileset.rendering--;
+      });
+    });
+  }
 }
 
 export default class Tileset {
@@ -29,6 +124,7 @@ export default class Tileset {
   tiles: TileBuffer[] = []
   rendering: number = 0
   copyBuffer: TileBuffer[] = []
+  undoable?: Undoable
   undoStack: Undoable[] = []
   redoStack: Undoable[] = []
 
@@ -147,8 +243,8 @@ export default class Tileset {
 
   palette(): Set<string> {
     let palette = new Set<string>();
-    for (let i = 0; i < this.selectedTiles.length; i++) {
-      const tile = this.getTileBuffer(this.selectedTiles[i][0], this.selectedTiles[i][1]);
+    for (let [x, y] of this.selectedTiles) {
+      const tile = this.getTileBuffer(x, y);
       palette = new Set([...palette, ...colors(tile.buf)]);
     }
     return palette;
@@ -276,12 +372,12 @@ export default class Tileset {
             const tile: TileBuffer = {
               tileX: x,
               tileY: y,
-              dirty: false,
               buf: ctx.getImageData(0, 0, this.tilewidth, this.tileheight),
             };
             this.tiles.push(tile);
             this.rendering++;
             createImageBitmap(tile.buf).then(img => { 
+              tile.img?.close();
               tile.img = img;
               this.rendering--;
             });
@@ -303,11 +399,24 @@ export default class Tileset {
     y = y % this.offsetHeight();
     if (x >= this.tilewidth || y >= this.tilewidth) return;
     const i = (y*tile.buf.width+x)*4;
+    const prev: RGBA = {
+      r: tile.buf.data[i+0],
+      g: tile.buf.data[i+1],
+      b: tile.buf.data[i+2],
+      a: tile.buf.data[i+3],
+    };
+    if (prev.r === r && prev.g === g && prev.b === b && prev.a === a) return;
+    const undo = this.undoable || this.pushUndo();
+    undo.pixels.push({
+      tileX, tileY,
+      x, y,
+      from: prev,
+      to: { r, g, b, a },
+    });
     tile.buf.data[i+0] = r;
     tile.buf.data[i+1] = g;
     tile.buf.data[i+2] = b;
     tile.buf.data[i+3] = a;
-    tile.dirty = true;
     this.rendering++;
     createImageBitmap(tile.buf).then(img => { 
       tile.img?.close();
@@ -317,11 +426,32 @@ export default class Tileset {
   }
 
   beginUndoable() {
-    // TODO: Undo/redo
+    if (this.undoable) {
+      this.undoStack.push(this.undoable);
+      if (this.undoStack.length >= MAX_UNDO) {
+        this.undoStack.splice(0, 1);
+      }
+    }
+    this.undoable = new Undoable();
   }
 
   endUndoable() {
-    // TODO: Undo/redo
+    if (this.undoable) {
+      this.undoStack.push(this.undoable);
+      if (this.undoStack.length >= MAX_UNDO) {
+        this.undoStack.splice(0, 1);
+      }
+      this.undoable = undefined;
+    }
+  }
+
+  pushUndo(): Undoable {
+    const undo = new Undoable();
+    (this.undoable || this.undoStack).push(undo);
+    if (this.undoStack.length >= MAX_UNDO) {
+      this.undoStack.splice(0, 1);
+    }
+    return undo;
   }
 
   undo() {
@@ -336,21 +466,23 @@ export default class Tileset {
     if (!op) return;
     op.redo(this);
     this.undoStack.push(op);
+    if (this.undoStack.length >= MAX_UNDO) {
+      this.undoStack.splice(0, 1);
+    }
   }
 
   cut() {
     this.copyBuffer = [];
-    for (let i = 0; i < this.selectedTiles.length; i++) {
-      const [x, y] = this.selectedTiles[i];
+    const undo = this.pushUndo();
+    for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
+      undo.addTile(tile);
       this.copyBuffer.push({
         tileX: tile.tileX,
         tileY: tile.tileY,
         buf: copy(tile.buf),
-        dirty: tile.dirty,
       });
       tile.buf = clear(tile.buf);
-      tile.dirty = true;
       this.rendering++;
       createImageBitmap(tile.buf).then(img => { 
         tile.img?.close();
@@ -362,14 +494,12 @@ export default class Tileset {
 
   copy() {
     this.copyBuffer = [];
-    for (let i = 0; i < this.selectedTiles.length; i++) {
-      const [x, y] = this.selectedTiles[i];
+    for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
       this.copyBuffer.push({
         tileX: tile.tileX,
         tileY: tile.tileY,
         buf: copy(tile.buf),
-        dirty: tile.dirty,
       });
     }
   }
@@ -378,28 +508,26 @@ export default class Tileset {
     if (this.selectedTiles.length === 0 || this.copyBuffer.length === 0) return;
     const dx = this.selectedTiles[0][0] - this.copyBuffer[0].tileX;
     const dy = this.selectedTiles[0][1] - this.copyBuffer[0].tileY;
-    for (let i = 0; i < this.copyBuffer.length; i++) {
-      const copy = this.copyBuffer[i];
+    const undo = this.pushUndo();
+    for (let copy of this.copyBuffer) {
       const tile = this.getTileBuffer(copy.tileX+dx, copy.tileY+dy);
-      if (copy) {
-        tile.buf = copy.buf;
-        tile.dirty = copy.dirty;
-        this.rendering++;
-        createImageBitmap(tile.buf).then(img => { 
-          tile.img?.close();
-          tile.img = img;
-          this.rendering--;
-        });
-      }
+      undo.addTile(tile);
+      tile.buf = copy.buf;
+      this.rendering++;
+      createImageBitmap(tile.buf).then(img => { 
+        tile.img?.close();
+        tile.img = img;
+        this.rendering--;
+      });
     }
   }
 
   flip(axis: 'x' | 'y') {
-    for (let i = 0; i < this.selectedTiles.length; i++) {
-      const [x, y] = this.selectedTiles[i];
+    const undo = this.pushUndo();
+    for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
+      undo.addTile(tile);
       flip(tile.buf, axis);
-      tile.dirty = true;
       this.rendering++;
       createImageBitmap(tile.buf).then(img => { 
         tile.img?.close();
@@ -410,11 +538,11 @@ export default class Tileset {
   }
 
   rotate(degrees: number) {
-    for (let i = 0; i < this.selectedTiles.length; i++) {
-      const [x, y] = this.selectedTiles[i];
+    const undo = this.pushUndo();
+    for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
+      undo.addTile(tile);
       tile.buf = rotsprite(tile.buf, degrees);
-      tile.dirty = true;
       this.rendering++;
       createImageBitmap(tile.buf).then(img => { 
         tile.img?.close();
@@ -425,11 +553,11 @@ export default class Tileset {
   }
 
   move(ox: number, oy: number) {
-    for (let i = 0; i < this.selectedTiles.length; i++) {
-      const [x, y] = this.selectedTiles[i];
+    const undo = this.pushUndo();
+    for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
+      undo.addTile(tile);
       shift(tile.buf, ox, oy);
-      tile.dirty = true;
       this.rendering++;
       createImageBitmap(tile.buf).then(img => { 
         tile.img?.close();
@@ -440,11 +568,11 @@ export default class Tileset {
   }
 
   clear() {
-    for (let i = 0; i < this.selectedTiles.length; i++) {
-      const [x, y] = this.selectedTiles[i];
+    const undo = this.pushUndo();
+    for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
+      undo.addTile(tile);
       clear(tile.buf);
-      tile.dirty = true;
       this.rendering++;
       createImageBitmap(tile.buf).then(img => { 
         tile.img?.close();
@@ -455,7 +583,7 @@ export default class Tileset {
   }
 
   // x, y is location in world, tileX, tileY is location in tileset
-  drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileX: number, tileY: number): boolean {
+  drawTile(ctx: CanvasRenderingContext2D, x: number, y: number, tileX: number, tileY: number) {
     if (!this.img) return true;
     let [dx, dy] = this.tileToWorld(x, y);
     const [sx, sy] = this.tileToImgCoords(tileX, tileY);
@@ -479,14 +607,12 @@ export default class Tileset {
         dx, dy,
         this.tilewidth, this.tileheight);
     }
-    return tile.dirty;
   }
 
   async syncTiles(): Promise<ImageBitmap> {
     if (this.rendering) throw new Error('cannot sync until tiles are fully rendered');
     let [maxX, maxY] = [0, 0];
-    for (let i = 0; i < this.tiles.length; i++) {
-      const tile = this.tiles[i];
+    for (let tile of this.tiles) {
       if (colors(tile.buf).size > 0) {
         maxX = Math.max(maxX, tile.tileX);
         maxY = Math.max(maxY, tile.tileY);
@@ -497,8 +623,7 @@ export default class Tileset {
     canvas.height = 2*this.margin+this.offsetHeight()*(maxY+1);
     const ctx = canvas.getContext('2d');
     if (!ctx) return new Promise((_resolve, reject) => reject('cannot create ctx from canvas'));
-    for (let i = 0; i < this.tiles.length; i++) {
-      const tile = this.tiles[i];
+    for (let tile of this.tiles) {
       if (!tile.img) throw new Error('cannot sync until tiles are fully rendered');
       const x = this.margin + tile.tileX*this.offsetWidth();
       const y = this.margin + tile.tileY*this.offsetHeight();
