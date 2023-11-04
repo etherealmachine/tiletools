@@ -1,46 +1,20 @@
-<script lang="ts" context="module">
-  export interface Tile {
-    tileX: number
-    tileY: number
-  }
-
-  export interface Layer {
-    name: string
-    visible: boolean
-    tiles: { [key: string]: Tile },
-  }
-</script>
-
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { base } from "$app/paths";
   import Icon from "./Icon.svelte";
-  import { PNGWithMetadata } from "./PNGWithMetadata";
-  import Tileset from "./Tileset";
+  import Tilemap from "./Tilemap";
   import { drawHexagon, drawRect } from "./draw";
 
-  export let tileset: Tileset | undefined;
   // TODO: Select location, copy/paste layers
-  export let layers: Layer[] = [{
-    name: "Layer 1",
-    visible: true,
-    tiles: {},
-  }];
+  export let map: Tilemap  = new Tilemap();
 
   let canvas: HTMLCanvasElement;
-  let name: string;
   let erase: boolean = false;
   let editingLayers: boolean = false;
-  let selectedLayerIndex: number = 0;
   let mouseX: number, mouseY: number;
   let dragX: number | undefined, dragY: number | undefined;
   let grid: boolean = true;
   let zoom: number = 1;
   let mouseOver: boolean = false;
   let offsetX: number = 0, offsetY: number = 0;
-  let dirty: boolean = false;
-  let undoStack: Layer[][] = [];
-  let redoStack: Layer[][] = [];
 
   function screenToWorld(x: number, y: number): number[] {
     return [(x-offsetX)/zoom, (y-offsetY)/zoom];
@@ -48,8 +22,8 @@
 
   function screenToTile(x: number, y: number): number[] {
     const [tx, ty] = screenToWorld(x, y);
-    if (!tileset) return [0, 0];
-    return tileset.worldToTile(tx, ty);
+    if (!map.tileset) return [0, 0];
+    return map.tileset.worldToTile(tx, ty);
   }
 
   function draw() {
@@ -64,9 +38,9 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
     ctx.strokeStyle = "white";
-    if (grid && tileset && tileset.tilewidth > 0 && tileset.tileheight > 0) {
-      if (tileset.type === "hex") {
-        const radius = tileset.radius();
+    if (grid && map.tileset && map.tileset.tilewidth > 0 && map.tileset.tileheight > 0) {
+      if (map.tileset.type === "hex") {
+        const radius = map.tileset.radius();
         const horiz = (3/2)*radius;
         const halfHoriz = (1/2)*horiz;
         const vert = Math.sqrt(3)*radius;
@@ -86,36 +60,26 @@
         }
       } else {
         let [x1, y1] = screenToWorld(0, 0);
-        x1 = Math.floor(x1/tileset.tilewidth);
-        y1 = Math.floor(y1/tileset.tileheight);
-        const [w, h] = [canvas.width/tileset.tilewidth/zoom, canvas.height/tileset.tileheight/zoom];
+        x1 = Math.floor(x1/map.tileset.tilewidth);
+        y1 = Math.floor(y1/map.tileset.tileheight);
+        const [w, h] = [canvas.width/map.tileset.tilewidth/zoom, canvas.height/map.tileset.tileheight/zoom];
         for (let x = x1; x <= x1+w; x++) {
           for (let y = y1; y <= y1+h; y++) {
-            drawRect(ctx, x*tileset.tilewidth, y*tileset.tileheight, tileset.tilewidth, tileset.tileheight);
+            drawRect(ctx, x*map.tileset.tilewidth, y*map.tileset.tileheight, map.tileset.tilewidth, map.tileset.tileheight);
           }
         }
       }
     }
-    if (tileset) {
-      const ts = tileset;
-      layers.forEach(layer => {
+    if (map.tileset) {
+      for (let layer of map.layers) {
         if (!layer.visible) return;
-        Object.entries(layer.tiles).sort((a, b): number => {
-          const [x1, y1] = a[0].split(',').map(v => parseInt(v));
-          const [x2, y2] = b[0].split(',').map(v => parseInt(v));
-          if (y1 === y2) return x1-x2;
-          return y1-y2;
-        }).forEach(entry => {
-          const [x, y] = entry[0].split(',').map(v => parseInt(v));
-          const tile = entry[1];
-          ts.drawTile(ctx, x, y, tile.tileX, tile.tileY);
-        });
-      });
+        map.drawLayer(ctx, layer);
+      }
       if (mouseX !== undefined && mouseY !== undefined && mouseOver) {
         // TODO: Shift drag to preview filling area
-        const randTile = tileset.randSelectedTile();
+        const randTile = map.tileset.randSelectedTile();
         if (randTile) {
-          ts.drawTile(ctx, mouseX, mouseY, randTile[0], randTile[1]);
+          map.tileset.drawTile(ctx, mouseX, mouseY, randTile[0], randTile[1]);
         }
       }
     }
@@ -123,29 +87,14 @@
 
   function onClick(e: PointerEvent) {
     if (e.buttons === 1) {
-      // TODO: Shift drag to fill area
-      if (!dirty) {
-        pushStack(undoStack);
-        dirty = true;
-      }
-      const loc = `${mouseX},${mouseY}`;
       if (e.ctrlKey || erase) {
-        delete layers[selectedLayerIndex].tiles[loc];
-      } else if (tileset) {
-        const randTile = tileset.randSelectedTile();
-        if (randTile) {
-          layers[selectedLayerIndex].tiles[loc] = {
-            tileX: randTile[0],
-            tileY: randTile[1],
-          };
-        }
+        map.erase(mouseX, mouseY);
+      } else {
+        map.set(mouseX, mouseY);
       }
-    } else {
-      dirty = false;
-      if (e.ctrlKey) {
-        offsetX += e.movementX;
-        offsetY += e.movementY;
-      }
+    } else if (e.ctrlKey) {
+      offsetX += e.movementX;
+      offsetY += e.movementY;
     }
   }
 
@@ -164,7 +113,7 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (!tileset || !tileset.img) return;
+    if (!map.tileset || !map.tileset.img) return;
     [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
     onClick(e);
   }
@@ -182,7 +131,7 @@
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    if (!tileset) return;
+    if (!map.tileset) return;
     if (!mouseOver) return;
     switch (true) {
       case e.key === "e":
@@ -190,35 +139,36 @@
         e.preventDefault();
         break;
       case e.key === "z" && e.ctrlKey:
-        undo();
+        map.undo();
         e.preventDefault();
         break;
       case e.key === "y" && e.ctrlKey:
-        redo();
+        map.redo();
         e.preventDefault();
         break;
       case e.key === "s" && e.ctrlKey:
-        save();
+        map.download();
         e.preventDefault();
         break;
       case e.key === "ArrowLeft":
-        offsetX += zoom*tileset.offsetWidth();
+        offsetX += zoom*map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
-        offsetX -= zoom*tileset.offsetWidth();
+        offsetX -= zoom*map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
-        offsetY += zoom*tileset.offsetHeight();
+        offsetY += zoom*map.tileset.offsetHeight();
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
-        offsetY -= zoom*tileset.offsetHeight();
+        offsetY -= zoom*map.tileset.offsetHeight();
         e.preventDefault();
         break;
       case mouseOver && e.key === "Shift":
         // TODO: Flood fill with shift
+        map.fill(mouseX, mouseY);
         e.preventDefault();
         break;
     }
@@ -229,110 +179,19 @@
     const files = (e.target as HTMLInputElement).files;
     if (files === null) return;
     const file = files[0];
-    PNGWithMetadata.fromFile(file).then(png => {
-      tileset = Tileset.fromPNGWithMetadata(PNGWithMetadata.fromDataURL(png.metadata.tileset));
-      layers = png.metadata.layers;
-      name = png.metadata.name;
-      pushStack(undoStack);
-    });
-  }
-
-  function pushStack(stack: Layer[][], clearRedo: boolean = true) {
-    stack.push(JSON.parse(JSON.stringify(layers)));
-    if (clearRedo) {
-      redoStack = [];
-    }
-  }
-
-  function undo() {
-    const last = undoStack.pop();
-    if (!last) return;
-    pushStack(redoStack, false);
-    layers = last;
-  }
-
-  function redo() {
-    const last = redoStack.pop();
-    if (!last) return;
-    pushStack(undoStack, false);
-    layers = last;
-  }
-
-  function save() {
-    const metadata: any = {
-      layers: layers,
-    };
-    if (tileset && tileset.img) {
-      const tilesetPNG = new PNGWithMetadata(tileset.name, tileset.metadata(), tileset.img);
-      tilesetPNG.metadata.name = tileset.name;
-      metadata.tileset = tilesetPNG.dataURL();
-      metadata.name = name;
-    }
-    const png = new PNGWithMetadata(name, metadata, canvas);
-    png.download();
-  }
-
-  function loadScene() {
-    const metadata: any = {
-      layers: layers,
-    };
-    if (tileset && tileset.img) {
-      const tilesetPNG = new PNGWithMetadata(tileset.name, tileset.metadata(), tileset.img);
-      tilesetPNG.metadata.name = tileset.name;
-      metadata.tileset = tilesetPNG.dataURL();
-      metadata.name = name;
-    }
-    const url = new PNGWithMetadata(name, metadata, canvas).dataURL();
-    goto(`${base}/scene?map=${encodeURIComponent(url)}`);
-  }
-
-  function setLayerName(i: number) {
-    return (e: Event & { currentTarget: HTMLInputElement }) => {
-      if (e.currentTarget === null) return;
-      pushStack(undoStack);
-      layers[i].name = e.currentTarget.value;
-    }
-  }
-
-  function removeLayer(i: number) {
-    return () => {
-      pushStack(undoStack);
-      layers.splice(i, 1);
-      layers = layers;
-    }
-  }
-
-  function selectLayer(i: number) {
-    return () => {
-      selectedLayerIndex = i;
-    }
-  }
-
-  function toggleLayerVisibility(i: number) {
-    return () => {
-      layers[i].visible = !layers[i].visible;
-      layers = layers;
-    }
-  }
-
-  function addLayer() {
-    pushStack(undoStack);
-    layers.push({
-      name: `Layer ${layers.length+1}`,
-      visible: true,
-      tiles: {},
-    });
-    layers = layers;
+    Tilemap.loadFromFile(file).then(_map => {
+      map = _map;
+    })
   }
 
   function triggerRedraw(..._args: any[]) {
-    if (tileset && tileset.img) {
+    if (map.tileset && map.tileset.img) {
       requestAnimationFrame(draw);
     }
   }
 
   $: triggerRedraw(
-    tileset, layers, grid,
+    map, grid,
     zoom, offsetX, offsetY,
     dragX, dragY,
     mouseX, mouseY, mouseOver);
@@ -353,16 +212,16 @@
       <input
         name="name"
         type="text"
-        bind:value={name}
+        bind:value={map.name}
       />
     </div>
-    <button on:click={undo}>
+    <button on:click={() => { map.undo(); map = map }}>
         <Icon name="undo" />
     </button>
-    <button on:click={redo}>
+    <button on:click={() => { map.redo(); map = map }}>
         <Icon name="redo" />
     </button>
-    <button on:click={save}>
+    <button on:click={() => map.download()}>
         <Icon name="saveFloppyDisk" />
     </button>
     <input
@@ -388,16 +247,16 @@
     </div>
     <div style="display: flex; flex-direction: column; gap: 4px;">
       <button on:click={() => { editingLayers = !editingLayers }}><Icon name="editPencil" /></button>
-      {#each layers as layer, i}
+      {#each map.layers as layer, i}
         <div>
           {#if editingLayers}
-            <input placeholder={layer.name} value={layer.name} on:change={setLayerName(i)}/>
-            <button on:click={removeLayer(i)}>
+            <input placeholder={layer.name} value={layer.name} on:change={(e) => { map.layers[i].name = e.currentTarget.value; map = map }} />
+            <button on:click={() => { map.layers.splice(i, 1); map = map }}>
               <Icon name="minus" />
             </button>
           {:else}
-            <button on:click={selectLayer(i)} class:selected={selectedLayerIndex === i}>{layer.name}</button>
-            <button on:click={toggleLayerVisibility(i)}>
+            <button on:click={() => { map.selectedLayer = i; map = map }} class:selected={map.selectedLayer === i}>{layer.name}</button>
+            <button on:click={() => { map.layers[i].visible = !map.layers[i].visible; map = map }}>
               {#if layer.visible}
                 <Icon name="eyeEmpty" />
               {:else}
@@ -407,7 +266,7 @@
           {/if}
         </div>
       {/each}
-      <button on:click={addLayer}><Icon name="plus" /></button>
+      <button on:click={() => { map.addLayer(); map = map }}><Icon name="plus" /></button>
     </div>
   </div>
 </div>

@@ -1,11 +1,13 @@
 <script lang="ts">
-  import MapEditor, { type Layer } from "$lib/MapEditor.svelte";
+  import type Tilemap from "$lib/Tilemap";
+  import MapEditor from "$lib/MapEditor.svelte";
   import TilesetEditor from "$lib/TilesetEditor.svelte";
   import type Tileset from "$lib/Tileset";
 
   let tileset: Tileset;
-  let layers: Layer[];
+  let map: Tilemap;
 
+  $: if (map) map.tileset = tileset;
   // TODO: Persist state during reload
 </script>
 
@@ -15,7 +17,6 @@
     maxWidth="30%"
   />
   <MapEditor
-    bind:tileset={tileset}
-    bind:layers={layers}
+    bind:map={map}
   />
 </div>

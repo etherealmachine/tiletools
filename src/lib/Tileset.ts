@@ -1,6 +1,6 @@
-import { PNGWithMetadata } from "./PNGWithMetadata"
-import { clear, colors, copy, flip, shift } from "./draw"
-import rotsprite from "./rotsprite"
+import PNGWithMetadata from "./PNGWithMetadata";
+import { clear, colors, copy, flip, shift } from "./draw";
+import rotsprite from "./rotsprite";
 
 const MAX_UNDO = 20;
 
@@ -207,7 +207,6 @@ export default class Tileset {
   metadata(): any {
     return {
       name: this.name,
-      type: this.type,
       tilewidth: this.tilewidth,
       tileheight: this.tileheight,
       margin: this.margin,
@@ -631,6 +630,10 @@ export default class Tileset {
     }
     const buf = ctx.getImageData(0, 0, canvas.width, canvas.height);
     return createImageBitmap(buf);
+  }
+
+  static fromDataURL(url: string, into?: Tileset): Tileset {
+    return this.fromPNGWithMetadata(PNGWithMetadata.fromDataURL(url), into);
   }
 
   static fromPNGWithMetadata(png: PNGWithMetadata, into?: Tileset): Tileset {
