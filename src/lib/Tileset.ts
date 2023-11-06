@@ -1,8 +1,7 @@
 import PNGWithMetadata from "./PNGWithMetadata";
+import Undoer, { Undoable } from "./Undoer";
 import { clear, colors, copy, flip, shift } from "./draw";
 import rotsprite from "./rotsprite";
-
-const MAX_UNDO = 20;
 
 interface TileBuffer {
   tileX: number
@@ -27,22 +26,13 @@ interface PixelChange {
   to: RGBA
 }
 
-class Undoable {
+class TilesetUndoable extends Undoable<Tileset> {
 
-  stack: Undoable[] = [];
   tiles: TileBuffer[] = [];
   pixels: PixelChange[] = [];
 
-  constructor(tiles?: TileBuffer[]) {
-    tiles?.forEach(tile => this.addTile(tile));
-  }
-
   addTile({ tileX, tileY, buf }: TileBuffer) {
     this.tiles.push({ tileX, tileY, buf: copy(buf) });
-  }
-
-  push(undoable: Undoable) {
-    this.stack.push(undoable);
   }
 
   undo(tileset: Tileset) {
@@ -124,9 +114,7 @@ export default class Tileset {
   tiles: TileBuffer[] = []
   rendering: number = 0
   copyBuffer: TileBuffer[] = []
-  undoable?: Undoable
-  undoStack: Undoable[] = []
-  redoStack: Undoable[] = []
+  undoer: Undoer<Tileset, TilesetUndoable> = new Undoer(TilesetUndoable)
 
   constructor(args: { [key: string]: any }) {
     this.name = args.name || "";
@@ -405,7 +393,7 @@ export default class Tileset {
       a: tile.buf.data[i+3],
     };
     if (prev.r === r && prev.g === g && prev.b === b && prev.a === a) return;
-    const undo = this.undoable || this.pushUndo();
+    const undo = this.undoer.push();
     undo.pixels.push({
       tileX, tileY,
       x, y,
@@ -424,55 +412,17 @@ export default class Tileset {
     });
   }
 
-  beginUndoable() {
-    if (this.undoable) {
-      this.undoStack.push(this.undoable);
-      if (this.undoStack.length >= MAX_UNDO) {
-        this.undoStack.splice(0, 1);
-      }
-    }
-    this.undoable = new Undoable();
-  }
-
-  endUndoable() {
-    if (this.undoable) {
-      this.undoStack.push(this.undoable);
-      if (this.undoStack.length >= MAX_UNDO) {
-        this.undoStack.splice(0, 1);
-      }
-      this.undoable = undefined;
-    }
-  }
-
-  pushUndo(): Undoable {
-    const undo = new Undoable();
-    (this.undoable || this.undoStack).push(undo);
-    if (this.undoStack.length >= MAX_UNDO) {
-      this.undoStack.splice(0, 1);
-    }
-    return undo;
-  }
-
   undo() {
-    const op = this.undoStack.pop();
-    if (!op) return;
-    op.undo(this);
-    this.redoStack.push(op);
+    this.undoer.undo(this);
   }
 
   redo() {
-    const op = this.redoStack.pop();
-    if (!op) return;
-    op.redo(this);
-    this.undoStack.push(op);
-    if (this.undoStack.length >= MAX_UNDO) {
-      this.undoStack.splice(0, 1);
-    }
+    this.undoer.redo(this);
   }
 
   cut() {
     this.copyBuffer = [];
-    const undo = this.pushUndo();
+    const undo = this.undoer.push();
     for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
       undo.addTile(tile);
@@ -507,7 +457,7 @@ export default class Tileset {
     if (this.selectedTiles.length === 0 || this.copyBuffer.length === 0) return;
     const dx = this.selectedTiles[0][0] - this.copyBuffer[0].tileX;
     const dy = this.selectedTiles[0][1] - this.copyBuffer[0].tileY;
-    const undo = this.pushUndo();
+    const undo = this.undoer.push();
     for (let copy of this.copyBuffer) {
       const tile = this.getTileBuffer(copy.tileX+dx, copy.tileY+dy);
       undo.addTile(tile);
@@ -522,7 +472,7 @@ export default class Tileset {
   }
 
   flip(axis: 'x' | 'y') {
-    const undo = this.pushUndo();
+    const undo = this.undoer.push();
     for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
       undo.addTile(tile);
@@ -537,7 +487,7 @@ export default class Tileset {
   }
 
   rotate(degrees: number) {
-    const undo = this.pushUndo();
+    const undo = this.undoer.push();
     for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
       undo.addTile(tile);
@@ -552,7 +502,7 @@ export default class Tileset {
   }
 
   move(ox: number, oy: number) {
-    const undo = this.pushUndo();
+    const undo = this.undoer.push();
     for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
       undo.addTile(tile);
@@ -567,7 +517,7 @@ export default class Tileset {
   }
 
   clear() {
-    const undo = this.pushUndo();
+    const undo = this.undoer.push();
     for (let [x, y] of this.selectedTiles) {
       const tile = this.getTileBuffer(x, y);
       undo.addTile(tile);

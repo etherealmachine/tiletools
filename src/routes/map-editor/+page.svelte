@@ -7,7 +7,12 @@
   let tileset: Tileset;
   let map: Tilemap;
 
-  $: if (map) map.tileset = tileset;
+  function onChange(map: Tilemap, tileset: Tileset) {
+    if (map) map.tileset = tileset;
+    if (map && map.tileset) tileset = map.tileset;
+  }
+
+  $: onChange(map, tileset);
   // TODO: Persist state during reload
 </script>
 

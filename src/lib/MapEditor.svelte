@@ -76,7 +76,6 @@
         map.drawLayer(ctx, layer);
       }
       if (mouseX !== undefined && mouseY !== undefined && mouseOver) {
-        // TODO: Shift drag to preview filling area
         const randTile = map.tileset.randSelectedTile();
         if (randTile) {
           map.tileset.drawTile(ctx, mouseX, mouseY, randTile[0], randTile[1]);
@@ -89,9 +88,12 @@
     if (e.buttons === 1) {
       if (e.ctrlKey || erase) {
         map.erase(mouseX, mouseY);
+      } else if (e.shiftKey) {
+        map.fill(mouseX, mouseY);
       } else {
         map.set(mouseX, mouseY);
       }
+      map = map
     } else if (e.ctrlKey) {
       offsetX += e.movementX;
       offsetY += e.movementY;
@@ -101,15 +103,20 @@
   function onPointerDown(e: PointerEvent) {
     [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
     [dragX, dragY] = [mouseX, mouseY];
+    if (e.buttons === 1) {
+      map.undoer.begin();
+    }
     onClick(e);
   }
 
   function onPointerUp(e: PointerEvent) {
     [dragX, dragY] = [undefined, undefined];
+    map.undoer.end();
   }
 
   function onPointerCancel() {
     [dragX, dragY] = [undefined, undefined];
+    map.undoer.end();
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -164,11 +171,6 @@
         break;
       case e.key === "ArrowDown":
         offsetY -= zoom*map.tileset.offsetHeight();
-        e.preventDefault();
-        break;
-      case mouseOver && e.key === "Shift":
-        // TODO: Flood fill with shift
-        map.fill(mouseX, mouseY);
         e.preventDefault();
         break;
     }
@@ -251,7 +253,7 @@
         <div>
           {#if editingLayers}
             <input placeholder={layer.name} value={layer.name} on:change={(e) => { map.layers[i].name = e.currentTarget.value; map = map }} />
-            <button on:click={() => { map.layers.splice(i, 1); map = map }}>
+            <button on:click={() => { map.removeLayer(i); map = map }}>
               <Icon name="minus" />
             </button>
           {:else}

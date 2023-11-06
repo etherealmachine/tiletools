@@ -1,5 +1,8 @@
 import PNGWithMetadata from "./PNGWithMetadata";
 import Tileset from "./Tileset";
+import Undoer, { Undoable } from "./Undoer";
+
+const MAX_UNDO = 20;
 
 interface Tile {
   tileX: number
@@ -9,7 +12,28 @@ interface Tile {
 interface Layer {
   name: string
   visible: boolean
-  tiles: { [key: string]: Tile },
+  tiles: { [key: string]: Tile | undefined },
+}
+
+interface TileChange {
+  layer: number
+  x: number
+  y: number
+  from?: Tile
+  to?: Tile
+}
+
+class TilemapUndoable extends Undoable<Tilemap> {
+
+  layers: Layer[] = [];
+  tiles: TileChange[] = [];
+
+  undo(tilemap: Tilemap) {
+  }
+
+  redo(tilemap: Tilemap) {
+  }
+
 }
 
 export default class Tilemap {
@@ -22,15 +46,15 @@ export default class Tilemap {
     tiles: {},
   }]
   selectedLayer: number = 0
-  undoStack: Layer[][] = [];
-  redoStack: Layer[][] = [];
+  undoer: Undoer<Tilemap, TilemapUndoable> = new Undoer(TilemapUndoable)
 
   set(x: number, y: number) {
     if (!this.tileset) return;
-    const loc = `${x},${y}`;
     const randTile = this.tileset.randSelectedTile();
     if (randTile) {
-      this.layers[this.selectedLayer].tiles[loc] = {
+      const undo = this.undoer.push();
+      // TODO: undo
+      this.layers[this.selectedLayer].tiles[`${x},${y}`] = {
         tileX: randTile[0],
         tileY: randTile[1],
       };
@@ -38,24 +62,13 @@ export default class Tilemap {
   }
 
   fill(x: number, y: number) {
-
+    // TODO: Fill
   }
 
   erase(x: number, y: number) {
-    const loc = `${x},${y}`;
-    delete this.layers[this.selectedLayer].tiles[loc];
-  }
-
-  undo() {
-    const last = this.undoStack.pop();
-    if (!last) return;
-    this.layers = last;
-  }
-
-  redo() {
-    const last = this.redoStack.pop();
-    if (!last) return;
-    this.layers = last;
+    const undo = this.undoer.push();
+    // TODO: undo
+    delete this.layers[this.selectedLayer].tiles[`${x},${y}`];
   }
 
   addLayer() {
@@ -66,6 +79,20 @@ export default class Tilemap {
     });
   }
 
+  removeLayer(i: number) {
+    const undo = this.undoer.push();
+    // TODO: undo
+    this.layers.splice(i, 1);
+  }
+
+  undo() {
+    this.undoer.undo(this);
+  }
+
+  redo() {
+    this.undoer.redo(this);
+  }
+
   drawLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
     if (!this.tileset) return;
     for (let [loc, tile] of Object.entries(layer.tiles).sort((a, b): number => {
@@ -74,6 +101,7 @@ export default class Tilemap {
       if (y1 === y2) return x1-x2;
       return y1-y2;
     })) {
+      if (!tile) continue;
       const [x, y] = loc.split(',').map(v => parseInt(v));
       this.tileset.drawTile(ctx, x, y, tile.tileX, tile.tileY);
     }

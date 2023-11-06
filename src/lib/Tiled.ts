@@ -1,4 +1,14 @@
 // https://doc.mapeditor.org/en/stable/reference/json-map-format
+import type Tilemap from "./Tilemap";
+import type Tileset from "./Tileset";
+
+export function tilemapToTiled(map: Tilemap): TiledMap {
+  // TODO
+}
+
+export function tilesetToTiled(tileset: Tileset): TiledTileset {
+  // TODO
+}
 
 interface TiledMap {
   name: string;
@@ -20,7 +30,7 @@ interface TiledMap {
   staggerindex?: string // odd or even (staggered / hexagonal maps only)
   tiledversion: '1.10' // The Tiled version used to save the file
   tileheight: number // Map grid height
-  tilesets: Tileset[] // Array of Tilesets
+  tilesets: TiledTileset[] // Array of Tilesets
   tilewidth: number // Map grid width
   type: 'map' // map (since 1.0)
   version: '1.10' // The JSON format version (previously a number, saved as string since 1.6)
@@ -72,7 +82,7 @@ interface Property {
   tile ID by subtracting the firstgid from the global tile ID. The first
   tileset always has a firstgid value of 1.
 */
-interface Tileset {
+interface TiledTileset {
   backgroundcolor?: string // Hex-formatted color (#RRGGBB or #AARRGGBB) (optional)
   class?: string // The class of the tileset (since 1.9, optional)
   columns: number // The number of tile columns in the tileset

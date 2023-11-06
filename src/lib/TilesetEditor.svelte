@@ -155,7 +155,7 @@
     [dragX, dragY] = [mouseX, mouseY];
     mouseDown = true;
     if (tool === Tool.Edit) {
-      tileset.beginUndoable();
+      tileset.undoer.begin();
       tileset.setPixel(
         Math.floor(mouseX), Math.floor(mouseY),
         parseInt(color.slice(1, 3), 16),
@@ -164,7 +164,7 @@
         Math.round(alpha));
       tileset = tileset;
     } else if (tool === Tool.Erase) {
-      tileset.beginUndoable();
+      tileset.undoer.begin();
       tileset.setPixel(Math.floor(mouseX), Math.floor(mouseY), 0, 0, 0, 0);
       tileset = tileset;
     } else if (tool == Tool.Select) {
@@ -228,14 +228,14 @@
 
   function onPointerCancel(e: PointerEvent) {
     [dragX, dragY] = [undefined, undefined];
-    tileset.endUndoable();
+    tileset.undoer.end();
     tileset = tileset;
   }
 
   function onPointerUp(e: PointerEvent) {
     mouseDown = false;
     [dragX, dragY] = [undefined, undefined];
-    tileset.endUndoable();
+    tileset.undoer.end();
     tileset = tileset;
   }
 
@@ -515,10 +515,10 @@
           on:click={(e) => e.stopPropagation()}
           disabled={tileset.selectedTiles.length !== 1} />
       </button>
-      <button on:click={() => { tileset.undo(); tileset = tileset; }} disabled={tileset.undoStack.length === 0}>
+      <button on:click={() => { tileset.undo(); tileset = tileset; }} disabled={tileset.undoer.undoStack.length === 0}>
         <Icon name="undo" />
       </button>
-      <button on:click={() => { tileset.redo(); tileset = tileset; }} disabled={tileset.redoStack.length === 0}>
+      <button on:click={() => { tileset.redo(); tileset = tileset; }} disabled={tileset.undoer.redoStack.length === 0}>
         <Icon name="redo" />
       </button>
       <button on:click={() => { tileset.clear(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
