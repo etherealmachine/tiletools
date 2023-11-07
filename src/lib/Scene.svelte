@@ -3,9 +3,8 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { Camera, Character, Tilemap } from "./RPGEngine";
   import type RPGEngine from "./RPGEngine";
-  import { PNGWithMetadata } from "./PNGWithMetadata";
+  import PNGWithMetadata from "./PNGWithMetadata";
 
   export let engine: RPGEngine;
 
@@ -29,28 +28,32 @@
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
     const { camera, tilemap } = engine;
+    if (!tilemap.tileset) {
+      requestAnimationFrame(draw);
+      return;
+    }
     const [w, h] = [tilemap.tileset.tilewidth, tilemap.tileset.tileheight];
-    engine.characters.forEach(c => {
+    for (let c of engine.characters) {
       if (camera && c.name === 'Player') {
         camera.centerX = c.position.x*w;
         camera.centerY = c.position.y*h;
       }
-    });
+    }
     ctx.setTransform(camera.zoom, 0, 0, camera.zoom, (W/2)-camera.centerX*camera.zoom, (H/2)-camera.centerY*camera.zoom);
-    tilemap.layers.forEach(layer => {
-      if (!layer.visible) return;
-      Object.entries(layer.tiles).sort((a, b): number => {
+    for (let layer of tilemap.layers) {
+      if (!layer.visible) continue;
+      const sortedTiles = Object.entries(layer.tiles).sort((a, b): number => {
         const [x1, y1] = a[0].split(',').map(v => parseInt(v));
         const [x2, y2] = b[0].split(',').map(v => parseInt(v));
         if (y1 === y2) return x1-x2;
         return y1-y2;
-      }).forEach(entry => {
-        const [x, y] = entry[0].split(',').map(v => parseInt(v));
-        const tile = entry[1];
-        tilemap.tileset.drawTile(ctx, x, y, tile.tileX, tile.tileY);
       });
-    });
-    engine.characters.forEach(c => {
+      for (let [loc, tile] of sortedTiles) {
+        const [x, y] = loc.split(',').map(v => parseInt(v));
+        tilemap.tileset.drawTile(ctx, x, y, tile.tileX, tile.tileY);
+      }
+    }
+    for (let c of engine.characters) {
       if (typeof(c.token) === 'string') {
         PNGWithMetadata.fromDataURL(c.token).bitmap().then(img => {
           c.token = img;
@@ -61,7 +64,7 @@
         ctx.fillStyle = "red";
         ctx.fillRect(x, y-1, tilemap.tileset.tilewidth*(c.health.current/c.health.max), 1);
       }
-    });
+    }
     requestAnimationFrame(draw);
   }
 
@@ -109,7 +112,8 @@
         e.preventDefault();
         break;
     }
-    engine.characters.forEach((e, i) => {
+    for (let i = 0; i < engine.characters.length; i++) {
+      const e = engine.characters[i];
       const d = Math.round(Math.sqrt(Math.pow(e.position.x-c.position.x, 2)+Math.pow(e.position.y-c.position.y, 2)));
       if (e.name !== 'Player' && d === 0) {
         c.position.x = x;
@@ -119,7 +123,7 @@
           engine.characters.splice(i, 1);
         }
       }
-    });
+    }
   }
 
   onMount(() => {

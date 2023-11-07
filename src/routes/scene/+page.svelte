@@ -1,11 +1,9 @@
 <script lang="ts">
-  import { page } from '$app/stores';
-
-  import { PNGWithMetadata } from "$lib/PNGWithMetadata";
+  import PNGWithMetadata from "$lib/PNGWithMetadata";
   import Scene from "$lib/Scene.svelte";
   import Tileset from "$lib/Tileset";
   import RPGEngine from "$lib/RPGEngine";
-  import type { Layer } from '$lib/MapEditor.svelte';
+  import Tilemap from '$lib/Tilemap';
 
   let engine: RPGEngine;
 
@@ -14,28 +12,24 @@
     const files = (e.target as HTMLInputElement).files;
     if (files === null) return;
     const file = files[0];
-    PNGWithMetadata.fromFile(file).then(png => {
-      const tilesetPNG = PNGWithMetadata.fromDataURL(png.metadata.tileset);
-      const tileset = new Tileset(tilesetPNG.metadata);
-      tileset.setImageFromDataURL(tilesetPNG.dataURL());
+    Tilemap.loadFromFile(file).then(tilemap => {
       engine = new RPGEngine({
         centerX: 0,
         centerY: 0,
         zoom: 1,
-      }, {
-        layers: png.metadata.layers,
-        tileset: tileset,
-      });
+      }, tilemap);
       const paths: number[][] = [];
-      (png.metadata.layers as Layer[]).forEach(layer => {
-        Object.entries(layer.tiles).forEach(([loc, tile]) => {
-          const tags = tileset.getTileData<string[]>(tile.tileX, tile.tileY, 'tags', []);
+      if (!tilemap.tileset) return;
+      for (let layer of tilemap.layers) {
+        for (let entry of Object.entries(layer.tiles)) {
+          const [loc, tile] = entry;
+          const tags = tilemap.tileset.getTileData<string[]>(tile.tileX, tile.tileY, 'tags', []);
           if (tags.includes('path')) {
             const [x, y] = loc.split(',').map(v => parseInt(v));
             paths.push([x, y]);
           }
-        });
-      });
+        }
+      }
       const r1 = paths[Math.floor(Math.random()*paths.length)];
       engine.addCharacter({
         name: 'Player',

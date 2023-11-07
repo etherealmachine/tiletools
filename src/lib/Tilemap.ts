@@ -2,8 +2,6 @@ import PNGWithMetadata from "./PNGWithMetadata";
 import Tileset from "./Tileset";
 import Undoer, { Undoable } from "./Undoer";
 
-const MAX_UNDO = 20;
-
 interface Tile {
   tileX: number
   tileY: number
@@ -12,7 +10,7 @@ interface Tile {
 interface Layer {
   name: string
   visible: boolean
-  tiles: { [key: string]: Tile | undefined },
+  tiles: { [key: string]: Tile }
 }
 
 interface TileChange {
@@ -35,7 +33,11 @@ class TilemapUndoable extends Undoable<Tilemap> {
     }
     for (let change of this.tiles) {
       const loc = `${change.x},${change.y}`;
-      tilemap.layers[change.layer].tiles[loc] = change.from;
+      if (change.from === undefined) {
+        delete tilemap.layers[change.layer].tiles[loc];
+      } else {
+        tilemap.layers[change.layer].tiles[loc] = change.from;
+      }
     }
   }
 
@@ -46,7 +48,11 @@ class TilemapUndoable extends Undoable<Tilemap> {
     }
     for (let change of this.tiles) {
       const loc = `${change.x},${change.y}`;
-      tilemap.layers[change.layer].tiles[loc] = change.to;
+      if (change.to === undefined) {
+        delete tilemap.layers[change.layer].tiles[loc];
+      } else {
+        tilemap.layers[change.layer].tiles[loc] = change.to;
+      }
     }
   }
 

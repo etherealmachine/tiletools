@@ -1,15 +1,9 @@
-import type { Layer } from "./MapEditor.svelte";
-import type Tileset from "./Tileset";
+import type Tilemap from "./Tilemap";
 
 export interface Camera {
   centerX: number
   centerY: number
   zoom: number
-}
-
-export interface Tilemap {
-  layers: Layer[]
-  tileset: Tileset
 }
 
 export interface Character {
