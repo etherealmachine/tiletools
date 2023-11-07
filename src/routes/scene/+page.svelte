@@ -23,7 +23,7 @@
       for (let layer of tilemap.layers) {
         for (let entry of Object.entries(layer.tiles)) {
           const [loc, tile] = entry;
-          const tags = tilemap.tileset.getTileData<string[]>(tile.tileX, tile.tileY, 'tags', []);
+          const tags = tilemap.tileset.getTileData<string[]>(tile.x, tile.y, 'tags', []);
           if (tags.includes('path')) {
             const [x, y] = loc.split(',').map(v => parseInt(v));
             paths.push([x, y]);

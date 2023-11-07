@@ -50,7 +50,7 @@
       });
       for (let [loc, tile] of sortedTiles) {
         const [x, y] = loc.split(',').map(v => parseInt(v));
-        tilemap.tileset.drawTile(ctx, x, y, tile.tileX, tile.tileY);
+        tilemap.tileset.drawTile(ctx, x, y, tile.x, tile.y);
       }
     }
     for (let c of engine.characters) {

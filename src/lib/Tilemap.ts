@@ -3,8 +3,8 @@ import Tileset from "./Tileset";
 import Undoer, { Undoable } from "./Undoer";
 
 interface Tile {
-  tileX: number
-  tileY: number
+  x: number
+  y: number
 }
 
 interface Layer {
@@ -70,28 +70,46 @@ export default class Tilemap {
   selectedLayer: number = 0
   undoer: Undoer<Tilemap, TilemapUndoable> = new Undoer(TilemapUndoable)
 
-  set(x: number, y: number) {
+  set(x: number, y: number, tile?: Tile) {
     if (!this.tileset) return;
-    const randTile = this.tileset.randSelectedTile();
-    if (randTile) {
-      const loc = `${x},${y}`;
-      const to = {
-        tileX: randTile[0],
-        tileY: randTile[1],
-      };
-      const undo = this.undoer.push();
-      undo.tiles.push({
-        layer: this.selectedLayer,
-        x, y,
-        from: this.layers[this.selectedLayer].tiles[loc],
-        to,
-      });
-      this.layers[this.selectedLayer].tiles[loc] = to
+    if (!tile) {
+      const choice = this.tileset.randSelectedTile();
+      if (choice) {
+        tile = { x: choice[0], y: choice[1] };
+      }
     }
+    if (!tile) return;
+    const loc = `${x},${y}`;
+    const undo = this.undoer.push();
+    undo.tiles.push({
+      layer: this.selectedLayer,
+      x, y,
+      from: this.layers[this.selectedLayer].tiles[loc],
+      to: tile,
+    });
+    this.layers[this.selectedLayer].tiles[loc] = tile; 
   }
 
-  fill(x: number, y: number) {
-    // TODO: Fill
+  fill(x: number, y: number, max_dist: number = 10) {
+    if (!this.tileset) return;
+    if (this.layers[this.selectedLayer].tiles[`${x},${y}`]) return;
+    const queue: number[][] = [[x, y]];
+    while (queue.length > 0) {
+      const curr = queue.shift();
+      if (!curr) return;
+      const choice = this.tileset.randSelectedTile();
+      if (!choice) return;
+      this.layers[this.selectedLayer].tiles[`${curr[0]},${curr[1]}`] = { x: choice[0], y: choice[1] };
+      for (let d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const [nx, ny] = [curr[0]+d[0], curr[1]+d[1]];
+        if (Math.sqrt(Math.pow(nx-x, 2)+Math.pow(ny-y, 2)) < max_dist) {
+          const n = `${nx},${ny}`;
+          if (!this.layers[this.selectedLayer].tiles[n]) {
+            queue.push([nx, ny]);
+          }
+        }
+      }
+    }
   }
 
   erase(x: number, y: number) {
@@ -137,7 +155,7 @@ export default class Tilemap {
     })) {
       if (!tile) continue;
       const [x, y] = loc.split(',').map(v => parseInt(v));
-      this.tileset.drawTile(ctx, x, y, tile.tileX, tile.tileY);
+      this.tileset.drawTile(ctx, x, y, tile.x, tile.y);
     }
   }
 
