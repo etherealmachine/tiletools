@@ -36,10 +36,8 @@ class TilesetUndoable extends Undoable<Tileset> {
   }
 
   undo(tileset: Tileset) {
-    for (let undoable of this.stack.toReversed()) {
-      undoable.undo(tileset);
-    }
-    this.tiles?.forEach(prev => {
+    super.undo(tileset);
+    for (let prev of this.tiles) {
       const tmp = prev.buf;
       const curr = tileset.getTileBuffer(prev.tileX, prev.tileY);
       prev.buf = curr.buf;
@@ -50,8 +48,8 @@ class TilesetUndoable extends Undoable<Tileset> {
         curr.img = img;
         tileset.rendering--;
       });
-    });
-    this.pixels.forEach(change => {
+    }
+    for (let change of this.pixels) {
       const curr = tileset.getTileBuffer(change.tileX, change.tileY);
       const i = (change.y*curr.buf.width+change.x)*4;
       curr.buf.data[i+0] = change.from.r;
@@ -64,13 +62,11 @@ class TilesetUndoable extends Undoable<Tileset> {
         curr.img = img;
         tileset.rendering--;
       });
-    });
+    }
   }
 
   redo(tileset: Tileset) {
-    for (let undoable of this.stack) {
-      undoable.redo(tileset);
-    }
+    super.redo(tileset);
     this.tiles?.forEach(prev => {
       const tmp = prev.buf;
       const curr = tileset.getTileBuffer(prev.tileX, prev.tileY);

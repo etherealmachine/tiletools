@@ -25,13 +25,29 @@ interface TileChange {
 
 class TilemapUndoable extends Undoable<Tilemap> {
 
-  layers: Layer[] = [];
+  layers: { i: number, layer: Layer}[] = [];
   tiles: TileChange[] = [];
 
   undo(tilemap: Tilemap) {
+    super.undo(tilemap);
+    for (let change of this.layers) {
+      tilemap.layers.splice(change.i, 0, change.layer);
+    }
+    for (let change of this.tiles) {
+      const loc = `${change.x},${change.y}`;
+      tilemap.layers[change.layer].tiles[loc] = change.from;
+    }
   }
 
   redo(tilemap: Tilemap) {
+    super.redo(tilemap);
+    for (let change of this.layers) {
+      tilemap.layers.splice(change.i, 1);
+    }
+    for (let change of this.tiles) {
+      const loc = `${change.x},${change.y}`;
+      tilemap.layers[change.layer].tiles[loc] = change.to;
+    }
   }
 
 }
@@ -52,12 +68,19 @@ export default class Tilemap {
     if (!this.tileset) return;
     const randTile = this.tileset.randSelectedTile();
     if (randTile) {
-      const undo = this.undoer.push();
-      // TODO: undo
-      this.layers[this.selectedLayer].tiles[`${x},${y}`] = {
+      const loc = `${x},${y}`;
+      const to = {
         tileX: randTile[0],
         tileY: randTile[1],
       };
+      const undo = this.undoer.push();
+      undo.tiles.push({
+        layer: this.selectedLayer,
+        x, y,
+        from: this.layers[this.selectedLayer].tiles[loc],
+        to,
+      });
+      this.layers[this.selectedLayer].tiles[loc] = to
     }
   }
 
@@ -66,9 +89,15 @@ export default class Tilemap {
   }
 
   erase(x: number, y: number) {
+    const loc = `${x},${y}`;
     const undo = this.undoer.push();
-    // TODO: undo
-    delete this.layers[this.selectedLayer].tiles[`${x},${y}`];
+    undo.tiles.push({
+      layer: this.selectedLayer,
+      x, y,
+      from: this.layers[this.selectedLayer].tiles[loc],
+      to: undefined,
+    });
+    delete this.layers[this.selectedLayer].tiles[loc];
   }
 
   addLayer() {
@@ -81,8 +110,7 @@ export default class Tilemap {
 
   removeLayer(i: number) {
     const undo = this.undoer.push();
-    // TODO: undo
-    this.layers.splice(i, 1);
+    undo.layers.push({i, layer: this.layers.splice(i, 1)[0]});
   }
 
   undo() {

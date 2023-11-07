@@ -7,11 +7,15 @@ export class Undoable<T> {
   }
 
   undo(obj: T) {
-
+    for (let undoable of this.stack.toReversed()) {
+      undoable.undo(obj);
+    }
   }
 
   redo(obj: T) {
-
+    for (let undoable of this.stack) {
+      undoable.redo(obj);
+    }
   }
 }
 
