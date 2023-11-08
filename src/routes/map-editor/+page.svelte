@@ -16,12 +16,9 @@
   // TODO: Persist state during reload
 </script>
 
-<div style="display: flex; gap: 16px; justify-content: space-between; width: 100%;">
-  <TilesetEditor
-    bind:tileset={tileset}
-    maxWidth="30%"
-  />
-  <MapEditor
-    bind:map={map}
-  />
+<div
+  style="display: flex; gap: 16px; justify-content: space-between; width: 100%;"
+>
+  <TilesetEditor bind:tileset maxWidth="30%" />
+  <MapEditor bind:map />
 </div>

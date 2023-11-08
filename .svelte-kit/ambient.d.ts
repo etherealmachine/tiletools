@@ -27,6 +27,7 @@
  */
 declare module '$env/static/private' {
 	export const QT_SCALE_FACTOR: string;
+	export const npm_package_dev: string;
 	export const USER: string;
 	export const npm_config_user_agent: string;
 	export const XDG_SEAT: string;
@@ -34,23 +35,29 @@ declare module '$env/static/private' {
 	export const XDG_SESSION_TYPE: string;
 	export const GIT_ASKPASS: string;
 	export const npm_node_execpath: string;
+	export const npm_package_resolved: string;
 	export const SHLVL: string;
 	export const npm_config_noproxy: string;
 	export const HOME: string;
 	export const CHROME_DESKTOP: string;
+	export const OLDPWD: string;
+	export const npm_package_optional: string;
 	export const TERM_PROGRAM_VERSION: string;
 	export const DESKTOP_SESSION: string;
 	export const npm_package_json: string;
+	export const npm_package_engines_node: string;
 	export const GTK_MODULES: string;
 	export const XDG_SEAT_PATH: string;
 	export const VSCODE_GIT_ASKPASS_MAIN: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const npm_config_userconfig: string;
 	export const npm_config_local_prefix: string;
+	export const npm_package_integrity: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
 	export const npm_config_engine_strict: string;
 	export const COLORTERM: string;
 	export const GIO_LAUNCHED_DESKTOP_FILE_PID: string;
+	export const npm_config_save_dev: string;
 	export const COLOR: string;
 	export const npm_config_metrics_registry: string;
 	export const LOGNAME: string;
@@ -91,11 +98,13 @@ declare module '$env/static/private' {
 	export const npm_lifecycle_event: string;
 	export const QT_ACCESSIBILITY: string;
 	export const GDMSESSION: string;
+	export const npm_package_dev_optional: string;
 	export const GPG_AGENT_INFO: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 	export const XDG_VTNR: string;
 	export const npm_config_globalconfig: string;
 	export const npm_config_init_module: string;
+	export const npm_package_peer: string;
 	export const PWD: string;
 	export const npm_execpath: string;
 	export const XDG_DATA_DIRS: string;
@@ -104,7 +113,6 @@ declare module '$env/static/private' {
 	export const MATE_DESKTOP_SESSION_ID: string;
 	export const EDITOR: string;
 	export const INIT_CWD: string;
-	export const NODE_ENV: string;
 }
 
 /**
@@ -135,6 +143,7 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		QT_SCALE_FACTOR: string;
+		npm_package_dev: string;
 		USER: string;
 		npm_config_user_agent: string;
 		XDG_SEAT: string;
@@ -142,23 +151,29 @@ declare module '$env/dynamic/private' {
 		XDG_SESSION_TYPE: string;
 		GIT_ASKPASS: string;
 		npm_node_execpath: string;
+		npm_package_resolved: string;
 		SHLVL: string;
 		npm_config_noproxy: string;
 		HOME: string;
 		CHROME_DESKTOP: string;
+		OLDPWD: string;
+		npm_package_optional: string;
 		TERM_PROGRAM_VERSION: string;
 		DESKTOP_SESSION: string;
 		npm_package_json: string;
+		npm_package_engines_node: string;
 		GTK_MODULES: string;
 		XDG_SEAT_PATH: string;
 		VSCODE_GIT_ASKPASS_MAIN: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
 		npm_config_userconfig: string;
 		npm_config_local_prefix: string;
+		npm_package_integrity: string;
 		DBUS_SESSION_BUS_ADDRESS: string;
 		npm_config_engine_strict: string;
 		COLORTERM: string;
 		GIO_LAUNCHED_DESKTOP_FILE_PID: string;
+		npm_config_save_dev: string;
 		COLOR: string;
 		npm_config_metrics_registry: string;
 		LOGNAME: string;
@@ -199,11 +214,13 @@ declare module '$env/dynamic/private' {
 		npm_lifecycle_event: string;
 		QT_ACCESSIBILITY: string;
 		GDMSESSION: string;
+		npm_package_dev_optional: string;
 		GPG_AGENT_INFO: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 		XDG_VTNR: string;
 		npm_config_globalconfig: string;
 		npm_config_init_module: string;
+		npm_package_peer: string;
 		PWD: string;
 		npm_execpath: string;
 		XDG_DATA_DIRS: string;
@@ -212,7 +229,6 @@ declare module '$env/dynamic/private' {
 		MATE_DESKTOP_SESSION_ID: string;
 		EDITOR: string;
 		INIT_CWD: string;
-		NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}

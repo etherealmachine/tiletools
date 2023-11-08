@@ -1,5 +1,10 @@
 <script lang="ts" context="module">
-  enum Tool { Select, Edit, Erase, Move };
+  enum Tool {
+    Select,
+    Edit,
+    Erase,
+    Move,
+  }
 </script>
 
 <script lang="ts">
@@ -16,7 +21,8 @@
   let zoom: number = 2;
   let mouseOver: boolean = false;
   let mouseDown: boolean = false;
-  let offsetX: number = 0, offsetY: number = 0;
+  let offsetX: number = 0,
+    offsetY: number = 0;
   let mouseX: number | undefined, mouseY: number | undefined;
   let dragX: number | undefined, dragY: number | undefined;
   let tagString: string = "";
@@ -28,16 +34,16 @@
   let degrees: number = 90;
 
   function screenToWorld(x: number, y: number): number[] {
-    return [(x-offsetX)/zoom, (y-offsetY)/zoom];
+    return [(x - offsetX) / zoom, (y - offsetY) / zoom];
   }
 
   function worldToScreen(x: number, y: number): number[] {
-    return [x*zoom+offsetX, y*zoom+offsetY];
+    return [x * zoom + offsetX, y * zoom + offsetY];
   }
 
   function draw() {
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const W = (canvas.parentElement?.scrollWidth || 0) - 4;
     const H = (canvas.parentElement?.scrollHeight || 0) - 4;
@@ -54,9 +60,30 @@
         if (!tile.img) continue;
         const [x, y] = tileset.tileToImgCoords(tile.tileX, tile.tileY);
         const [sx, sy] = worldToScreen(x, y);
-        if (sx < -tileset.tilewidth*zoom || sy < -tileset.tileheight*zoom || sx > W || sy > H) continue;
-        if (filter === "" || tileset.getTileData(tile.tileX, tile.tileY, "tags", [] as string[]).some(tag => tag.startsWith(filter))) {
-          ctx.drawImage(tile.img, 0, 0, tileset.tilewidth, tileset.tileheight, x, y, tileset.tilewidth, tileset.tileheight);
+        if (
+          sx < -tileset.tilewidth * zoom ||
+          sy < -tileset.tileheight * zoom ||
+          sx > W ||
+          sy > H
+        )
+          continue;
+        if (
+          filter === "" ||
+          tileset
+            .getTileData(tile.tileX, tile.tileY, "tags", [] as string[])
+            .some((tag) => tag.startsWith(filter))
+        ) {
+          ctx.drawImage(
+            tile.img,
+            0,
+            0,
+            tileset.tilewidth,
+            tileset.tileheight,
+            x,
+            y,
+            tileset.tilewidth,
+            tileset.tileheight,
+          );
         }
       }
     } else if (tileset.img) {
@@ -68,7 +95,7 @@
 
     if (mouseX === undefined || mouseY === undefined) return;
 
-    ctx.lineWidth = 1/zoom;
+    ctx.lineWidth = 1 / zoom;
     if (mouseOver) {
       if (tool === Tool.Select) {
         const [tileX, tileY] = tileset.imgCoordsToTile(mouseX, mouseY);
@@ -86,12 +113,20 @@
       }
     }
     ctx.strokeStyle = "white";
-    tileset.selectedTiles.forEach(loc => {
+    tileset.selectedTiles.forEach((loc) => {
       const [x, y] = tileset.tileToImgCoords(loc[0], loc[1]);
       drawRect(ctx, x, y, tileset.tilewidth, tileset.tileheight);
-      if ((tool === Tool.Edit || tool === Tool.Erase || tool === Tool.Move) && tileset.type === "hex") {
+      if (
+        (tool === Tool.Edit || tool === Tool.Erase || tool === Tool.Move) &&
+        tileset.type === "hex"
+      ) {
         const r = tileset.radius();
-        drawHexagon(ctx, x+0.5*tileset.tilewidth, y+tileset.tileheight-r, r);
+        drawHexagon(
+          ctx,
+          x + 0.5 * tileset.tilewidth,
+          y + tileset.tileheight - r,
+          r,
+        );
       }
     });
 
@@ -108,19 +143,31 @@
       zoom *= 0.9;
     }
     zoom = Math.min(Math.max(0.05, zoom), 16);
-    offsetX = -zoom*(e.offsetX-offsetX)/prevZoom + e.offsetX;
-    offsetY = -zoom*(e.offsetY-offsetY)/prevZoom + e.offsetY;
+    offsetX = (-zoom * (e.offsetX - offsetX)) / prevZoom + e.offsetX;
+    offsetY = (-zoom * (e.offsetY - offsetY)) / prevZoom + e.offsetY;
   }
 
   function parseColor(color: string): number[] | undefined {
     if (color.startsWith("#")) {
       const match = color.match(/^#(\w{2})(\w{2})(\w{2})(\w{2})?$/);
       if (!match) return undefined;
-      return [parseInt(match[1], 16), parseInt(match[2], 16), parseInt(match[3], 16), parseInt(match[4], 16) || 255];
+      return [
+        parseInt(match[1], 16),
+        parseInt(match[2], 16),
+        parseInt(match[3], 16),
+        parseInt(match[4], 16) || 255,
+      ];
     } else if (color.startsWith("rgb")) {
-      const match = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*(0\.\d+)?\)$/);
+      const match = color.match(
+        /^rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*(0\.\d+)?\)$/,
+      );
       if (!match) return undefined;
-      return [parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), Math.round(parseFloat(match[4])*255) || 255];
+      return [
+        parseInt(match[1]),
+        parseInt(match[2]),
+        parseInt(match[3]),
+        Math.round(parseFloat(match[4]) * 255) || 255,
+      ];
     }
     return undefined;
   }
@@ -157,11 +204,13 @@
     if (tool === Tool.Edit) {
       tileset.undoer.begin();
       tileset.setPixel(
-        Math.floor(mouseX), Math.floor(mouseY),
+        Math.floor(mouseX),
+        Math.floor(mouseY),
         parseInt(color.slice(1, 3), 16),
         parseInt(color.slice(3, 5), 16),
         parseInt(color.slice(5, 7), 16),
-        Math.round(alpha));
+        Math.round(alpha),
+      );
       tileset = tileset;
     } else if (tool === Tool.Erase) {
       tileset.undoer.begin();
@@ -182,7 +231,7 @@
           tagInput.focus();
         }
       }
-      tagString = Array.from(tileset.selectionTags().values()).join(',');
+      tagString = Array.from(tileset.selectionTags().values()).join(",");
       tileset = tileset;
     }
   }
@@ -197,16 +246,22 @@
     if (mouseDown) {
       if (tool === Tool.Edit) {
         tileset.setPixel(
-          Math.floor(mouseX), Math.floor(mouseY),
+          Math.floor(mouseX),
+          Math.floor(mouseY),
           parseInt(color.slice(1, 3), 16),
           parseInt(color.slice(3, 5), 16),
           parseInt(color.slice(5, 7), 16),
-          Math.round(alpha));
+          Math.round(alpha),
+        );
         tileset = tileset;
       } else if (tool === Tool.Erase) {
         tileset.setPixel(Math.floor(mouseX), Math.floor(mouseY), 0, 0, 0, 0);
         tileset = tileset;
-      } else if (tool == Tool.Select && dragX !== undefined && dragY !== undefined) {
+      } else if (
+        tool == Tool.Select &&
+        dragX !== undefined &&
+        dragY !== undefined
+      ) {
         tileset.clearSelectedTiles();
         let [x1, y1] = tileset.imgCoordsToTile(dragX, dragY);
         let [x2, y2] = tileset.imgCoordsToTile(mouseX, mouseY);
@@ -245,7 +300,7 @@
     if (files === null) return;
     const file = files[0];
     if (!file) return;
-    Tileset.loadFromFile(file).then(_tileset => {
+    Tileset.loadFromFile(file).then((_tileset) => {
       tileset = _tileset;
       offsetX = 0;
       offsetY = 0;
@@ -254,10 +309,10 @@
   }
 
   function onTagsChanged(e: Event) {
-    const tags = new Set((e.target as HTMLInputElement).value.split(','));
+    const tags = new Set((e.target as HTMLInputElement).value.split(","));
     tileset.setSelectionTags(tags);
-    tagString = Array.from(tileset.selectionTags().values()).join(',');
-  } 
+    tagString = Array.from(tileset.selectionTags().values()).join(",");
+  }
 
   function setTool(_tool: Tool) {
     tool = _tool;
@@ -319,31 +374,47 @@
         break;
       case e.key === "z" && tileset.selectedTiles.length === 1:
         const [w, h] = [canvas?.width || 0, canvas?.height || 0];
-        const maxZoom = Math.min(w, h)/Math.max(tileset.tilewidth, tileset.tileheight);
-        const [x, y] = tileset.tileToImgCoords(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]);
+        const maxZoom =
+          Math.min(w, h) / Math.max(tileset.tilewidth, tileset.tileheight);
+        const [x, y] = tileset.tileToImgCoords(
+          tileset.selectedTiles[0][0],
+          tileset.selectedTiles[0][1],
+        );
         zoom = maxZoom;
-        const centerX = (w/2)-(tileset.tilewidth*zoom)/2;
-        offsetX = -x*zoom + centerX;
-        offsetY = -y*zoom;
+        const centerX = w / 2 - (tileset.tilewidth * zoom) / 2;
+        offsetX = -x * zoom + centerX;
+        offsetY = -y * zoom;
         e.preventDefault();
         break;
       case e.key === "i" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]-1);
+        tileset.setSelectedTile(
+          tileset.selectedTiles[0][0],
+          tileset.selectedTiles[0][1] - 1,
+        );
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "k" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(tileset.selectedTiles[0][0], tileset.selectedTiles[0][1]+1);
+        tileset.setSelectedTile(
+          tileset.selectedTiles[0][0],
+          tileset.selectedTiles[0][1] + 1,
+        );
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "j" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(tileset.selectedTiles[0][0]-1, tileset.selectedTiles[0][1]);
+        tileset.setSelectedTile(
+          tileset.selectedTiles[0][0] - 1,
+          tileset.selectedTiles[0][1],
+        );
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "l" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(tileset.selectedTiles[0][0]+1, tileset.selectedTiles[0][1]);
+        tileset.setSelectedTile(
+          tileset.selectedTiles[0][0] + 1,
+          tileset.selectedTiles[0][1],
+        );
         tileset = tileset;
         e.preventDefault();
         break;
@@ -371,7 +442,7 @@
         if (e.shiftKey) {
           offsetX += zoom;
         } else {
-          offsetX += zoom*tileset.offsetWidth();
+          offsetX += zoom * tileset.offsetWidth();
         }
         e.preventDefault();
         break;
@@ -379,7 +450,7 @@
         if (e.shiftKey) {
           offsetX -= zoom;
         } else {
-          offsetX -= zoom*tileset.offsetWidth();
+          offsetX -= zoom * tileset.offsetWidth();
         }
         e.preventDefault();
         break;
@@ -387,7 +458,7 @@
         if (e.shiftKey) {
           offsetY += zoom;
         } else {
-          offsetY += zoom*tileset.offsetHeight();
+          offsetY += zoom * tileset.offsetHeight();
         }
         e.preventDefault();
         break;
@@ -395,7 +466,7 @@
         if (e.shiftKey) {
           offsetY -= zoom;
         } else {
-          offsetY -= zoom*tileset.offsetHeight();
+          offsetY -= zoom * tileset.offsetHeight();
         }
         e.preventDefault();
         break;
@@ -416,26 +487,29 @@
   $: triggerRedraw(
     tileset,
     // Note: Adding bitmap here would make sense but has bad performance. Needs investigation.
-    color, alpha,
+    color,
+    alpha,
     tool,
-    zoom, offsetX, offsetY, filter,
-    mouseX, mouseY, mouseOver);
+    zoom,
+    offsetX,
+    offsetY,
+    filter,
+    mouseX,
+    mouseY,
+    mouseOver,
+  );
 </script>
 
 <svelte:window on:keydown={onKeyDown} />
-<div style="display: flex; flex-direction: column; gap: 8px; flex-grow: 1;" style:max-width={maxWidth}>
+<div
+  style="display: flex; flex-direction: column; gap: 8px; flex-grow: 1;"
+  style:max-width={maxWidth}
+>
   <div style="display: flex; gap: 8px; align-items: end; flex-wrap: wrap;">
-    <input
-      type="file"
-      accept="image/png"
-      on:change={onLoad} />
+    <input type="file" accept="image/png" on:change={onLoad} />
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="name">Name</label>
-      <input
-        name="name"
-        type="text"
-        bind:value={tileset.name}
-      />
+      <input name="name" type="text" bind:value={tileset.name} />
     </div>
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="width">Width</label>
@@ -489,48 +563,120 @@
       </select>
     </div>
     <div style="margin-left: auto; display: flex; gap: 8px;">
-      <button on:click={() => setTool(Tool.Select)} class:active={tool === Tool.Select}>
+      <button
+        on:click={() => setTool(Tool.Select)}
+        class:active={tool === Tool.Select}
+      >
         <Icon name="openSelectHandGesture" />
       </button>
-      <button on:click={() => setTool(Tool.Edit)} class:active={tool === Tool.Edit} disabled={!tileset.selectedTiles.length}>
+      <button
+        on:click={() => setTool(Tool.Edit)}
+        class:active={tool === Tool.Edit}
+        disabled={!tileset.selectedTiles.length}
+      >
         <Icon name="editPencil" />
       </button>
-      <button on:click={() => setTool(Tool.Erase)} class:active={tool === Tool.Erase} disabled={!tileset.selectedTiles.length}>
+      <button
+        on:click={() => setTool(Tool.Erase)}
+        class:active={tool === Tool.Erase}
+        disabled={!tileset.selectedTiles.length}
+      >
         <Icon name="erase" />
       </button>
-      <button on:click={() => setTool(Tool.Move)} class:active={tool === Tool.Move} disabled={!tileset.selectedTiles.length}>
+      <button
+        on:click={() => setTool(Tool.Move)}
+        class:active={tool === Tool.Move}
+        disabled={!tileset.selectedTiles.length}
+      >
         <Icon name="drag" />
       </button>
-      <button on:click={() => { tileset.flip('y'); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
+      <button
+        on:click={() => {
+          tileset.flip("y");
+          tileset = tileset;
+        }}
+        disabled={!tileset.selectedTiles.length}
+      >
         <Icon name="flipHoriz" />
       </button>
-      <button on:click={() => { tileset.flip('x'); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
+      <button
+        on:click={() => {
+          tileset.flip("x");
+          tileset = tileset;
+        }}
+        disabled={!tileset.selectedTiles.length}
+      >
         <Icon name="flipVert" />
       </button>
-      <button on:click={() => { tileset.rotate(degrees); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
+      <button
+        on:click={() => {
+          tileset.rotate(degrees);
+          tileset = tileset;
+        }}
+        disabled={!tileset.selectedTiles.length}
+      >
         <Icon name="cropRotateTl" />
         <input
           type="number"
-          min="0" max="90" bind:value={degrees}
+          min="0"
+          max="90"
+          bind:value={degrees}
           on:click={(e) => e.stopPropagation()}
-          disabled={tileset.selectedTiles.length !== 1} />
+          disabled={tileset.selectedTiles.length !== 1}
+        />
       </button>
-      <button on:click={() => { tileset.undo(); tileset = tileset; }} disabled={tileset.undoer.undoStack.length === 0}>
+      <button
+        on:click={() => {
+          tileset.undo();
+          tileset = tileset;
+        }}
+        disabled={tileset.undoer.undoStack.length === 0}
+      >
         <Icon name="undo" />
       </button>
-      <button on:click={() => { tileset.redo(); tileset = tileset; }} disabled={tileset.undoer.redoStack.length === 0}>
+      <button
+        on:click={() => {
+          tileset.redo();
+          tileset = tileset;
+        }}
+        disabled={tileset.undoer.redoStack.length === 0}
+      >
         <Icon name="redo" />
       </button>
-      <button on:click={() => { tileset.clear(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
+      <button
+        on:click={() => {
+          tileset.clear();
+          tileset = tileset;
+        }}
+        disabled={!tileset.selectedTiles.length}
+      >
         <Icon name="deleteCircle" />
       </button>
-      <button on:click={() => { tileset.cut(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
+      <button
+        on:click={() => {
+          tileset.cut();
+          tileset = tileset;
+        }}
+        disabled={!tileset.selectedTiles.length}
+      >
         <Icon name="cut" />
       </button>
-      <button on:click={() => { tileset.copy(); tileset = tileset; }} disabled={!tileset.selectedTiles.length}>
+      <button
+        on:click={() => {
+          tileset.copy();
+          tileset = tileset;
+        }}
+        disabled={!tileset.selectedTiles.length}
+      >
         <Icon name="copy" />
       </button>
-      <button on:click={() => { tileset.paste(); tileset = tileset; }} disabled={!tileset.copyBuffer.length || !tileset.selectedTiles.length}>
+      <button
+        on:click={() => {
+          tileset.paste();
+          tileset = tileset;
+        }}
+        disabled={!tileset.copyBuffer.length || !tileset.selectedTiles.length}
+      >
         <Icon name="pasteClipboard" />
       </button>
       <button disabled={!tileset.img} on:click={() => tileset.download()}>
@@ -539,12 +685,7 @@
     </div>
   </div>
   <div style="display: flex; gap: 8px; align-items: end;">
-    <input
-      name="filter"
-      type="text"
-      placeholder="Filter"
-      bind:value={filter}
-    />
+    <input name="filter" type="text" placeholder="Filter" bind:value={filter} />
   </div>
   <div class="canvas">
     <canvas
@@ -555,11 +696,18 @@
       on:pointerdown={onPointerDown}
       on:pointermove={onPointerMove}
       on:pointercancel={onPointerCancel}
-      on:pointerenter={() => { if (canvas) canvas.focus(); mouseOver = true; }}
-      on:pointerleave={() => { mouseOver = false; }}
+      on:pointerenter={() => {
+        if (canvas) canvas.focus();
+        mouseOver = true;
+      }}
+      on:pointerleave={() => {
+        mouseOver = false;
+      }}
     />
   </div>
-  <div style="display: flex; flex-direction: row; gap: 8px; align-items: start;">
+  <div
+    style="display: flex; flex-direction: row; gap: 8px; align-items: start;"
+  >
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="tags">Tags</label>
       <input
@@ -570,14 +718,22 @@
         bind:this={tagInput}
       />
     </div>
-    <input type="color" name="color" on:change={setColor} value={color.substring(0, Math.min(color.length, 7))} />
+    <input
+      type="color"
+      name="color"
+      on:change={setColor}
+      value={color.substring(0, Math.min(color.length, 7))}
+    />
     <input type="range" min="0" max="255" bind:value={alpha} />
-    <div style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px;">
+    <div
+      style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px;"
+    >
       {#each tileset.palette() as color}
         <button
           on:click={setColor}
           style:background-color={color}
-          class="palette" />
+          class="palette"
+        />
       {/each}
     </div>
   </div>

@@ -6,8 +6,11 @@
 <div class="tabs">
   {#each tabs as title}
     <button
-        class="tab"
-        on:click={() => { selected = tabs.indexOf(title) }}>
+      class="tab"
+      on:click={() => {
+        selected = tabs.indexOf(title);
+      }}
+    >
       {title}
     </button>
   {/each}

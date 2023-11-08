@@ -1,3 +1,1 @@
-<p>
-  TODO: About
-</p>
+<p>TODO: About</p>

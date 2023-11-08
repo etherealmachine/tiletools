@@ -1,29 +1,36 @@
 <script lang="ts" context="module">
-  enum Tool { Select, Edit, Erase, Fill, Portal };
+  enum Tool {
+    Select,
+    Edit,
+    Erase,
+    Fill,
+    Door,
+  }
 </script>
 
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import Tilemap, { type Tile } from "./Tilemap";
-    import type Tileset from "./Tileset";
+  import type Tileset from "./Tileset";
   import { drawHexagon, drawRect } from "./draw";
 
   // TODO: Select location, copy/paste layers
-  export let map: Tilemap  = new Tilemap();
+  export let map: Tilemap = new Tilemap();
 
   let canvas: HTMLCanvasElement;
   let tool: Tool = Tool.Select;
-  let portalStart: Tile | undefined = undefined;
+  let doorStart: Tile | undefined = undefined;
   let editingLayers: boolean = false;
   let mouseX: number, mouseY: number;
   let dragX: number | undefined, dragY: number | undefined;
   let grid: boolean = true;
   let zoom: number = 1;
   let mouseOver: boolean = false;
-  let offsetX: number = 0, offsetY: number = 0;
+  let offsetX: number = 0,
+    offsetY: number = 0;
 
   function screenToWorld(x: number, y: number): number[] {
-    return [(x-offsetX)/zoom, (y-offsetY)/zoom];
+    return [(x - offsetX) / zoom, (y - offsetY) / zoom];
   }
 
   function screenToTile(x: number, y: number): number[] {
@@ -36,34 +43,43 @@
     tool = _tool;
   }
 
-  function drawPortal(ctx: CanvasRenderingContext2D, tileset: Tileset, from: Tile, to: Tile) {
-    if (tileset.type === 'hex') {
+  function drawDoor(
+    ctx: CanvasRenderingContext2D,
+    tileset: Tileset,
+    from: Tile,
+    to: Tile,
+  ) {
+    if (tileset.type === "hex") {
     } else {
       ctx.lineWidth = 2;
       ctx.strokeStyle = "#FF8000";
       ctx.strokeRect(
-        from.x*tileset.tilewidth,
-        from.y*tileset.tileheight,
+        from.x * tileset.tilewidth,
+        from.y * tileset.tileheight,
         tileset.tilewidth,
-        tileset.tileheight);
+        tileset.tileheight,
+      );
       ctx.beginPath();
       ctx.moveTo(
-        (from.x+0.5)*tileset.tilewidth,
-        (from.y+0.5)*tileset.tileheight);
+        (from.x + 0.5) * tileset.tilewidth,
+        (from.y + 0.5) * tileset.tileheight,
+      );
       ctx.lineTo(
-        (to.x+0.5)*tileset.tilewidth,
-        (to.y+0.5)*tileset.tileheight);
+        (to.x + 0.5) * tileset.tilewidth,
+        (to.y + 0.5) * tileset.tileheight,
+      );
       ctx.stroke();
       ctx.strokeRect(
-        to.x*tileset.tilewidth,
-        to.y*tileset.tileheight,
+        to.x * tileset.tilewidth,
+        to.y * tileset.tileheight,
         tileset.tilewidth,
-        tileset.tileheight);
+        tileset.tileheight,
+      );
     }
   }
 
   function draw() {
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const W = (canvas.parentElement?.scrollWidth || 0) - 4;
     const H = (canvas.parentElement?.scrollHeight || 0) - 4;
@@ -75,34 +91,51 @@
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
     ctx.lineWidth = 1;
     ctx.strokeStyle = "white";
-    if (grid && map.tileset && map.tileset.tilewidth > 0 && map.tileset.tileheight > 0) {
+    if (
+      grid &&
+      map.tileset &&
+      map.tileset.tilewidth > 0 &&
+      map.tileset.tileheight > 0
+    ) {
       if (map.tileset.type === "hex") {
         const radius = map.tileset.radius();
-        const horiz = (3/2)*radius;
-        const halfHoriz = (1/2)*horiz;
-        const vert = Math.sqrt(3)*radius;
-        const halfVert = (1/2)*vert;
+        const horiz = (3 / 2) * radius;
+        const halfHoriz = (1 / 2) * horiz;
+        const vert = Math.sqrt(3) * radius;
+        const halfVert = (1 / 2) * vert;
         let [x1, y1] = screenToWorld(0, 0);
-        x1 = Math.floor(x1/horiz);
-        y1 = Math.floor(y1/vert);
-        const [w, h] = [canvas.width/horiz/zoom, canvas.height/vert/zoom];
-        for (let x = x1; x <= x1+w; x++) {
-          for (let y = y1; y <= y1+h; y++) {
+        x1 = Math.floor(x1 / horiz);
+        y1 = Math.floor(y1 / vert);
+        const [w, h] = [
+          canvas.width / horiz / zoom,
+          canvas.height / vert / zoom,
+        ];
+        for (let x = x1; x <= x1 + w; x++) {
+          for (let y = y1; y <= y1 + h; y++) {
             if (x % 2 === 0) {
-              drawHexagon(ctx, x*horiz, y*vert, radius);
+              drawHexagon(ctx, x * horiz, y * vert, radius);
             } else {
-              drawHexagon(ctx, x*horiz, y*vert+halfVert, radius);
+              drawHexagon(ctx, x * horiz, y * vert + halfVert, radius);
             }
           }
         }
       } else {
         let [x1, y1] = screenToWorld(0, 0);
-        x1 = Math.floor(x1/map.tileset.tilewidth);
-        y1 = Math.floor(y1/map.tileset.tileheight);
-        const [w, h] = [canvas.width/map.tileset.tilewidth/zoom, canvas.height/map.tileset.tileheight/zoom];
-        for (let x = x1; x <= x1+w; x++) {
-          for (let y = y1; y <= y1+h; y++) {
-            drawRect(ctx, x*map.tileset.tilewidth, y*map.tileset.tileheight, map.tileset.tilewidth, map.tileset.tileheight);
+        x1 = Math.floor(x1 / map.tileset.tilewidth);
+        y1 = Math.floor(y1 / map.tileset.tileheight);
+        const [w, h] = [
+          canvas.width / map.tileset.tilewidth / zoom,
+          canvas.height / map.tileset.tileheight / zoom,
+        ];
+        for (let x = x1; x <= x1 + w; x++) {
+          for (let y = y1; y <= y1 + h; y++) {
+            drawRect(
+              ctx,
+              x * map.tileset.tilewidth,
+              y * map.tileset.tileheight,
+              map.tileset.tilewidth,
+              map.tileset.tileheight,
+            );
           }
         }
       }
@@ -112,21 +145,22 @@
         if (!layer.visible) return;
         map.drawLayer(ctx, layer);
       }
-      for (let [x, ys] of Object.entries(map.tiledata)) {
-        for (let [y, data] of Object.entries(ys)) {
-          if (data['portal']) {
-            drawPortal(ctx, map.tileset, { x: parseInt(x), y: parseInt(y) }, data['portal'] as Tile);
-          }
-        }
+      for (let [from, to] of map.tilesWithData<Tile>("door")) {
+        drawDoor(ctx, map.tileset, from, to);
       }
-      if (tool === Tool.Edit && mouseX !== undefined && mouseY !== undefined && mouseOver) {
+      if (
+        tool === Tool.Edit &&
+        mouseX !== undefined &&
+        mouseY !== undefined &&
+        mouseOver
+      ) {
         const randTile = map.tileset.randSelectedTile();
         if (randTile) {
           map.tileset.drawTile(ctx, mouseX, mouseY, randTile[0], randTile[1]);
         }
       }
-      if (tool === Tool.Portal && portalStart) {
-        drawPortal(ctx, map.tileset, portalStart, { x: mouseX, y: mouseY });
+      if (tool === Tool.Door && doorStart) {
+        drawDoor(ctx, map.tileset, doorStart, { x: mouseX, y: mouseY });
       }
     }
   }
@@ -137,20 +171,15 @@
         map.erase(mouseX, mouseY);
       } else if (tool === Tool.Fill) {
         map.fill(mouseX, mouseY);
-      } else if (tool === Tool.Portal && !portalStart) {
-        portalStart = { x: mouseX, y: mouseY };
-      } else if (tool === Tool.Portal && portalStart) {
-        map.setTileData(portalStart.x, portalStart.y, "portal", {
-          x: mouseX, y: mouseY,
-        });
-        map.setTileData(mouseX, mouseY, "portal", {
-          x: portalStart.x, y: portalStart.y,
-        });
-        portalStart = undefined;
+      } else if (tool === Tool.Door && !doorStart) {
+        doorStart = { x: mouseX, y: mouseY };
+      } else if (tool === Tool.Door && doorStart) {
+        map.setDoor({ x: mouseX, y: mouseY }, doorStart);
+        doorStart = undefined;
       } else if (tool === Tool.Edit) {
         map.set(mouseX, mouseY);
       }
-      map = map
+      map = map;
     } else if (e.ctrlKey) {
       offsetX += e.movementX;
       offsetY += e.movementY;
@@ -190,8 +219,8 @@
       zoom *= 0.9;
     }
     zoom = Math.min(Math.max(0.25, zoom), 8);
-    offsetX = -zoom*(e.offsetX-offsetX)/prevZoom + e.offsetX;
-    offsetY = -zoom*(e.offsetY-offsetY)/prevZoom + e.offsetY;
+    offsetX = (-zoom * (e.offsetX - offsetX)) / prevZoom + e.offsetX;
+    offsetY = (-zoom * (e.offsetY - offsetY)) / prevZoom + e.offsetY;
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -211,19 +240,19 @@
         e.preventDefault();
         break;
       case e.key === "ArrowLeft":
-        offsetX += zoom*map.tileset.offsetWidth();
+        offsetX += zoom * map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
-        offsetX -= zoom*map.tileset.offsetWidth();
+        offsetX -= zoom * map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
-        offsetY += zoom*map.tileset.offsetHeight();
+        offsetY += zoom * map.tileset.offsetHeight();
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
-        offsetY -= zoom*map.tileset.offsetHeight();
+        offsetY -= zoom * map.tileset.offsetHeight();
         e.preventDefault();
         break;
     }
@@ -234,9 +263,9 @@
     const files = (e.target as HTMLInputElement).files;
     if (files === null) return;
     const file = files[0];
-    Tilemap.loadFromFile(file).then(_map => {
+    Tilemap.loadFromFile(file).then((_map) => {
       map = _map;
-    })
+    });
   }
 
   function triggerRedraw(..._args: any[]) {
@@ -246,10 +275,17 @@
   }
 
   $: triggerRedraw(
-    map, grid,
-    zoom, offsetX, offsetY,
-    dragX, dragY,
-    mouseX, mouseY, mouseOver);
+    map,
+    grid,
+    zoom,
+    offsetX,
+    offsetY,
+    dragX,
+    dragY,
+    mouseX,
+    mouseY,
+    mouseOver,
+  );
 </script>
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">
@@ -259,42 +295,60 @@
       Grid
     </label>
     <span>{mouseX}, {mouseY}</span>
-    <button on:click={() => setTool(Tool.Select)} class:active={tool === Tool.Select}>
+    <button
+      on:click={() => setTool(Tool.Select)}
+      class:active={tool === Tool.Select}
+    >
       <Icon name="openSelectHandGesture" />
     </button>
-    <button on:click={() => setTool(Tool.Edit)} class:active={tool===Tool.Edit}>
+    <button
+      on:click={() => setTool(Tool.Edit)}
+      class:active={tool === Tool.Edit}
+    >
       <Icon name="editPencil" />
     </button>
-    <button on:click={() => setTool(Tool.Erase)} class:active={tool===Tool.Erase}>
+    <button
+      on:click={() => setTool(Tool.Erase)}
+      class:active={tool === Tool.Erase}
+    >
       <Icon name="erase" />
     </button>
-    <button on:click={() => setTool(Tool.Fill)} class:active={tool===Tool.Fill}>
+    <button
+      on:click={() => setTool(Tool.Fill)}
+      class:active={tool === Tool.Fill}
+    >
       <Icon name="fillColor" />
     </button>
-    <button on:click={() => setTool(Tool.Portal)} class:active={tool===Tool.Portal}>
+    <button
+      on:click={() => setTool(Tool.Door)}
+      class:active={tool === Tool.Door}
+    >
       <Icon name="door" />
     </button>
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="name">Name</label>
-      <input
-        name="name"
-        type="text"
-        bind:value={map.name}
-      />
+      <input name="name" type="text" bind:value={map.name} />
     </div>
-    <button on:click={() => { map.undo(); map = map }}>
-        <Icon name="undo" />
+    <button
+      on:click={() => {
+        map.undo();
+        map = map;
+      }}
+    >
+      <Icon name="undo" />
     </button>
-    <button on:click={() => { map.redo(); map = map }}>
-        <Icon name="redo" />
+    <button
+      on:click={() => {
+        map.redo();
+        map = map;
+      }}
+    >
+      <Icon name="redo" />
     </button>
     <button on:click={() => map.download()}>
-        <Icon name="saveFloppyDisk" />
+      <Icon name="saveFloppyDisk" />
     </button>
-    <input
-      type="file"
-      accept="image/png"
-      on:change={onLoad} />
+    <input type="file" accept="image/png" on:change={onLoad} />
   </div>
   <div style="display: flex; flex-grow: 1;">
     <div class="canvas">
@@ -308,22 +362,54 @@
         on:pointercancel={onPointerCancel}
         on:pointermove={onPointerMove}
         on:keydown={onKeyDown}
-        on:pointerenter={() => { canvas.focus(); mouseOver = true; }}
-        on:pointerleave={() => { mouseOver = false; }}
+        on:pointerenter={() => {
+          canvas.focus();
+          mouseOver = true;
+        }}
+        on:pointerleave={() => {
+          mouseOver = false;
+        }}
       />
     </div>
     <div style="display: flex; flex-direction: column; gap: 4px;">
-      <button on:click={() => { editingLayers = !editingLayers }}><Icon name="editPencil" /></button>
+      <button
+        on:click={() => {
+          editingLayers = !editingLayers;
+        }}><Icon name="editPencil" /></button
+      >
       {#each map.layers as layer, i}
         <div>
           {#if editingLayers}
-            <input placeholder={layer.name} value={layer.name} on:change={(e) => { map.layers[i].name = e.currentTarget.value; map = map }} />
-            <button on:click={() => { map.removeLayer(i); map = map }}>
+            <input
+              placeholder={layer.name}
+              value={layer.name}
+              on:change={(e) => {
+                map.layers[i].name = e.currentTarget.value;
+                map = map;
+              }}
+            />
+            <button
+              on:click={() => {
+                map.removeLayer(i);
+                map = map;
+              }}
+            >
               <Icon name="minus" />
             </button>
           {:else}
-            <button on:click={() => { map.selectedLayer = i; map = map }} class:selected={map.selectedLayer === i}>{layer.name}</button>
-            <button on:click={() => { map.layers[i].visible = !map.layers[i].visible; map = map }}>
+            <button
+              on:click={() => {
+                map.selectedLayer = i;
+                map = map;
+              }}
+              class:selected={map.selectedLayer === i}>{layer.name}</button
+            >
+            <button
+              on:click={() => {
+                map.layers[i].visible = !map.layers[i].visible;
+                map = map;
+              }}
+            >
               {#if layer.visible}
                 <Icon name="eyeEmpty" />
               {:else}
@@ -333,7 +419,12 @@
           {/if}
         </div>
       {/each}
-      <button on:click={() => { map.addLayer(); map = map }}><Icon name="plus" /></button>
+      <button
+        on:click={() => {
+          map.addLayer();
+          map = map;
+        }}><Icon name="plus" /></button
+      >
     </div>
   </div>
 </div>

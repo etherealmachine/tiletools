@@ -1,5 +1,4 @@
 export class Undoable<T> {
-
   stack: Undoable<T>[] = [];
 
   push(undoable: Undoable<T>) {
@@ -20,15 +19,15 @@ export class Undoable<T> {
 }
 
 export default class Undoer<O, T extends Undoable<O>> {
-  _constructor: new () => T
-  undoable?: T
-  undoStack: T[] = []
-  redoStack: T[] = []
-  maxUndo: number
+  _constructor: new () => T;
+  undoable?: T;
+  undoStack: T[] = [];
+  redoStack: T[] = [];
+  maxUndo: number;
 
   constructor(constructor: new () => T, maxUndo: number = 20) {
     this._constructor = constructor;
-    this.maxUndo = maxUndo
+    this.maxUndo = maxUndo;
   }
 
   begin() {

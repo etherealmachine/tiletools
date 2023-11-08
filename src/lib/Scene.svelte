@@ -15,7 +15,7 @@
       requestAnimationFrame(draw);
       return;
     }
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) {
       requestAnimationFrame(draw);
       return;
@@ -34,51 +34,61 @@
     }
     const [w, h] = [tilemap.tileset.tilewidth, tilemap.tileset.tileheight];
     for (let c of engine.characters) {
-      if (camera && c.name === 'Player') {
-        camera.centerX = c.position.x*w;
-        camera.centerY = c.position.y*h;
+      if (camera && c.name === "Player") {
+        camera.centerX = c.position.x * w;
+        camera.centerY = c.position.y * h;
       }
     }
-    ctx.setTransform(camera.zoom, 0, 0, camera.zoom, (W/2)-camera.centerX*camera.zoom, (H/2)-camera.centerY*camera.zoom);
+    ctx.setTransform(
+      camera.zoom,
+      0,
+      0,
+      camera.zoom,
+      W / 2 - camera.centerX * camera.zoom,
+      H / 2 - camera.centerY * camera.zoom,
+    );
     for (let layer of tilemap.layers) {
       if (!layer.visible) continue;
       const sortedTiles = Object.entries(layer.tiles).sort((a, b): number => {
-        const [x1, y1] = a[0].split(',').map(v => parseInt(v));
-        const [x2, y2] = b[0].split(',').map(v => parseInt(v));
-        if (y1 === y2) return x1-x2;
-        return y1-y2;
+        const [x1, y1] = a[0].split(",").map((v) => parseInt(v));
+        const [x2, y2] = b[0].split(",").map((v) => parseInt(v));
+        if (y1 === y2) return x1 - x2;
+        return y1 - y2;
       });
       for (let [loc, tile] of sortedTiles) {
-        const [x, y] = loc.split(',').map(v => parseInt(v));
+        const [x, y] = loc.split(",").map((v) => parseInt(v));
         tilemap.tileset.drawTile(ctx, x, y, tile.x, tile.y);
       }
     }
     for (let c of engine.characters) {
-      if (typeof(c.token) === 'string') {
-        PNGWithMetadata.fromDataURL(c.token).bitmap().then(img => {
-          c.token = img;
-        });
+      if (typeof c.token === "string") {
+        PNGWithMetadata.fromDataURL(c.token)
+          .bitmap()
+          .then((img) => {
+            c.token = img;
+          });
       } else if (c.token instanceof ImageBitmap) {
-        const [x, y] = [c.position.x*w, c.position.y*h];
+        const [x, y] = [c.position.x * w, c.position.y * h];
         ctx.drawImage(c.token, x, y, w, h);
         ctx.fillStyle = "red";
-        ctx.fillRect(x, y-1, tilemap.tileset.tilewidth*(c.health.current/c.health.max), 1);
+        ctx.fillRect(
+          x,
+          y - 1,
+          tilemap.tileset.tilewidth * (c.health.current / c.health.max),
+          1,
+        );
       }
     }
     requestAnimationFrame(draw);
   }
 
-  function onPointerDown(e: PointerEvent) {
-  }
+  function onPointerDown(e: PointerEvent) {}
 
-  function onPointerUp(e: PointerEvent) {
-  }
+  function onPointerUp(e: PointerEvent) {}
 
-  function onPointerCancel(e: PointerEvent) {
-  }
+  function onPointerCancel(e: PointerEvent) {}
 
-  function onPointerMove(e: PointerEvent) {
-  }
+  function onPointerMove(e: PointerEvent) {}
 
   function onWheel(e: WheelEvent) {
     const { camera } = engine;
@@ -91,7 +101,7 @@
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    const c = engine.characters.find(c => c.name === 'Player');
+    const c = engine.characters.find((c) => c.name === "Player");
     if (!c) return;
     const { x, y } = c.position;
     switch (true) {
@@ -114,11 +124,16 @@
     }
     for (let i = 0; i < engine.characters.length; i++) {
       const e = engine.characters[i];
-      const d = Math.round(Math.sqrt(Math.pow(e.position.x-c.position.x, 2)+Math.pow(e.position.y-c.position.y, 2)));
-      if (e.name !== 'Player' && d === 0) {
+      const d = Math.round(
+        Math.sqrt(
+          Math.pow(e.position.x - c.position.x, 2) +
+            Math.pow(e.position.y - c.position.y, 2),
+        ),
+      );
+      if (e.name !== "Player" && d === 0) {
         c.position.x = x;
         c.position.y = y;
-        e.health.current -= Math.ceil(Math.random()*3);
+        e.health.current -= Math.ceil(Math.random() * 3);
         if (e.health.current <= 0) {
           engine.characters.splice(i, 1);
         }
