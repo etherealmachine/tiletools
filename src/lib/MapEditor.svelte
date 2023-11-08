@@ -1,13 +1,19 @@
+<script lang="ts" context="module">
+  enum Tool { Select, Edit, Erase, Fill, Portal };
+</script>
+
 <script lang="ts">
   import Icon from "./Icon.svelte";
-  import Tilemap from "./Tilemap";
+  import Tilemap, { type Tile } from "./Tilemap";
+    import type Tileset from "./Tileset";
   import { drawHexagon, drawRect } from "./draw";
 
   // TODO: Select location, copy/paste layers
   export let map: Tilemap  = new Tilemap();
 
   let canvas: HTMLCanvasElement;
-  let erase: boolean = false;
+  let tool: Tool = Tool.Select;
+  let portalStart: Tile | undefined = undefined;
   let editingLayers: boolean = false;
   let mouseX: number, mouseY: number;
   let dragX: number | undefined, dragY: number | undefined;
@@ -26,6 +32,36 @@
     return map.tileset.worldToTile(tx, ty);
   }
 
+  function setTool(_tool: Tool) {
+    tool = _tool;
+  }
+
+  function drawPortal(ctx: CanvasRenderingContext2D, tileset: Tileset, from: Tile, to: Tile) {
+    if (tileset.type === 'hex') {
+    } else {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#FF8000";
+      ctx.strokeRect(
+        from.x*tileset.tilewidth,
+        from.y*tileset.tileheight,
+        tileset.tilewidth,
+        tileset.tileheight);
+      ctx.beginPath();
+      ctx.moveTo(
+        (from.x+0.5)*tileset.tilewidth,
+        (from.y+0.5)*tileset.tileheight);
+      ctx.lineTo(
+        (to.x+0.5)*tileset.tilewidth,
+        (to.y+0.5)*tileset.tileheight);
+      ctx.stroke();
+      ctx.strokeRect(
+        to.x*tileset.tilewidth,
+        to.y*tileset.tileheight,
+        tileset.tilewidth,
+        tileset.tileheight);
+    }
+  }
+
   function draw() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -37,6 +73,7 @@
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+    ctx.lineWidth = 1;
     ctx.strokeStyle = "white";
     if (grid && map.tileset && map.tileset.tilewidth > 0 && map.tileset.tileheight > 0) {
       if (map.tileset.type === "hex") {
@@ -75,22 +112,42 @@
         if (!layer.visible) return;
         map.drawLayer(ctx, layer);
       }
-      if (mouseX !== undefined && mouseY !== undefined && mouseOver) {
+      for (let [x, ys] of Object.entries(map.tiledata)) {
+        for (let [y, data] of Object.entries(ys)) {
+          if (data['portal']) {
+            drawPortal(ctx, map.tileset, { x: parseInt(x), y: parseInt(y) }, data['portal'] as Tile);
+          }
+        }
+      }
+      if (tool === Tool.Edit && mouseX !== undefined && mouseY !== undefined && mouseOver) {
         const randTile = map.tileset.randSelectedTile();
         if (randTile) {
           map.tileset.drawTile(ctx, mouseX, mouseY, randTile[0], randTile[1]);
         }
+      }
+      if (tool === Tool.Portal && portalStart) {
+        drawPortal(ctx, map.tileset, portalStart, { x: mouseX, y: mouseY });
       }
     }
   }
 
   function onClick(e: PointerEvent) {
     if (e.buttons === 1) {
-      if (e.ctrlKey || erase) {
+      if (tool === Tool.Erase) {
         map.erase(mouseX, mouseY);
-      } else if (e.shiftKey) {
+      } else if (tool === Tool.Fill) {
         map.fill(mouseX, mouseY);
-      } else {
+      } else if (tool === Tool.Portal && !portalStart) {
+        portalStart = { x: mouseX, y: mouseY };
+      } else if (tool === Tool.Portal && portalStart) {
+        map.setTileData(portalStart.x, portalStart.y, "portal", {
+          x: mouseX, y: mouseY,
+        });
+        map.setTileData(mouseX, mouseY, "portal", {
+          x: portalStart.x, y: portalStart.y,
+        });
+        portalStart = undefined;
+      } else if (tool === Tool.Edit) {
         map.set(mouseX, mouseY);
       }
       map = map
@@ -141,10 +198,6 @@
     if (!map.tileset) return;
     if (!mouseOver) return;
     switch (true) {
-      case e.key === "e":
-        erase = true;
-        e.preventDefault();
-        break;
       case e.key === "z" && e.ctrlKey:
         map.undo();
         e.preventDefault();
@@ -206,8 +259,20 @@
       Grid
     </label>
     <span>{mouseX}, {mouseY}</span>
-    <button on:click={() => { erase = !erase}} class:active={erase}>
+    <button on:click={() => setTool(Tool.Select)} class:active={tool === Tool.Select}>
+      <Icon name="openSelectHandGesture" />
+    </button>
+    <button on:click={() => setTool(Tool.Edit)} class:active={tool===Tool.Edit}>
+      <Icon name="editPencil" />
+    </button>
+    <button on:click={() => setTool(Tool.Erase)} class:active={tool===Tool.Erase}>
       <Icon name="erase" />
+    </button>
+    <button on:click={() => setTool(Tool.Fill)} class:active={tool===Tool.Fill}>
+      <Icon name="fillColor" />
+    </button>
+    <button on:click={() => setTool(Tool.Portal)} class:active={tool===Tool.Portal}>
+      <Icon name="door" />
     </button>
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="name">Name</label>

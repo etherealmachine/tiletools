@@ -3,12 +3,14 @@
   import cropRotateTl from "../assets/icons/crop-rotate-tl.svg?raw";
   import cut from "../assets/icons/cut.svg?raw";
   import deleteCircle from "../assets/icons/delete-circle.svg?raw";
+  import door from "../assets/icons/door.svg?raw";
   import download from "../assets/icons/download.svg?raw";
   import drag from "../assets/icons/drag.svg?raw";
   import editPencil from "../assets/icons/edit-pencil.svg?raw";
   import erase from "../assets/icons/erase.svg?raw";
   import eyeEmpty from "../assets/icons/eye-empty.svg?raw";
   import eyeOff from "../assets/icons/eye-off.svg?raw";
+  import fillColor from "../assets/icons/fill-color.svg?raw";
   import flipHoriz from "../assets/icons/flip-horiz.svg?raw";
   import flipVert from "../assets/icons/flip-vert.svg?raw";
   import gitMerge from "../assets/icons/git-merge.svg?raw";
@@ -28,12 +30,14 @@
     cropRotateTl,
     cut,
     deleteCircle,
+    door,
     download,
     drag,
     editPencil,
     erase,
     eyeEmpty,
     eyeOff,
+    fillColor,
     flipHoriz,
     flipVert,
     gitMerge,

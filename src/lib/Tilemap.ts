@@ -2,7 +2,7 @@ import PNGWithMetadata from "./PNGWithMetadata";
 import Tileset from "./Tileset";
 import Undoer, { Undoable } from "./Undoer";
 
-interface Tile {
+export interface Tile {
   x: number
   y: number
 }
@@ -67,6 +67,7 @@ export default class Tilemap {
     visible: true,
     tiles: {},
   }]
+  tiledata: { [key: number]: { [key: number]: { [key: string]: any } } } = {}
   selectedLayer: number = 0
   undoer: Undoer<Tilemap, TilemapUndoable> = new Undoer(TilemapUndoable)
 
@@ -145,6 +146,18 @@ export default class Tilemap {
     this.undoer.redo(this);
   }
 
+  setTileData(x: number, y: number, key: string, value: any) {
+    if (!this.tiledata[x]) this.tiledata[x] = {};
+    if (!this.tiledata[x][y]) this.tiledata[x][y] = {};
+    this.tiledata[x][y][key] = value;
+  }
+
+  getTileData<T>(x: number, y: number, key: string, onEmpty: T): T {
+    if (!this.tiledata[x]) return onEmpty;
+    if (!this.tiledata[x][y]) return onEmpty;
+    return this.tiledata[x][y][key];
+  }
+
   drawLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
     if (!this.tileset) return;
     for (let [loc, tile] of Object.entries(layer.tiles).sort((a, b): number => {
@@ -187,6 +200,7 @@ export default class Tilemap {
     return {
       name: this.name,
       layers: this.layers,
+      tiledata: this.tiledata,
       tileset: await this.tileset?.dataURL(),
     };
   }
