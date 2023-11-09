@@ -71,7 +71,7 @@ export default class Tilemap {
       tile = this.tileset.randSelectedTile();
     }
     if (!tile) return;
-    const key = tile.toString();
+    const key = loc.toString();
     const undo = this.undoer.push();
     undo.tiles.push({
       layer: this.selectedLayer,
@@ -149,13 +149,8 @@ export default class Tilemap {
 
   drawLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
     if (!this.tileset) return;
-    for (let [loc, tile] of Object.entries(layer.tiles).sort((a, b): number => {
-      const [x1, y1] = a[0].split(",").map((v) => parseInt(v));
-      const [x2, y2] = b[0].split(",").map((v) => parseInt(v));
-      if (y1 === y2) return x1 - x2;
-      return y1 - y2;
-    })) {
-      if (!tile) continue;
+    // TODO: Sort layer
+    for (let [loc, tile] of Object.entries(layer.tiles)) {
       this.tileset.drawTile(ctx, Point.from(loc), tile);
     }
   }
