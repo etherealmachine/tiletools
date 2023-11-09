@@ -1,24 +1,19 @@
 import PNGWithMetadata from "./PNGWithMetadata";
 import Tileset from "./Tileset";
 import Undoer, { Undoable } from "./Undoer";
-
-export interface Tile {
-  x: number;
-  y: number;
-}
+import { Point, type JSONValue } from "./types";
 
 interface Layer {
   name: string;
   visible: boolean;
-  tiles: { [key: string]: Tile };
+  tiles: { [key: string]: Point };
 }
 
 interface TileChange {
   layer: number;
-  x: number;
-  y: number;
-  from?: Tile;
-  to?: Tile;
+  loc: Point;
+  from?: Point;
+  to?: Point;
 }
 
 class TilemapUndoable extends Undoable<Tilemap> {
@@ -31,11 +26,11 @@ class TilemapUndoable extends Undoable<Tilemap> {
       tilemap.layers.splice(change.i, 0, change.layer);
     }
     for (let change of this.tiles) {
-      const loc = `${change.x},${change.y}`;
+      const key = change.toString();
       if (change.from === undefined) {
-        delete tilemap.layers[change.layer].tiles[loc];
+        delete tilemap.layers[change.layer].tiles[key];
       } else {
-        tilemap.layers[change.layer].tiles[loc] = change.from;
+        tilemap.layers[change.layer].tiles[key] = change.from;
       }
     }
   }
@@ -46,11 +41,11 @@ class TilemapUndoable extends Undoable<Tilemap> {
       tilemap.layers.splice(change.i, 1);
     }
     for (let change of this.tiles) {
-      const loc = `${change.x},${change.y}`;
+      const key = change.toString();
       if (change.to === undefined) {
-        delete tilemap.layers[change.layer].tiles[loc];
+        delete tilemap.layers[change.layer].tiles[key];
       } else {
-        tilemap.layers[change.layer].tiles[loc] = change.to;
+        tilemap.layers[change.layer].tiles[key] = change.to;
       }
     }
   }
@@ -66,72 +61,63 @@ export default class Tilemap {
       tiles: {},
     },
   ];
-  tiledata: Map<Tile, { [key: string]: any }> = new Map();
+  tiledata: { [key: string]: { [key: string]: JSONValue } } = {};
   selectedLayer: number = 0;
   undoer: Undoer<Tilemap, TilemapUndoable> = new Undoer(TilemapUndoable);
 
-  set(x: number, y: number, tile?: Tile) {
+  set(loc: Point, tile?: Point) {
     if (!this.tileset) return;
     if (!tile) {
-      const choice = this.tileset.randSelectedTile();
-      if (choice) {
-        tile = { x: choice[0], y: choice[1] };
-      }
+      tile = this.tileset.randSelectedTile();
     }
     if (!tile) return;
-    const loc = `${x},${y}`;
+    const key = tile.toString();
     const undo = this.undoer.push();
     undo.tiles.push({
       layer: this.selectedLayer,
-      x,
-      y,
-      from: this.layers[this.selectedLayer].tiles[loc],
+      loc,
+      from: this.layers[this.selectedLayer].tiles[key],
       to: tile,
     });
-    this.layers[this.selectedLayer].tiles[loc] = tile;
+    this.layers[this.selectedLayer].tiles[key] = tile;
   }
 
-  fill(x: number, y: number, max_dist: number = 10) {
+  fill(loc: Point, max_dist: number = 10) {
     if (!this.tileset) return;
-    if (this.layers[this.selectedLayer].tiles[`${x},${y}`]) return;
-    const queue: number[][] = [[x, y]];
+    if (this.layers[this.selectedLayer].tiles[loc.toString()]) return;
+    const queue: Point[] = [loc];
     while (queue.length > 0) {
       const curr = queue.shift();
       if (!curr) return;
       const choice = this.tileset.randSelectedTile();
       if (!choice) return;
-      this.layers[this.selectedLayer].tiles[`${curr[0]},${curr[1]}`] = {
-        x: choice[0],
-        y: choice[1],
-      };
+      this.layers[this.selectedLayer].tiles[curr.toString()] = choice;
       for (let d of [
         [1, 0],
         [-1, 0],
         [0, 1],
         [0, -1],
       ]) {
-        const [nx, ny] = [curr[0] + d[0], curr[1] + d[1]];
-        if (Math.sqrt(Math.pow(nx - x, 2) + Math.pow(ny - y, 2)) < max_dist) {
-          const n = `${nx},${ny}`;
-          if (!this.layers[this.selectedLayer].tiles[n]) {
-            queue.push([nx, ny]);
+        const n = curr.add(d[0], d[1]);
+        if (loc.dist(n) < max_dist) {
+          if (!this.layers[this.selectedLayer].tiles[n.toString()]) {
+            queue.push(n);
           }
         }
       }
     }
   }
 
-  erase(x: number, y: number) {
-    const loc = `${x},${y}`;
+  erase(loc: Point) {
+    const key = loc.toString();
     const undo = this.undoer.push();
     undo.tiles.push({
       layer: this.selectedLayer,
-      x,
-      y,
-      from: this.layers[this.selectedLayer].tiles[loc],
+      loc,
+      from: this.layers[this.selectedLayer].tiles[key],
       to: undefined,
     });
-    delete this.layers[this.selectedLayer].tiles[loc];
+    delete this.layers[this.selectedLayer].tiles[key];
   }
 
   addLayer() {
@@ -155,11 +141,11 @@ export default class Tilemap {
     this.undoer.redo(this);
   }
 
-  tilesWithData<T>(key: string): [Tile, T][] {
+  tilesWithData<T>(key: string): [Point, T][] {
     return [];
   }
 
-  setDoor(from: Tile, to: Tile) {}
+  setDoor(from: Point, to: Point) {}
 
   drawLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
     if (!this.tileset) return;
@@ -170,8 +156,7 @@ export default class Tilemap {
       return y1 - y2;
     })) {
       if (!tile) continue;
-      const [x, y] = loc.split(",").map((v) => parseInt(v));
-      this.tileset.drawTile(ctx, x, y, tile.x, tile.y);
+      this.tileset.drawTile(ctx, Point.from(loc), tile);
     }
   }
 

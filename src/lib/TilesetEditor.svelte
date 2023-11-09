@@ -13,6 +13,7 @@
   import Icon from "./Icon.svelte";
   import Tileset from "./Tileset";
   import { drawHexagon, drawRect } from "./draw";
+  import { Point } from "./types";
 
   export let tileset: Tileset = new Tileset({});
   export let maxWidth: string | undefined = undefined;
@@ -21,10 +22,9 @@
   let zoom: number = 2;
   let mouseOver: boolean = false;
   let mouseDown: boolean = false;
-  let offsetX: number = 0,
-    offsetY: number = 0;
-  let mouseX: number | undefined, mouseY: number | undefined;
-  let dragX: number | undefined, dragY: number | undefined;
+  let offset: Point = new Point(0, 0);
+  let mouse: Point = new Point(-1, -1);
+  let drag: Point | undefined;
   let tagString: string = "";
   let tagInput: HTMLInputElement | undefined;
   let filter: string = "";
@@ -33,12 +33,12 @@
   let alpha: number = 255;
   let degrees: number = 90;
 
-  function screenToWorld(x: number, y: number): number[] {
-    return [(x - offsetX) / zoom, (y - offsetY) / zoom];
+  function screenToWorld(screen: Point): Point {
+    return new Point((screen.x - offset.x) / zoom, (screen.y - offset.y) / zoom);
   }
 
-  function worldToScreen(x: number, y: number): number[] {
-    return [x * zoom + offsetX, y * zoom + offsetY];
+  function worldToScreen(world: Point): Point {
+    return new Point(world.x * zoom + offset.x, world.y * zoom + offset.y);
   }
 
   function draw() {
@@ -52,25 +52,25 @@
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
-    ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+    ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
 
     if (tileset.tiles) {
       for (let i = 0; i < tileset.tiles.length; i++) {
         const tile = tileset.tiles[i];
         if (!tile.img) continue;
-        const [x, y] = tileset.tileToImgCoords(tile.tileX, tile.tileY);
-        const [sx, sy] = worldToScreen(x, y);
+        const dest = tileset.tileToImgCoords(tile.loc);
+        const source = worldToScreen(dest);
         if (
-          sx < -tileset.tilewidth * zoom ||
-          sy < -tileset.tileheight * zoom ||
-          sx > W ||
-          sy > H
+          source.x < -tileset.tilewidth * zoom ||
+          source.y < -tileset.tileheight * zoom ||
+          source.x > W ||
+          source.y > H
         )
           continue;
         if (
           filter === "" ||
           tileset
-            .getTileData(tile.tileX, tile.tileY, "tags", [] as string[])
+            .getTileData(tile.loc, "tags", [] as string[])
             .some((tag) => tag.startsWith(filter))
         ) {
           ctx.drawImage(
@@ -79,8 +79,8 @@
             0,
             tileset.tilewidth,
             tileset.tileheight,
-            x,
-            y,
+            dest.x,
+            dest.y,
             tileset.tilewidth,
             tileset.tileheight,
           );
@@ -93,29 +93,24 @@
       return;
     }
 
-    if (mouseX === undefined || mouseY === undefined) return;
-
     ctx.lineWidth = 1 / zoom;
     if (mouseOver) {
       if (tool === Tool.Select) {
-        const [tileX, tileY] = tileset.imgCoordsToTile(mouseX, mouseY);
-        const [x, y] = tileset.tileToImgCoords(tileX, tileY);
-        if (tileX != undefined && tileY !== undefined) {
-          ctx.strokeStyle = "#ffffffaa";
-          drawRect(ctx, x, y, tileset.tilewidth, tileset.tileheight);
-        }
+        const p = tileset.tileToImgCoords(tileset.imgCoordsToTile(mouse));
+        ctx.strokeStyle = "#ffffffaa";
+        drawRect(ctx, p.x, p.y, tileset.tilewidth, tileset.tileheight);
       } else if (tool === Tool.Edit || tool === Tool.Erase) {
         ctx.fillStyle = color;
         if (tool === Tool.Erase) {
           ctx.fillStyle = "white";
         }
-        ctx.fillRect(Math.floor(mouseX), Math.floor(mouseY), 1, 1);
+        ctx.fillRect(Math.floor(mouse.x), Math.floor(mouse.y), 1, 1);
       }
     }
     ctx.strokeStyle = "white";
     tileset.selectedTiles.forEach((loc) => {
-      const [x, y] = tileset.tileToImgCoords(loc[0], loc[1]);
-      drawRect(ctx, x, y, tileset.tilewidth, tileset.tileheight);
+      const p = tileset.tileToImgCoords(loc);
+      drawRect(ctx, p.x, p.y, tileset.tilewidth, tileset.tileheight);
       if (
         (tool === Tool.Edit || tool === Tool.Erase || tool === Tool.Move) &&
         tileset.type === "hex"
@@ -123,8 +118,8 @@
         const r = tileset.radius();
         drawHexagon(
           ctx,
-          x + 0.5 * tileset.tilewidth,
-          y + tileset.tileheight - r,
+          p.x + 0.5 * tileset.tilewidth,
+          p.y + tileset.tileheight - r,
           r,
         );
       }
@@ -143,8 +138,8 @@
       zoom *= 0.9;
     }
     zoom = Math.min(Math.max(0.05, zoom), 16);
-    offsetX = (-zoom * (e.offsetX - offsetX)) / prevZoom + e.offsetX;
-    offsetY = (-zoom * (e.offsetY - offsetY)) / prevZoom + e.offsetY;
+    offset.x = (-zoom * (e.offsetX - offset.x)) / prevZoom + e.offsetX;
+    offset.y = (-zoom * (e.offsetY - offset.y)) / prevZoom + e.offsetY;
   }
 
   function parseColor(color: string): number[] | undefined {
@@ -198,14 +193,13 @@
   }
 
   function onPointerDown(e: PointerEvent) {
-    [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
-    [dragX, dragY] = [mouseX, mouseY];
+    mouse = screenToWorld(new Point(e.offsetX, e.offsetY));
+    drag = mouse.clone();
     mouseDown = true;
     if (tool === Tool.Edit) {
       tileset.undoer.begin();
       tileset.setPixel(
-        Math.floor(mouseX),
-        Math.floor(mouseY),
+        mouse.floor(),
         parseInt(color.slice(1, 3), 16),
         parseInt(color.slice(3, 5), 16),
         parseInt(color.slice(5, 7), 16),
@@ -214,19 +208,19 @@
       tileset = tileset;
     } else if (tool === Tool.Erase) {
       tileset.undoer.begin();
-      tileset.setPixel(Math.floor(mouseX), Math.floor(mouseY), 0, 0, 0, 0);
+      tileset.setPixel(mouse.floor(), 0, 0, 0, 0);
       tileset = tileset;
     } else if (tool == Tool.Select) {
-      const [x, y] = screenToWorld(e.offsetX, e.offsetY);
+      const world = screenToWorld(new Point(e.offsetX, e.offsetY));
       if (!tileset.img) return;
-      if (x < 0 || x >= tileset.img.width || y < 0 || y >= tileset.img.height) {
+      if (world.x < 0 || world.x >= tileset.img.width || world.y < 0 || world.y >= tileset.img.height) {
         return;
       }
-      const [tileX, tileY] = tileset.imgCoordsToTile(x, y);
+      const tile = tileset.imgCoordsToTile(world);
       if (e.shiftKey) {
-        tileset.toggleSelectedTile(tileX, tileY);
+        tileset.toggleSelectedTile(tile);
       } else {
-        tileset.setSelectedTile(tileX, tileY);
+        tileset.setSelectedTile(tile);
         if (tagInput) {
           tagInput.focus();
         }
@@ -238,16 +232,15 @@
 
   function onPointerMove(e: PointerEvent) {
     if (e.ctrlKey) {
-      offsetX += e.movementX;
-      offsetY += e.movementY;
+      offset.x += e.movementX;
+      offset.y += e.movementY;
     }
-    [mouseX, mouseY] = screenToWorld(e.offsetX, e.offsetY);
+    mouse = screenToWorld(new Point(e.offsetX, e.offsetY));
 
     if (mouseDown) {
       if (tool === Tool.Edit) {
         tileset.setPixel(
-          Math.floor(mouseX),
-          Math.floor(mouseY),
+          mouse.floor(),
           parseInt(color.slice(1, 3), 16),
           parseInt(color.slice(3, 5), 16),
           parseInt(color.slice(5, 7), 16),
@@ -255,25 +248,18 @@
         );
         tileset = tileset;
       } else if (tool === Tool.Erase) {
-        tileset.setPixel(Math.floor(mouseX), Math.floor(mouseY), 0, 0, 0, 0);
+        tileset.setPixel(mouse.floor(), 0, 0, 0, 0);
         tileset = tileset;
       } else if (
         tool == Tool.Select &&
-        dragX !== undefined &&
-        dragY !== undefined
+        drag !== undefined
       ) {
         tileset.clearSelectedTiles();
-        let [x1, y1] = tileset.imgCoordsToTile(dragX, dragY);
-        let [x2, y2] = tileset.imgCoordsToTile(mouseX, mouseY);
-        if (x1 > x2) {
-          [x1, x2] = [x2, x1];
-        }
-        if (y1 > y2) {
-          [y1, y2] = [y2, y1];
-        }
-        for (let x = x1; x <= x2; x++) {
-          for (let y = y1; y <= y2; y++) {
-            tileset.toggleSelectedTile(x, y);
+        let a = tileset.imgCoordsToTile(drag);
+        let b = tileset.imgCoordsToTile(mouse);
+        for (let x = Math.min(a.x, b.x); x <= Math.max(a.x, b.x); x++) {
+          for (let y = Math.min(a.y, b.y); y <= Math.min(a.y, b.y); y++) {
+            tileset.toggleSelectedTile(new Point(x, y));
           }
         }
         tileset = tileset;
@@ -281,17 +267,15 @@
     }
   }
 
-  function onPointerCancel(e: PointerEvent) {
-    [dragX, dragY] = [undefined, undefined];
+  function onPointerUp() {
+    mouseDown = false;
+    drag = undefined;
     tileset.undoer.end();
     tileset = tileset;
   }
 
-  function onPointerUp(e: PointerEvent) {
-    mouseDown = false;
-    [dragX, dragY] = [undefined, undefined];
-    tileset.undoer.end();
-    tileset = tileset;
+  function onPointerCancel(e: PointerEvent) {
+    onPointerUp();
   }
 
   function onLoad(e: Event) {
@@ -302,8 +286,8 @@
     if (!file) return;
     Tileset.loadFromFile(file).then((_tileset) => {
       tileset = _tileset;
-      offsetX = 0;
-      offsetY = 0;
+      offset.x = 0;
+      offset.y = 0;
       zoom = 2;
     });
   }
@@ -376,45 +360,30 @@
         const [w, h] = [canvas?.width || 0, canvas?.height || 0];
         const maxZoom =
           Math.min(w, h) / Math.max(tileset.tilewidth, tileset.tileheight);
-        const [x, y] = tileset.tileToImgCoords(
-          tileset.selectedTiles[0][0],
-          tileset.selectedTiles[0][1],
-        );
+        const p = tileset.tileToImgCoords(tileset.selectedTiles[0]);
         zoom = maxZoom;
         const centerX = w / 2 - (tileset.tilewidth * zoom) / 2;
-        offsetX = -x * zoom + centerX;
-        offsetY = -y * zoom;
+        offset.x = -p.x * zoom + centerX;
+        offset.y = -p.y * zoom;
         e.preventDefault();
         break;
       case e.key === "i" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(
-          tileset.selectedTiles[0][0],
-          tileset.selectedTiles[0][1] - 1,
-        );
+        tileset.setSelectedTile(tileset.selectedTiles[0].add(0, -1));
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "k" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(
-          tileset.selectedTiles[0][0],
-          tileset.selectedTiles[0][1] + 1,
-        );
+        tileset.setSelectedTile(tileset.selectedTiles[0].add(0, 1));
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "j" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(
-          tileset.selectedTiles[0][0] - 1,
-          tileset.selectedTiles[0][1],
-        );
+        tileset.setSelectedTile(tileset.selectedTiles[0].add(-1, 0));
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "l" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(
-          tileset.selectedTiles[0][0] + 1,
-          tileset.selectedTiles[0][1],
-        );
+        tileset.setSelectedTile(tileset.selectedTiles[0].add(1, 0));
         tileset = tileset;
         e.preventDefault();
         break;
@@ -440,33 +409,33 @@
         break;
       case e.key === "ArrowLeft":
         if (e.shiftKey) {
-          offsetX += zoom;
+          offset.x += zoom;
         } else {
-          offsetX += zoom * tileset.offsetWidth();
+          offset.x += zoom * tileset.offsetWidth();
         }
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
         if (e.shiftKey) {
-          offsetX -= zoom;
+          offset.x -= zoom;
         } else {
-          offsetX -= zoom * tileset.offsetWidth();
+          offset.x -= zoom * tileset.offsetWidth();
         }
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
         if (e.shiftKey) {
-          offsetY += zoom;
+          offset.y += zoom;
         } else {
-          offsetY += zoom * tileset.offsetHeight();
+          offset.y += zoom * tileset.offsetHeight();
         }
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
         if (e.shiftKey) {
-          offsetY -= zoom;
+          offset.y -= zoom;
         } else {
-          offsetY -= zoom * tileset.offsetHeight();
+          offset.y -= zoom * tileset.offsetHeight();
         }
         e.preventDefault();
         break;
@@ -491,11 +460,9 @@
     alpha,
     tool,
     zoom,
-    offsetX,
-    offsetY,
+    offset,
     filter,
-    mouseX,
-    mouseY,
+    mouse,
     mouseOver,
   );
 </script>

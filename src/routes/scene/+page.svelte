@@ -27,8 +27,7 @@
         for (let entry of Object.entries(layer.tiles)) {
           const [loc, tile] = entry;
           const tags = tilemap.tileset.getTileData<string[]>(
-            tile.x,
-            tile.y,
+            tile,
             "tags",
             [],
           );

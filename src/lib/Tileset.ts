@@ -2,10 +2,10 @@ import PNGWithMetadata from "./PNGWithMetadata";
 import Undoer, { Undoable } from "./Undoer";
 import { clear, colors, copy, flip, shift } from "./draw";
 import rotsprite from "./rotsprite";
+import { Point, type JSONValue } from "./types";
 
 interface TileBuffer {
-  tileX: number;
-  tileY: number;
+  loc: Point;
   buf: ImageData;
   img?: ImageBitmap;
 }
@@ -18,10 +18,8 @@ interface RGBA {
 }
 
 interface PixelChange {
-  tileX: number;
-  tileY: number;
-  x: number;
-  y: number;
+  tile: Point;
+  pixel: Point;
   from: RGBA;
   to: RGBA;
 }
@@ -30,15 +28,15 @@ class TilesetUndoable extends Undoable<Tileset> {
   tiles: TileBuffer[] = [];
   pixels: PixelChange[] = [];
 
-  addTile({ tileX, tileY, buf }: TileBuffer) {
-    this.tiles.push({ tileX, tileY, buf: copy(buf) });
+  addTile({ loc: tile, buf }: TileBuffer) {
+    this.tiles.push({ loc: tile, buf: copy(buf) });
   }
 
   undo(tileset: Tileset) {
     super.undo(tileset);
     for (let prev of this.tiles) {
       const tmp = prev.buf;
-      const curr = tileset.getTileBuffer(prev.tileX, prev.tileY);
+      const curr = tileset.getTileBuffer(prev.loc);
       prev.buf = curr.buf;
       curr.buf = tmp;
       tileset.rendering++;
@@ -49,8 +47,8 @@ class TilesetUndoable extends Undoable<Tileset> {
       });
     }
     for (let change of this.pixels) {
-      const curr = tileset.getTileBuffer(change.tileX, change.tileY);
-      const i = (change.y * curr.buf.width + change.x) * 4;
+      const curr = tileset.getTileBuffer(change.tile);
+      const i = (change.pixel.y * curr.buf.width + change.pixel.x) * 4;
       curr.buf.data[i + 0] = change.from.r;
       curr.buf.data[i + 1] = change.from.g;
       curr.buf.data[i + 2] = change.from.b;
@@ -68,7 +66,7 @@ class TilesetUndoable extends Undoable<Tileset> {
     super.redo(tileset);
     this.tiles?.forEach((prev) => {
       const tmp = prev.buf;
-      const curr = tileset.getTileBuffer(prev.tileX, prev.tileY);
+      const curr = tileset.getTileBuffer(prev.loc);
       prev.buf = curr.buf;
       curr.buf = tmp;
       tileset.rendering++;
@@ -79,8 +77,8 @@ class TilesetUndoable extends Undoable<Tileset> {
       });
     });
     this.pixels.forEach((change) => {
-      const curr = tileset.getTileBuffer(change.tileX, change.tileY);
-      const i = (change.y * curr.buf.width + change.x) * 4;
+      const curr = tileset.getTileBuffer(change.tile);
+      const i = (change.pixel.y * curr.buf.width + change.pixel.x) * 4;
       curr.buf.data[i + 0] = change.to.r;
       curr.buf.data[i + 1] = change.to.g;
       curr.buf.data[i + 2] = change.to.b;
@@ -103,8 +101,8 @@ export default class Tileset {
   tileheight: number;
   margin: number;
   spacing: number;
-  tiledata: { [key: number]: { [key: number]: { [key: string]: any } } };
-  selectedTiles: number[][] = [];
+  tiledata: { [key: string]: { [key: string]: JSONValue } };
+  selectedTiles: Point[] = [];
 
   tiles: TileBuffer[] = [];
   rendering: number = 0;
@@ -122,42 +120,48 @@ export default class Tileset {
     this.tiledata = args.tiledata || {};
   }
 
-  worldToTile(x: number, y: number): number[] {
-    if (!this.tilewidth || !this.tileheight) return [0, 0];
+  worldToTile(world: Point): Point {
+    if (!this.tilewidth || !this.tileheight) return new Point(0, 0);
     if (this.type === "hex") {
-      return round_axial(
-        ((2 / 3) * x) / this.radius(),
-        ((-1 / 3) * x + (Math.sqrt(3) / 3) * y) / this.radius(),
+      return round_axial(new Point(
+        ((2 / 3) * world.x) / this.radius(),
+        ((-1 / 3) * world.x + (Math.sqrt(3) / 3) * world.y) / this.radius(),
+      ));
+    }
+    return new Point(
+      Math.floor(world.x / this.tilewidth),
+      Math.floor(world.y / this.tileheight),
+    );
+  }
+
+  tileToWorld(tile: Point): Point {
+    if (!this.tilewidth || !this.tileheight) return new Point(0, 0);
+    if (this.type === "hex") {
+      return new Point(
+        this.radius() * (3 / 2) * tile.x,
+        this.radius() * ((Math.sqrt(3) / 2) * tile.x + Math.sqrt(3) * tile.y),
       );
     }
-    return [Math.floor(x / this.tilewidth), Math.floor(y / this.tileheight)];
+    return new Point(
+      tile.x * this.tilewidth,
+      tile.y * this.tileheight
+    );
   }
 
-  tileToWorld(x: number, y: number): number[] {
-    if (!this.tilewidth || !this.tileheight) return [0, 0];
-    if (this.type === "hex") {
-      return [
-        this.radius() * (3 / 2) * x,
-        this.radius() * ((Math.sqrt(3) / 2) * x + Math.sqrt(3) * y),
-      ];
-    }
-    return [x * this.tilewidth, y * this.tileheight];
+  imgCoordsToTile(pixel: Point): Point {
+    if (!this.tilewidth || !this.tileheight) return new Point(0, 0);
+    return new Point(
+      Math.floor((pixel.x - this.margin) / (this.tilewidth + this.spacing)),
+      Math.floor((pixel.y - this.margin) / (this.tileheight + this.spacing)),
+    );
   }
 
-  imgCoordsToTile(x: number, y: number) {
-    if (!this.tilewidth || !this.tileheight) return [0, 0];
-    return [
-      Math.floor((x - this.margin) / (this.tilewidth + this.spacing)),
-      Math.floor((y - this.margin) / (this.tileheight + this.spacing)),
-    ];
-  }
-
-  tileToImgCoords(x: number, y: number) {
-    if (!this.tilewidth || !this.tileheight) return [0, 0];
-    return [
-      x * (this.tilewidth + this.spacing) + this.margin,
-      y * (this.tileheight + this.spacing) + this.margin,
-    ];
+  tileToImgCoords(tile: Point): Point {
+    if (!this.tilewidth || !this.tileheight) return new Point(0, 0);
+    return new Point(
+      tile.x * (this.tilewidth + this.spacing) + this.margin,
+      tile.y * (this.tileheight + this.spacing) + this.margin,
+    );
   }
 
   /*
@@ -205,36 +209,36 @@ export default class Tileset {
     this.selectedTiles = [];
   }
 
-  setSelectedTile(x: number, y: number) {
-    this.selectedTiles = [[x, y]];
+  setSelectedTile(tile: Point) {
+    this.selectedTiles = [tile];
   }
 
-  toggleSelectedTile(x: number, y: number) {
-    const i = this.selectedTiles.findIndex(([a, b]) => a === x && b === y);
+  toggleSelectedTile(tile: Point) {
+    const i = this.selectedTiles.findIndex(t => t.equals(tile));
     if (i !== -1) {
       this.selectedTiles.splice(i, 1);
     } else {
-      this.selectedTiles.push([x, y]);
+      this.selectedTiles.push(tile.clone());
     }
   }
 
   palette(): Set<string> {
     let palette = new Set<string>();
-    for (let [x, y] of this.selectedTiles) {
-      const tile = this.getTileBuffer(x, y);
+    for (let loc of this.selectedTiles) {
+      const tile = this.getTileBuffer(loc);
       palette = new Set([...palette, ...colors(tile.buf)]);
     }
     return palette;
   }
 
   setSelectionTags(tags: Set<string>) {
-    this.selectedTiles.forEach(([x, y]) => {
+    this.selectedTiles.forEach(loc => {
       // If a single tile is selected, tags replaces the current set
       if (this.selectedTiles.length === 1) {
-        this.setTileData(x, y, "tags", Array.from(tags));
+        this.setTileData(loc, "tags", Array.from(tags));
       } else {
         // TODO: Union and intersection if multiple tiles are selected
-        this.setTileData(x, y, "tags", Array.from(tags));
+        this.setTileData(loc, "tags", Array.from(tags));
       }
     });
   }
@@ -244,12 +248,11 @@ export default class Tileset {
     if (this.selectedTiles.length === 0) return tags;
     // If a single tile is selected, return that tile's tags
     if (this.selectedTiles.length === 1) {
-      const [x, y] = this.selectedTiles[0];
-      return new Set(this.getTileData(x, y, "tags", []));
+      return new Set(this.getTileData(this.selectedTiles[0], "tags", []));
     }
     // Otherwise, return the intersection of the selected tile's tags
-    this.selectedTiles.forEach(([x, y]) => {
-      const tileTags = new Set<string>(this.getTileData(x, y, "tags", []));
+    this.selectedTiles.forEach(loc => {
+      const tileTags = new Set<string>(this.getTileData(loc, "tags", []));
       if (tags.size == 0) {
         tags = tileTags;
       } else {
@@ -259,16 +262,16 @@ export default class Tileset {
     return tags;
   }
 
-  setTileData(x: number, y: number, key: string, value: any) {
-    if (!this.tiledata[x]) this.tiledata[x] = {};
-    if (!this.tiledata[x][y]) this.tiledata[x][y] = {};
-    this.tiledata[x][y][key] = value;
+  setTileData(tile: Point, key: string, value: any) {
+    const tileKey = tile.toString();
+    if (!this.tiledata[tileKey]) this.tiledata[tileKey] = {};
+    this.tiledata[tileKey][key] = value;
   }
 
-  getTileData<T>(x: number, y: number, key: string, onEmpty: T): T {
-    if (!this.tiledata[x]) return onEmpty;
-    if (!this.tiledata[x][y]) return onEmpty;
-    return this.tiledata[x][y][key];
+  getTileData<T extends JSONValue>(tile: Point, key: string, onEmpty: T): T {
+    const tileKey = tile.toString();
+    if (!this.tiledata[tileKey]) return onEmpty;
+    return this.tiledata[tileKey][key] as T;
   }
 
   widthInTiles(): number {
@@ -291,29 +294,16 @@ export default class Tileset {
 
   // Is x and y contained in the tileset's image?
   // x, y in image coordinates
-  inBounds(x: number, y: number): boolean {
+  inBounds(p: Point): boolean {
     return (
-      x >= 0 &&
-      x <= (this.img?.width || 0) &&
-      y >= 0 &&
-      y <= (this.img?.width || 0)
+      p.x >= 0 &&
+      p.x <= (this.img?.width || 0) &&
+      p.y >= 0 &&
+      p.y <= (this.img?.width || 0)
     );
   }
 
-  // Is x and y contained in the selection?
-  // x, y in image coordinates
-  inSelection(x: number, y: number): boolean {
-    return (
-      this.inBounds(x, y) &&
-      this.selectedTiles.some((loc) => {
-        const [x1, y1] = this.tileToImgCoords(loc[0], loc[1]);
-        const [x2, y2] = this.tileToImgCoords(loc[0] + 1, loc[1] + 1);
-        return x >= x1 && x < x2 && y >= y1 && y < y2;
-      })
-    );
-  }
-
-  randSelectedTile(): number[] | undefined {
+  randSelectedTile(): Point | undefined {
     if (this.selectedTiles.length === 0) return undefined;
     return this.selectedTiles[
       Math.floor(Math.random() * this.selectedTiles.length)
@@ -349,11 +339,12 @@ export default class Tileset {
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const [sx, sy] = this.tileToImgCoords(x, y);
+            const loc = new Point(x, y);
+            const source = this.tileToImgCoords(loc);
             ctx.drawImage(
               this.img,
-              sx,
-              sy,
+              source.x,
+              source.y,
               this.tilewidth,
               this.tileheight,
               0,
@@ -362,8 +353,7 @@ export default class Tileset {
               this.tileheight,
             );
             const tile: TileBuffer = {
-              tileX: x,
-              tileY: y,
+              loc,
               buf: ctx.getImageData(0, 0, this.tilewidth, this.tileheight),
             };
             this.tiles.push(tile);
@@ -380,17 +370,17 @@ export default class Tileset {
     img.src = url;
   }
 
-  getTileBuffer(x: number, y: number): TileBuffer {
-    return this.tiles[y * this.widthInTiles() + x];
+  getTileBuffer(tile: Point): TileBuffer {
+    return this.tiles[tile.y * this.widthInTiles() + tile.x];
   }
 
-  setPixel(x: number, y: number, r: number, g: number, b: number, a: number) {
-    const [tileX, tileY] = this.imgCoordsToTile(x, y);
-    const tile = this.getTileBuffer(tileX, tileY);
-    x = x % this.offsetWidth();
-    y = y % this.offsetHeight();
-    if (x >= this.tilewidth || y >= this.tilewidth) return;
-    const i = (y * tile.buf.width + x) * 4;
+  setPixel(pixel: Point, r: number, g: number, b: number, a: number) {
+    const loc = this.imgCoordsToTile(pixel);
+    const tile = this.getTileBuffer(loc);
+    loc.x = loc.x % this.offsetWidth();
+    loc.y = loc.y % this.offsetHeight();
+    if (loc.x >= this.tilewidth || loc.y >= this.tilewidth) return;
+    const i = (loc.y * tile.buf.width + loc.x) * 4;
     const prev: RGBA = {
       r: tile.buf.data[i + 0],
       g: tile.buf.data[i + 1],
@@ -400,10 +390,8 @@ export default class Tileset {
     if (prev.r === r && prev.g === g && prev.b === b && prev.a === a) return;
     const undo = this.undoer.push();
     undo.pixels.push({
-      tileX,
-      tileY,
-      x,
-      y,
+      tile: tile.loc,
+      pixel: loc,
       from: prev,
       to: { r, g, b, a },
     });
@@ -430,12 +418,11 @@ export default class Tileset {
   cut() {
     this.copyBuffer = [];
     const undo = this.undoer.push();
-    for (let [x, y] of this.selectedTiles) {
-      const tile = this.getTileBuffer(x, y);
+    for (let loc of this.selectedTiles) {
+      const tile = this.getTileBuffer(loc);
       undo.addTile(tile);
       this.copyBuffer.push({
-        tileX: tile.tileX,
-        tileY: tile.tileY,
+        loc: tile.loc.clone(),
         buf: copy(tile.buf),
       });
       tile.buf = clear(tile.buf);
@@ -450,11 +437,10 @@ export default class Tileset {
 
   copy() {
     this.copyBuffer = [];
-    for (let [x, y] of this.selectedTiles) {
-      const tile = this.getTileBuffer(x, y);
+    for (let log of this.selectedTiles) {
+      const tile = this.getTileBuffer(log);
       this.copyBuffer.push({
-        tileX: tile.tileX,
-        tileY: tile.tileY,
+        loc: tile.loc.clone(),
         buf: copy(tile.buf),
       });
     }
@@ -462,11 +448,11 @@ export default class Tileset {
 
   paste() {
     if (this.selectedTiles.length === 0 || this.copyBuffer.length === 0) return;
-    const dx = this.selectedTiles[0][0] - this.copyBuffer[0].tileX;
-    const dy = this.selectedTiles[0][1] - this.copyBuffer[0].tileY;
+    const dx = this.selectedTiles[0].x - this.copyBuffer[0].loc.x;
+    const dy = this.selectedTiles[0].y - this.copyBuffer[0].loc.y;
     const undo = this.undoer.push();
     for (let copy of this.copyBuffer) {
-      const tile = this.getTileBuffer(copy.tileX + dx, copy.tileY + dy);
+      const tile = this.getTileBuffer(copy.loc.add(dx, dy));
       undo.addTile(tile);
       tile.buf = copy.buf;
       this.rendering++;
@@ -480,8 +466,8 @@ export default class Tileset {
 
   flip(axis: "x" | "y") {
     const undo = this.undoer.push();
-    for (let [x, y] of this.selectedTiles) {
-      const tile = this.getTileBuffer(x, y);
+    for (let loc of this.selectedTiles) {
+      const tile = this.getTileBuffer(loc);
       undo.addTile(tile);
       flip(tile.buf, axis);
       this.rendering++;
@@ -495,8 +481,8 @@ export default class Tileset {
 
   rotate(degrees: number) {
     const undo = this.undoer.push();
-    for (let [x, y] of this.selectedTiles) {
-      const tile = this.getTileBuffer(x, y);
+    for (let loc of this.selectedTiles) {
+      const tile = this.getTileBuffer(loc);
       undo.addTile(tile);
       tile.buf = rotsprite(tile.buf, degrees);
       this.rendering++;
@@ -508,12 +494,12 @@ export default class Tileset {
     }
   }
 
-  move(ox: number, oy: number) {
+  move(x: number, y: number) {
     const undo = this.undoer.push();
-    for (let [x, y] of this.selectedTiles) {
-      const tile = this.getTileBuffer(x, y);
+    for (let loc of this.selectedTiles) {
+      const tile = this.getTileBuffer(loc);
       undo.addTile(tile);
-      shift(tile.buf, ox, oy);
+      shift(tile.buf, x, y);
       this.rendering++;
       createImageBitmap(tile.buf).then((img) => {
         tile.img?.close();
@@ -525,8 +511,8 @@ export default class Tileset {
 
   clear() {
     const undo = this.undoer.push();
-    for (let [x, y] of this.selectedTiles) {
-      const tile = this.getTileBuffer(x, y);
+    for (let loc of this.selectedTiles) {
+      const tile = this.getTileBuffer(loc);
       undo.addTile(tile);
       clear(tile.buf);
       this.rendering++;
@@ -538,22 +524,19 @@ export default class Tileset {
     }
   }
 
-  // x, y is location in world, tileX, tileY is location in tileset
   drawTile(
     ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    tileX: number,
-    tileY: number,
+    world: Point,
+    tileLoc: Point,
   ) {
     if (!this.img) return true;
-    let [dx, dy] = this.tileToWorld(x, y);
-    const [sx, sy] = this.tileToImgCoords(tileX, tileY);
+    const dest = this.tileToWorld(world);
+    const source = this.tileToImgCoords(tileLoc);
     if (this.type === "hex") {
-      dx -= this.radius();
-      dy -= this.hexHeight() + 4; // TODO: Why?;
+      dest.x -= this.radius();
+      dest.y -= this.hexHeight() + 4; // TODO: Why?;
     }
-    const tile = this.getTileBuffer(tileX, tileY);
+    const tile = this.getTileBuffer(tileLoc);
     if (tile.img) {
       ctx.drawImage(
         tile.img,
@@ -561,20 +544,20 @@ export default class Tileset {
         0,
         this.tilewidth,
         this.tileheight,
-        dx,
-        dy,
+        dest.x,
+        dest.y,
         this.tilewidth,
         this.tileheight,
       );
     } else {
       ctx.drawImage(
         this.img,
-        sx,
-        sy,
+        source.x,
+        source.y,
         this.tilewidth,
         this.tileheight,
-        dx,
-        dy,
+        dest.x,
+        dest.y,
         this.tilewidth,
         this.tileheight,
       );
@@ -587,8 +570,8 @@ export default class Tileset {
     let [maxX, maxY] = [0, 0];
     for (let tile of this.tiles) {
       if (colors(tile.buf).size > 0) {
-        maxX = Math.max(maxX, tile.tileX);
-        maxY = Math.max(maxY, tile.tileY);
+        maxX = Math.max(maxX, tile.loc.x);
+        maxY = Math.max(maxY, tile.loc.y);
       }
     }
     const canvas = document.createElement("canvas");
@@ -602,8 +585,8 @@ export default class Tileset {
     for (let tile of this.tiles) {
       if (!tile.img)
         throw new Error("cannot sync until tiles are fully rendered");
-      const x = this.margin + tile.tileX * this.offsetWidth();
-      const y = this.margin + tile.tileY * this.offsetHeight();
+      const x = this.margin + tile.loc.x * this.offsetWidth();
+      const y = this.margin + tile.loc.y * this.offsetHeight();
       ctx.drawImage(tile.img, x, y);
     }
     const buf = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -622,7 +605,7 @@ export default class Tileset {
   }
 
   static loadFromFile(file: File, into?: Tileset): Promise<Tileset> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       PNGWithMetadata.fromFile(file).then((png) => {
         resolve(this.fromPNGWithMetadata(png, into));
       });
@@ -630,11 +613,12 @@ export default class Tileset {
   }
 }
 
-function round_axial(x: number, y: number): number[] {
-  const xgrid = Math.round(x),
-    ygrid = Math.round(y);
-  (x -= xgrid), (y -= ygrid); // remainder
+function round_axial(p: Point): Point {
+  const xgrid = Math.round(p.x);
+  const ygrid = Math.round(p.y);
+  const x = p.x - xgrid;
+  const y = p.y - ygrid;
   const dx = Math.round(x + 0.5 * y) * (x * x >= y * y ? 1 : 0);
   const dy = Math.round(y + 0.5 * x) * (x * x < y * y ? 1 : 0);
-  return [xgrid + dx, ygrid + dy];
+  return new Point(xgrid + dx, ygrid + dy);
 }

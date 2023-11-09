@@ -5,6 +5,7 @@
   import { onMount } from "svelte";
   import type RPGEngine from "./RPGEngine";
   import PNGWithMetadata from "./PNGWithMetadata";
+    import { Point } from "./types";
 
   export let engine: RPGEngine;
 
@@ -56,8 +57,7 @@
         return y1 - y2;
       });
       for (let [loc, tile] of sortedTiles) {
-        const [x, y] = loc.split(",").map((v) => parseInt(v));
-        tilemap.tileset.drawTile(ctx, x, y, tile.x, tile.y);
+        tilemap.tileset.drawTile(ctx, Point.from(loc), tile);
       }
     }
     for (let c of engine.characters) {

@@ -10,33 +10,33 @@
 
 <script lang="ts">
   import Icon from "./Icon.svelte";
-  import Tilemap, { type Tile } from "./Tilemap";
+  import Tilemap from "./Tilemap";
   import type Tileset from "./Tileset";
   import { drawHexagon, drawRect } from "./draw";
+  import { Point } from "./types";
 
   // TODO: Select location, copy/paste layers
   export let map: Tilemap = new Tilemap();
 
   let canvas: HTMLCanvasElement;
   let tool: Tool = Tool.Select;
-  let doorStart: Tile | undefined = undefined;
+  let doorStart: Point | undefined = undefined;
   let editingLayers: boolean = false;
-  let mouseX: number, mouseY: number;
-  let dragX: number | undefined, dragY: number | undefined;
+  let mouse: Point = new Point(-1, -1);
+  let drag: Point | undefined;
   let grid: boolean = true;
   let zoom: number = 1;
   let mouseOver: boolean = false;
-  let offsetX: number = 0,
-    offsetY: number = 0;
+  let offset: Point = new Point(0, 0);
 
-  function screenToWorld(x: number, y: number): number[] {
-    return [(x - offsetX) / zoom, (y - offsetY) / zoom];
+  function screenToWorld(screen: Point): Point {
+    return new Point((screen.x - offset.x) / zoom, (screen.y - offset.y) / zoom);
   }
 
-  function screenToTile(x: number, y: number): number[] {
-    const [tx, ty] = screenToWorld(x, y);
-    if (!map.tileset) return [0, 0];
-    return map.tileset.worldToTile(tx, ty);
+  function screenToTile(screen: Point): Point {
+    const world = screenToWorld(screen);
+    if (!map.tileset) return new Point(0, 0);
+    return map.tileset.worldToTile(world);
   }
 
   function setTool(_tool: Tool) {
@@ -46,8 +46,8 @@
   function drawDoor(
     ctx: CanvasRenderingContext2D,
     tileset: Tileset,
-    from: Tile,
-    to: Tile,
+    from: Point,
+    to: Point,
   ) {
     if (tileset.type === "hex") {
     } else {
@@ -88,7 +88,7 @@
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
-    ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+    ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
     ctx.lineWidth = 1;
     ctx.strokeStyle = "white";
     if (
@@ -100,18 +100,17 @@
       if (map.tileset.type === "hex") {
         const radius = map.tileset.radius();
         const horiz = (3 / 2) * radius;
-        const halfHoriz = (1 / 2) * horiz;
         const vert = Math.sqrt(3) * radius;
         const halfVert = (1 / 2) * vert;
-        let [x1, y1] = screenToWorld(0, 0);
-        x1 = Math.floor(x1 / horiz);
-        y1 = Math.floor(y1 / vert);
+        let zero = screenToWorld(new Point(0, 0));
+        zero.x = Math.floor(zero.x / horiz);
+        zero.y = Math.floor(zero.y / vert);
         const [w, h] = [
           canvas.width / horiz / zoom,
           canvas.height / vert / zoom,
         ];
-        for (let x = x1; x <= x1 + w; x++) {
-          for (let y = y1; y <= y1 + h; y++) {
+        for (let x = zero.x; x <= zero.x + w; x++) {
+          for (let y = zero.y; y <= zero.y + h; y++) {
             if (x % 2 === 0) {
               drawHexagon(ctx, x * horiz, y * vert, radius);
             } else {
@@ -120,15 +119,15 @@
           }
         }
       } else {
-        let [x1, y1] = screenToWorld(0, 0);
-        x1 = Math.floor(x1 / map.tileset.tilewidth);
-        y1 = Math.floor(y1 / map.tileset.tileheight);
+        let zero = screenToWorld(new Point(0, 0));
+        zero.x = Math.floor(zero.x / map.tileset.tilewidth);
+        zero.y = Math.floor(zero.y / map.tileset.tileheight);
         const [w, h] = [
           canvas.width / map.tileset.tilewidth / zoom,
           canvas.height / map.tileset.tileheight / zoom,
         ];
-        for (let x = x1; x <= x1 + w; x++) {
-          for (let y = y1; y <= y1 + h; y++) {
+        for (let x = zero.x; x <= zero.x + w; x++) {
+          for (let y = zero.y; y <= zero.y + h; y++) {
             drawRect(
               ctx,
               x * map.tileset.tilewidth,
@@ -145,22 +144,20 @@
         if (!layer.visible) return;
         map.drawLayer(ctx, layer);
       }
-      for (let [from, to] of map.tilesWithData<Tile>("door")) {
+      for (let [from, to] of map.tilesWithData<Point>("door")) {
         drawDoor(ctx, map.tileset, from, to);
       }
       if (
         tool === Tool.Edit &&
-        mouseX !== undefined &&
-        mouseY !== undefined &&
         mouseOver
       ) {
         const randTile = map.tileset.randSelectedTile();
         if (randTile) {
-          map.tileset.drawTile(ctx, mouseX, mouseY, randTile[0], randTile[1]);
+          map.tileset.drawTile(ctx, mouse, randTile);
         }
       }
       if (tool === Tool.Door && doorStart) {
-        drawDoor(ctx, map.tileset, doorStart, { x: mouseX, y: mouseY });
+        drawDoor(ctx, map.tileset, doorStart, mouse);
       }
     }
   }
@@ -168,46 +165,45 @@
   function onClick(e: PointerEvent) {
     if (e.buttons === 1) {
       if (tool === Tool.Erase) {
-        map.erase(mouseX, mouseY);
+        map.erase(mouse);
       } else if (tool === Tool.Fill) {
-        map.fill(mouseX, mouseY);
+        map.fill(mouse);
       } else if (tool === Tool.Door && !doorStart) {
-        doorStart = { x: mouseX, y: mouseY };
+        doorStart = mouse.clone();
       } else if (tool === Tool.Door && doorStart) {
-        map.setDoor({ x: mouseX, y: mouseY }, doorStart);
+        map.setDoor(mouse, doorStart);
         doorStart = undefined;
       } else if (tool === Tool.Edit) {
-        map.set(mouseX, mouseY);
+        map.set(mouse);
       }
       map = map;
     } else if (e.ctrlKey) {
-      offsetX += e.movementX;
-      offsetY += e.movementY;
+      offset.x += e.movementX;
+      offset.y += e.movementY;
     }
   }
 
   function onPointerDown(e: PointerEvent) {
-    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
-    [dragX, dragY] = [mouseX, mouseY];
+    mouse = screenToTile(new Point(e.offsetX, e.offsetY));
+    drag = mouse.clone();
     if (e.buttons === 1) {
       map.undoer.begin();
     }
     onClick(e);
   }
 
-  function onPointerUp(e: PointerEvent) {
-    [dragX, dragY] = [undefined, undefined];
+  function onPointerUp() {
+    drag = undefined;
     map.undoer.end();
   }
 
   function onPointerCancel() {
-    [dragX, dragY] = [undefined, undefined];
-    map.undoer.end();
+    onPointerUp();
   }
 
   function onPointerMove(e: PointerEvent) {
     if (!map.tileset || !map.tileset.img) return;
-    [mouseX, mouseY] = screenToTile(e.offsetX, e.offsetY);
+    mouse = screenToTile(new Point(e.offsetX, e.offsetY));
     onClick(e);
   }
 
@@ -219,8 +215,8 @@
       zoom *= 0.9;
     }
     zoom = Math.min(Math.max(0.25, zoom), 8);
-    offsetX = (-zoom * (e.offsetX - offsetX)) / prevZoom + e.offsetX;
-    offsetY = (-zoom * (e.offsetY - offsetY)) / prevZoom + e.offsetY;
+    offset.x = (-zoom * (e.offsetX - offset.x)) / prevZoom + e.offsetX;
+    offset.x = (-zoom * (e.offsetY - offset.y)) / prevZoom + e.offsetY;
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -240,19 +236,19 @@
         e.preventDefault();
         break;
       case e.key === "ArrowLeft":
-        offsetX += zoom * map.tileset.offsetWidth();
+        offset.x += zoom * map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
-        offsetX -= zoom * map.tileset.offsetWidth();
+        offset.x -= zoom * map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
-        offsetY += zoom * map.tileset.offsetHeight();
+        offset.y += zoom * map.tileset.offsetHeight();
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
-        offsetY -= zoom * map.tileset.offsetHeight();
+        offset.y -= zoom * map.tileset.offsetHeight();
         e.preventDefault();
         break;
     }
@@ -278,12 +274,9 @@
     map,
     grid,
     zoom,
-    offsetX,
-    offsetY,
-    dragX,
-    dragY,
-    mouseX,
-    mouseY,
+    offset,
+    drag,
+    mouse,
     mouseOver,
   );
 </script>
@@ -294,7 +287,6 @@
       <input type="checkbox" bind:checked={grid} />
       Grid
     </label>
-    <span>{mouseX}, {mouseY}</span>
     <button
       on:click={() => setTool(Tool.Select)}
       class:active={tool === Tool.Select}
