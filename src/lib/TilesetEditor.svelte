@@ -13,9 +13,9 @@
   import Icon from "./Icon.svelte";
   import Tileset from "./Tileset";
   import { drawHexagon, drawRect } from "./draw";
-  import { Point } from "./types";
+  import Point from "./Point";
 
-  export let tileset: Tileset = new Tileset({});
+  export let tileset: Tileset = new Tileset();
   export let maxWidth: string | undefined = undefined;
 
   let canvas: HTMLCanvasElement | undefined;
@@ -54,7 +54,7 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
 
-    if (tileset.tiles) {
+    if (tileset.tiles.length > 0) {
       for (let i = 0; i < tileset.tiles.length; i++) {
         const tile = tileset.tiles[i];
         if (!tile.img) continue;
@@ -70,8 +70,9 @@
         if (
           filter === "" ||
           tileset
-            .getTileData(tile.loc, "tags", [] as string[])
-            .some((tag) => tag.startsWith(filter))
+            .tiledata
+            .get(tile.loc, "tags", [] as string[])
+            ?.some((tag) => tag.startsWith(filter))
         ) {
           ctx.drawImage(
             tile.img,
@@ -258,7 +259,7 @@
         let a = tileset.imgCoordsToTile(drag);
         let b = tileset.imgCoordsToTile(mouse);
         for (let x = Math.min(a.x, b.x); x <= Math.max(a.x, b.x); x++) {
-          for (let y = Math.min(a.y, b.y); y <= Math.min(a.y, b.y); y++) {
+          for (let y = Math.min(a.y, b.y); y <= Math.max(a.y, b.y); y++) {
             tileset.toggleSelectedTile(new Point(x, y));
           }
         }
@@ -284,7 +285,7 @@
     if (files === null) return;
     const file = files[0];
     if (!file) return;
-    Tileset.loadFromFile(file).then((_tileset) => {
+    Tileset.from(file).then(_tileset => {
       tileset = _tileset;
       offset.x = 0;
       offset.y = 0;
@@ -529,6 +530,9 @@
         <option value="hex">Hex</option>
       </select>
     </div>
+    <button on:click={() => tileset.createTiles() } disabled={!tileset.img}>
+      <Icon name="refresh" />
+    </button>
     <div style="margin-left: auto; display: flex; gap: 8px;">
       <button
         on:click={() => setTool(Tool.Select)}

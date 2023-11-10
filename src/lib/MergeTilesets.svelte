@@ -37,19 +37,13 @@
     );
   }
 
-  function loadTileset(tileset: Tileset) {
-    return (e: Event) => {
-      if (e.target === null) return;
-      const files = (e.target as HTMLInputElement).files;
-      if (files === null) return;
-      const file = files[0];
-      if (!file) return;
-      Tileset.loadFromFile(file, tileset).then(() => {
-        left = left;
-        right = right;
-        console.log(left.spacing);
-      });
-    };
+  function loadTileset(e: Event) {
+    if (e.target === null) return;
+    const files = (e.target as HTMLInputElement).files;
+    if (files === null) return;
+    const file = files[0];
+    if (!file) return;
+    return Tileset.from(file);
   }
 
   function onSave() {
@@ -63,7 +57,7 @@
   <div style="display: flex; flex-direction: column;">
     <label for="left">
       <input
-        on:change={loadTileset(left)}
+        on:change={e => loadTileset(e)?.then(_left => { left = _left })}
         name="left"
         type="file"
         accept="image/png"
@@ -79,7 +73,7 @@
   <div style="display: flex; flex-direction: column;">
     <label for="right">
       <input
-        on:change={loadTileset(right)}
+        on:change={e => loadTileset(e)?.then(_right => { right = _right })}
         name="right"
         type="file"
         accept="image/png"

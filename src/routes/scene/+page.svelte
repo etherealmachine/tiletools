@@ -1,7 +1,5 @@
 <script lang="ts">
-  import PNGWithMetadata from "$lib/PNGWithMetadata";
   import Scene from "$lib/Scene.svelte";
-  import Tileset from "$lib/Tileset";
   import RPGEngine from "$lib/RPGEngine";
   import Tilemap from "$lib/Tilemap";
 

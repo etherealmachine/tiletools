@@ -20,6 +20,7 @@
   import pasteClipboard from "../assets/icons/paste-clipboard.svg?raw";
   import plus from "../assets/icons/plus.svg?raw";
   import redo from "../assets/icons/redo.svg?raw";
+  import refresh from "../assets/icons/refresh.svg?raw";
   import saveFloppyDisk from "../assets/icons/save-floppy-disk.svg?raw";
   import settings from "../assets/icons/settings.svg?raw";
   import undo from "../assets/icons/undo.svg?raw";
@@ -47,6 +48,7 @@
     pasteClipboard,
     plus,
     redo,
+    refresh,
     saveFloppyDisk,
     settings,
     undo,

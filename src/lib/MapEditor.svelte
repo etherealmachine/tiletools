@@ -13,7 +13,7 @@
   import Tilemap from "./Tilemap";
   import type Tileset from "./Tileset";
   import { drawHexagon, drawRect } from "./draw";
-  import { Point } from "./types";
+  import Point from "./Point";
 
   // TODO: Select location, copy/paste layers
   export let map: Tilemap = new Tilemap();
@@ -144,7 +144,7 @@
         if (!layer.visible) return;
         map.drawLayer(ctx, layer);
       }
-      for (let [from, to] of map.tilesWithData<Point>("door")) {
+      for (let [from, to] of map.tiledata.filter<Point>("door")) {
         drawDoor(ctx, map.tileset, from, to);
       }
       if (
@@ -216,7 +216,7 @@
     }
     zoom = Math.min(Math.max(0.25, zoom), 8);
     offset.x = (-zoom * (e.offsetX - offset.x)) / prevZoom + e.offsetX;
-    offset.x = (-zoom * (e.offsetY - offset.y)) / prevZoom + e.offsetY;
+    offset.y = (-zoom * (e.offsetY - offset.y)) / prevZoom + e.offsetY;
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -259,7 +259,7 @@
     const files = (e.target as HTMLInputElement).files;
     if (files === null) return;
     const file = files[0];
-    Tilemap.loadFromFile(file).then((_map) => {
+    Tilemap.from(file).then(_map => {
       map = _map;
     });
   }

@@ -1,8 +1,10 @@
 import PNGWithMetadata from "./PNGWithMetadata";
+import Tiledata from "./Tiledata";
 import Undoer, { Undoable } from "./Undoer";
 import { clear, colors, copy, flip, shift } from "./draw";
 import rotsprite from "./rotsprite";
-import { Point, type JSONValue } from "./types";
+import Point from "./Point";
+import { Revivifiable } from "./Revivify";
 
 interface TileBuffer {
   loc: Point;
@@ -94,31 +96,20 @@ class TilesetUndoable extends Undoable<Tileset> {
 }
 
 export default class Tileset {
-  name: string;
+  name: string = "";
   img: ImageBitmap | undefined;
-  type: "square" | "hex";
-  tilewidth: number;
-  tileheight: number;
-  margin: number;
-  spacing: number;
-  tiledata: { [key: string]: { [key: string]: JSONValue } };
+  type: "square" | "hex" = "square";
+  tilewidth: number = 0;
+  tileheight: number = 0;
+  margin: number = 0;
+  spacing: number = 0;
+  tiledata: Tiledata = new Tiledata();
   selectedTiles: Point[] = [];
 
   tiles: TileBuffer[] = [];
   rendering: number = 0;
   copyBuffer: TileBuffer[] = [];
   undoer: Undoer<Tileset, TilesetUndoable> = new Undoer(TilesetUndoable);
-
-  constructor(args: { [key: string]: any }) {
-    this.name = args.name || "";
-    this.img = args.img;
-    this.type = args.type || "square";
-    this.tilewidth = args.tilewidth || 0;
-    this.tileheight = args.tileheight || 0;
-    this.margin = args.margin || 0;
-    this.spacing = args.spacing || 0;
-    this.tiledata = args.tiledata || {};
-  }
 
   worldToTile(world: Point): Point {
     if (!this.tilewidth || !this.tileheight) return new Point(0, 0);
@@ -186,17 +177,6 @@ export default class Tileset {
     return Math.ceil(Math.sqrt(3) * this.radius());
   }
 
-  metadata(): any {
-    return {
-      name: this.name,
-      tilewidth: this.tilewidth,
-      tileheight: this.tileheight,
-      margin: this.margin,
-      spacing: this.spacing,
-      tiledata: this.tiledata,
-    };
-  }
-
   offsetWidth(): number {
     return this.tilewidth + this.spacing;
   }
@@ -235,10 +215,10 @@ export default class Tileset {
     this.selectedTiles.forEach(loc => {
       // If a single tile is selected, tags replaces the current set
       if (this.selectedTiles.length === 1) {
-        this.setTileData(loc, "tags", Array.from(tags));
+        this.tiledata.set(loc, "tags", Array.from(tags));
       } else {
         // TODO: Union and intersection if multiple tiles are selected
-        this.setTileData(loc, "tags", Array.from(tags));
+        this.tiledata.set(loc, "tags", Array.from(tags));
       }
     });
   }
@@ -248,11 +228,11 @@ export default class Tileset {
     if (this.selectedTiles.length === 0) return tags;
     // If a single tile is selected, return that tile's tags
     if (this.selectedTiles.length === 1) {
-      return new Set(this.getTileData(this.selectedTiles[0], "tags", []));
+      return new Set(this.tiledata.get(this.selectedTiles[0], "tags", []));
     }
     // Otherwise, return the intersection of the selected tile's tags
     this.selectedTiles.forEach(loc => {
-      const tileTags = new Set<string>(this.getTileData(loc, "tags", []));
+      const tileTags = new Set<string>(this.tiledata.get(loc, "tags", []));
       if (tags.size == 0) {
         tags = tileTags;
       } else {
@@ -260,18 +240,6 @@ export default class Tileset {
       }
     });
     return tags;
-  }
-
-  setTileData(tile: Point, key: string, value: any) {
-    const tileKey = tile.toString();
-    if (!this.tiledata[tileKey]) this.tiledata[tileKey] = {};
-    this.tiledata[tileKey][key] = value;
-  }
-
-  getTileData<T extends JSONValue>(tile: Point, key: string, onEmpty: T): T {
-    const tileKey = tile.toString();
-    if (!this.tiledata[tileKey]) return onEmpty;
-    return this.tiledata[tileKey][key] as T;
   }
 
   widthInTiles(): number {
@@ -308,67 +276,7 @@ export default class Tileset {
     return this.selectedTiles[
       Math.floor(Math.random() * this.selectedTiles.length)
     ];
-  }
-
-  async download() {
-    (await this.png()).download();
-  }
-
-  async dataURL(): Promise<string> {
-    return (await this.png()).dataURL();
-  }
-
-  async png(): Promise<PNGWithMetadata> {
-    this.img = await this.syncTiles();
-    return new PNGWithMetadata(this.name, this.metadata(), this.img || "");
-  }
-
-  setImageFromDataURL(url: string) {
-    const img = document.createElement("img");
-    img.onload = () => {
-      createImageBitmap(img).then((bitmap) => {
-        this.img = bitmap;
-        if (!this.tilewidth || !this.tileheight) return;
-        const canvas = document.createElement("canvas");
-        canvas.width = this.tilewidth;
-        canvas.height = this.tileheight;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        const [w, h] = [this.widthInTiles(), this.heightInTiles()];
-        this.tiles = [];
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const loc = new Point(x, y);
-            const source = this.tileToImgCoords(loc);
-            ctx.drawImage(
-              this.img,
-              source.x,
-              source.y,
-              this.tilewidth,
-              this.tileheight,
-              0,
-              0,
-              this.tilewidth,
-              this.tileheight,
-            );
-            const tile: TileBuffer = {
-              loc,
-              buf: ctx.getImageData(0, 0, this.tilewidth, this.tileheight),
-            };
-            this.tiles.push(tile);
-            this.rendering++;
-            createImageBitmap(tile.buf).then((img) => {
-              tile.img?.close();
-              tile.img = img;
-              this.rendering--;
-            });
-          }
-        }
-      });
-    };
-    img.src = url;
-  }
+  } 
 
   getTileBuffer(tile: Point): TileBuffer {
     return this.tiles[tile.y * this.widthInTiles() + tile.x];
@@ -564,6 +472,48 @@ export default class Tileset {
     }
   }
 
+  createTiles() {
+    if (!this.img || !this.tilewidth || !this.tileheight || this.rendering) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = this.tilewidth;
+    canvas.height = this.tileheight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+    const [w, h] = [this.widthInTiles(), this.heightInTiles()];
+    this.tiles = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const loc = new Point(x, y);
+        const source = this.tileToImgCoords(loc);
+        ctx.drawImage(
+          this.img,
+          source.x,
+          source.y,
+          this.tilewidth,
+          this.tileheight,
+          0,
+          0,
+          this.tilewidth,
+          this.tileheight,
+        );
+        const tile: TileBuffer = {
+          loc,
+          buf: ctx.getImageData(0, 0, this.tilewidth, this.tileheight),
+        };
+        this.tiles.push(tile);
+        this.rendering++;
+        createImageBitmap(tile.buf).then((img) => {
+          tile.img?.close();
+          tile.img = img;
+          this.rendering--;
+        });
+      }
+    }
+  }
+
   async syncTiles(): Promise<ImageBitmap> {
     if (this.rendering)
       throw new Error("cannot sync until tiles are fully rendered");
@@ -593,25 +543,61 @@ export default class Tileset {
     return createImageBitmap(buf);
   }
 
-  static fromDataURL(url: string, into?: Tileset): Tileset {
-    return this.fromPNGWithMetadata(PNGWithMetadata.fromDataURL(url), into);
-  }
-
-  static fromPNGWithMetadata(png: PNGWithMetadata, into?: Tileset): Tileset {
-    const ts = into || new Tileset({});
-    ts.setImageFromDataURL(png.dataURL());
-    Object.assign(ts, png.metadata);
-    return ts;
-  }
-
-  static loadFromFile(file: File, into?: Tileset): Promise<Tileset> {
-    return new Promise((resolve, _reject) => {
-      PNGWithMetadata.fromFile(file).then((png) => {
-        resolve(this.fromPNGWithMetadata(png, into));
-      });
+  setImageFromDataURL(url: string): Promise<Tileset> {
+    return new Promise<Tileset>((resolve, reject) => {
+      const img = document.createElement("img");
+      img.onload = () => {
+        createImageBitmap(img).then((bitmap) => {
+          this.img = bitmap;
+          this.createTiles();
+          resolve(this);
+        });
+      };
+      img.src = url;
     });
   }
+
+  png(): PNGWithMetadata | undefined {
+    if (!this.img) return undefined;
+    return new PNGWithMetadata(
+      this.name,
+      {
+        name: this.name,
+        tilewidth: this.tilewidth,
+        tileheight: this.tileheight,
+        margin: this.margin,
+        spacing: this.spacing,
+        tiledata: this.tiledata,
+      },
+      this.img, 
+    );
+  }
+
+  toJSON() {
+    return {
+      class: 'Tileset',
+      data: this.png()?.dataURL() || null,
+    };
+  }
+
+  download() {
+    this.png()?.download();
+  }
+
+  static async from(source: File | string): Promise<Tileset> {
+    let png: PNGWithMetadata
+    if (source instanceof File) {
+      png = await PNGWithMetadata.fromFile(source);
+    } else {
+      png = PNGWithMetadata.fromDataURL(source);
+    }
+    const tileset = new Tileset();
+    Object.assign(tileset, png.metadata);
+    await tileset.setImageFromDataURL(png.dataURL());
+    return tileset;
+  }
 }
+Revivifiable(Tileset);
 
 function round_axial(p: Point): Point {
   const xgrid = Math.round(p.x);

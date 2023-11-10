@@ -1,5 +1,7 @@
 import { readFileAsBinaryString } from "./files";
 import pako from "pako";
+import type { JSONValue } from "./types";
+import { revivify } from "./Revivify";
 
 enum ChunkType {
   IHDR = "IHDR",
@@ -27,12 +29,12 @@ const DATA_PNG = "data:image/png;base64,";
 
 export default class PNGWithMetadata {
   filename: string;
-  metadata: { [key: string]: any };
+  metadata: { [key: string]: JSONValue };
   imageBytes: Uint8Array;
 
   constructor(
     filename: string,
-    metadata: { [key: string]: any },
+    metadata: { [key: string]: JSONValue },
     img: HTMLCanvasElement | HTMLImageElement | ImageBitmap | string,
   ) {
     this.filename = filename;
@@ -106,10 +108,13 @@ export default class PNGWithMetadata {
   }
 }
 
-function readMetadata(buf: Uint8Array): { [key: string]: string } | undefined {
+function readMetadata(buf: Uint8Array): JSONValue | undefined {
   for (let chunk of splitChunks(buf)) {
     if (isMetadataChunk(chunk)) {
-      return JSON.parse(new TextDecoder().decode(pako.inflate(chunk.data)));
+      return JSON.parse(
+        new TextDecoder().decode(pako.inflate(chunk.data)),
+        revivify,
+      );
     }
   }
   return undefined;
@@ -117,7 +122,7 @@ function readMetadata(buf: Uint8Array): { [key: string]: string } | undefined {
 
 function writeMetadata(
   buf: Uint8Array,
-  metadata: { [key: string]: any },
+  metadata: { [key: string]: JSONValue },
 ): Uint8Array {
   const chunks = splitChunks(buf);
   if (Object.keys(metadata).length > 0) {

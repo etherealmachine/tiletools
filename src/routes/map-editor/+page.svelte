@@ -4,15 +4,23 @@
   import TilesetEditor from "$lib/TilesetEditor.svelte";
   import type Tileset from "$lib/Tileset";
 
-  let tileset: Tileset;
-  let map: Tilemap;
+  let tileset: Tileset | undefined;
+  let map: Tilemap | undefined;
 
-  function onChange(map: Tilemap, tileset: Tileset) {
-    if (map) map.tileset = tileset;
-    if (map && map.tileset) tileset = map.tileset;
+  function mapChanged(map: Tilemap | undefined) {
+    if (map && map.tileset) {
+      tileset = map.tileset;
+    }
   }
 
-  $: onChange(map, tileset);
+  function tilesetChanged(tileset: Tileset | undefined) {
+    if (map) {
+      map.tileset = tileset;
+    }
+  }
+
+  $: mapChanged(map)
+  $: tilesetChanged(tileset);
   // TODO: Persist state during reload
 </script>
 

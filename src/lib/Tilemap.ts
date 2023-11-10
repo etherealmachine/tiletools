@@ -1,7 +1,9 @@
 import PNGWithMetadata from "./PNGWithMetadata";
-import Tileset from "./Tileset";
+import Tiledata from "./Tiledata";
+import type Tileset from "./Tileset";
 import Undoer, { Undoable } from "./Undoer";
-import { Point, type JSONValue } from "./types";
+import Point from "./Point";
+import { Revivifiable } from "./Revivify";
 
 interface Layer {
   name: string;
@@ -61,7 +63,7 @@ export default class Tilemap {
       tiles: {},
     },
   ];
-  tiledata: { [key: string]: { [key: string]: JSONValue } } = {};
+  tiledata: Tiledata = new Tiledata();
   selectedLayer: number = 0;
   undoer: Undoer<Tilemap, TilemapUndoable> = new Undoer(TilemapUndoable);
 
@@ -141,11 +143,23 @@ export default class Tilemap {
     this.undoer.redo(this);
   }
 
-  tilesWithData<T>(key: string): [Point, T][] {
-    return [];
+  setDoor(from: Point, to: Point) {
+    const fromDoor = this.tiledata.get<Point|undefined>(from, 'door', undefined);
+    const toDoor = this.tiledata.get<Point|undefined>(to, 'door', undefined);
+    if (fromDoor) {
+      this.tiledata.set(fromDoor, 'door', undefined);
+    }
+    if (toDoor) {
+      this.tiledata.set(toDoor, 'door', undefined);
+    }
+    if (from.equals(to)) {
+      this.tiledata.set(from, 'door', undefined);
+      this.tiledata.set(to, 'door', undefined);
+    } else {
+      this.tiledata.set(from, 'door', to.clone());
+      this.tiledata.set(to, 'door', from.clone());
+    }
   }
-
-  setDoor(from: Point, to: Point) {}
 
   drawLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
     if (!this.tileset) return;
@@ -155,7 +169,7 @@ export default class Tilemap {
     }
   }
 
-  canvas(): HTMLCanvasElement {
+  image(): HTMLCanvasElement {
     let [minX, maxX, minY, maxY] = [Infinity, -Infinity, Infinity, -Infinity];
     for (let layer of this.layers) {
       for (let loc of Object.keys(layer.tiles)) {
@@ -186,43 +200,21 @@ export default class Tilemap {
     return canvas;
   }
 
-  async metadata(): Promise<any> {
-    return {
+  download() {
+    if (!this.tileset) return;
+    new PNGWithMetadata(this.name, {
       name: this.name,
       layers: this.layers,
+      tileset: this.tileset,
       tiledata: this.tiledata,
-      tileset: await this.tileset?.dataURL(),
-    };
+    }, this.image()).download();
   }
 
-  async download() {
-    (await this.png()).download();
-  }
-
-  async dataURL(): Promise<string> {
-    return (await this.png()).dataURL();
-  }
-
-  async png(): Promise<PNGWithMetadata> {
-    return new PNGWithMetadata(this.name, await this.metadata(), this.canvas());
-  }
-
-  static fromDataURL(url: string, into?: Tilemap): Tilemap {
-    return this.fromPNGWithMetadata(PNGWithMetadata.fromDataURL(url), into);
-  }
-
-  static fromPNGWithMetadata(png: PNGWithMetadata, into?: Tilemap): Tilemap {
-    const map = into || new Tilemap();
-    Object.assign(map, png.metadata);
-    map.tileset = Tileset.fromDataURL(png.metadata.tileset);
-    return map;
-  }
-
-  static loadFromFile(file: File, into?: Tilemap): Promise<Tilemap> {
-    return new Promise((resolve, reject) => {
-      PNGWithMetadata.fromFile(file).then((png) => {
-        resolve(this.fromPNGWithMetadata(png, into));
-      });
-    });
+  static async from(file: File): Promise<Tilemap> {
+    const png = await PNGWithMetadata.fromFile(file);
+    const tilemap = new Tilemap();
+    Object.assign(tilemap, png.metadata);
+    return tilemap;
   }
 }
+Revivifiable(Tilemap);
