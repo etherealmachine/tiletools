@@ -30,7 +30,10 @@
   let offset: Point = new Point(0, 0);
 
   function screenToWorld(screen: Point): Point {
-    return new Point((screen.x - offset.x) / zoom, (screen.y - offset.y) / zoom);
+    return new Point(
+      (screen.x - offset.x) / zoom,
+      (screen.y - offset.y) / zoom,
+    );
   }
 
   function screenToTile(screen: Point): Point {
@@ -147,10 +150,7 @@
       for (let [from, to] of map.tiledata.filter<Point>("door")) {
         drawDoor(ctx, map.tileset, from, to);
       }
-      if (
-        tool === Tool.Edit &&
-        mouseOver
-      ) {
+      if (tool === Tool.Edit && mouseOver) {
         const randTile = map.tileset.randSelectedTile();
         if (randTile) {
           map.tileset.drawTile(ctx, mouse, randTile);
@@ -259,7 +259,7 @@
     const files = (e.target as HTMLInputElement).files;
     if (files === null) return;
     const file = files[0];
-    Tilemap.from(file).then(_map => {
+    Tilemap.from(file).then((_map) => {
       map = _map;
     });
   }
@@ -270,15 +270,7 @@
     }
   }
 
-  $: triggerRedraw(
-    map,
-    grid,
-    zoom,
-    offset,
-    drag,
-    mouse,
-    mouseOver,
-  );
+  $: triggerRedraw(map, grid, zoom, offset, drag, mouse, mouseOver);
 </script>
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">

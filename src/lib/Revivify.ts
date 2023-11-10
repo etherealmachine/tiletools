@@ -1,6 +1,6 @@
 interface Revivifiable {
-  name: string
-  from(v: any): any
+  name: string;
+  from(v: any): any;
 }
 
 const revivifiers: { [key: string]: Revivifiable } = {};
@@ -12,7 +12,7 @@ export function Revivifiable<T extends Revivifiable>(r: T): T {
 
 export function revivify(_key: string, value: any) {
   if (value instanceof Object && value.class !== undefined) {
-    const revivifier = revivifiers[value.class]
+    const revivifier = revivifiers[value.class];
     if (revivifier) {
       return revivifier.from(value.data);
     }

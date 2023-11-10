@@ -10,15 +10,15 @@ export default class Point {
   }
 
   add(dx: number, dy: number): Point {
-    return new Point(this.x+dx, this.y+dy);
+    return new Point(this.x + dx, this.y + dy);
   }
-  
+
   floor(): Point {
     return new Point(Math.floor(this.x), Math.floor(this.y));
   }
 
   dist(p: Point): number {
-    return Math.sqrt(Math.pow(p.x-this.x, 2)+Math.pow(p.y-this.y, 2));
+    return Math.sqrt(Math.pow(p.x - this.x, 2) + Math.pow(p.y - this.y, 2));
   }
 
   clone(): Point {
@@ -35,13 +35,13 @@ export default class Point {
 
   toJSON() {
     return {
-      class: 'Point',
+      class: "Point",
       data: { x: this.x, y: this.y },
     };
   }
 
-  static from(v: string | { x: number, y: number }): Point {
-    if (typeof(v) === 'string') {
+  static from(v: string | { x: number; y: number }): Point {
+    if (typeof v === "string") {
       const [x, y] = v.split(",").map((v) => parseInt(v));
       return new Point(x, y);
     }

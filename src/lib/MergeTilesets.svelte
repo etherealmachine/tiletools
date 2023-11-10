@@ -57,7 +57,10 @@
   <div style="display: flex; flex-direction: column;">
     <label for="left">
       <input
-        on:change={e => loadTileset(e)?.then(_left => { left = _left })}
+        on:change={(e) =>
+          loadTileset(e)?.then((_left) => {
+            left = _left;
+          })}
         name="left"
         type="file"
         accept="image/png"
@@ -73,7 +76,10 @@
   <div style="display: flex; flex-direction: column;">
     <label for="right">
       <input
-        on:change={e => loadTileset(e)?.then(_right => { right = _right })}
+        on:change={(e) =>
+          loadTileset(e)?.then((_right) => {
+            right = _right;
+          })}
         name="right"
         type="file"
         accept="image/png"

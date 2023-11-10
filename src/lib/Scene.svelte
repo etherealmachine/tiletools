@@ -5,7 +5,7 @@
   import { onMount } from "svelte";
   import type RPGEngine from "./RPGEngine";
   import PNGWithMetadata from "./PNGWithMetadata";
-    import { Point } from "./types";
+  import { Point } from "./types";
 
   export let engine: RPGEngine;
 

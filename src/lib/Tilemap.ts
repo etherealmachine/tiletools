@@ -144,20 +144,24 @@ export default class Tilemap {
   }
 
   setDoor(from: Point, to: Point) {
-    const fromDoor = this.tiledata.get<Point|undefined>(from, 'door', undefined);
-    const toDoor = this.tiledata.get<Point|undefined>(to, 'door', undefined);
+    const fromDoor = this.tiledata.get<Point | undefined>(
+      from,
+      "door",
+      undefined,
+    );
+    const toDoor = this.tiledata.get<Point | undefined>(to, "door", undefined);
     if (fromDoor) {
-      this.tiledata.set(fromDoor, 'door', undefined);
+      this.tiledata.set(fromDoor, "door", undefined);
     }
     if (toDoor) {
-      this.tiledata.set(toDoor, 'door', undefined);
+      this.tiledata.set(toDoor, "door", undefined);
     }
     if (from.equals(to)) {
-      this.tiledata.set(from, 'door', undefined);
-      this.tiledata.set(to, 'door', undefined);
+      this.tiledata.set(from, "door", undefined);
+      this.tiledata.set(to, "door", undefined);
     } else {
-      this.tiledata.set(from, 'door', to.clone());
-      this.tiledata.set(to, 'door', from.clone());
+      this.tiledata.set(from, "door", to.clone());
+      this.tiledata.set(to, "door", from.clone());
     }
   }
 
@@ -202,12 +206,16 @@ export default class Tilemap {
 
   download() {
     if (!this.tileset) return;
-    new PNGWithMetadata(this.name, {
-      name: this.name,
-      layers: this.layers,
-      tileset: this.tileset,
-      tiledata: this.tiledata,
-    }, this.image()).download();
+    new PNGWithMetadata(
+      this.name,
+      {
+        name: this.name,
+        layers: this.layers,
+        tileset: this.tileset,
+        tiledata: this.tiledata,
+      },
+      this.image(),
+    ).download();
   }
 
   static async from(file: File): Promise<Tilemap> {

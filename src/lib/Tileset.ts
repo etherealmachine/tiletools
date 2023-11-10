@@ -114,10 +114,12 @@ export default class Tileset {
   worldToTile(world: Point): Point {
     if (!this.tilewidth || !this.tileheight) return new Point(0, 0);
     if (this.type === "hex") {
-      return round_axial(new Point(
-        ((2 / 3) * world.x) / this.radius(),
-        ((-1 / 3) * world.x + (Math.sqrt(3) / 3) * world.y) / this.radius(),
-      ));
+      return round_axial(
+        new Point(
+          ((2 / 3) * world.x) / this.radius(),
+          ((-1 / 3) * world.x + (Math.sqrt(3) / 3) * world.y) / this.radius(),
+        ),
+      );
     }
     return new Point(
       Math.floor(world.x / this.tilewidth),
@@ -133,10 +135,7 @@ export default class Tileset {
         this.radius() * ((Math.sqrt(3) / 2) * tile.x + Math.sqrt(3) * tile.y),
       );
     }
-    return new Point(
-      tile.x * this.tilewidth,
-      tile.y * this.tileheight
-    );
+    return new Point(tile.x * this.tilewidth, tile.y * this.tileheight);
   }
 
   imgCoordsToTile(pixel: Point): Point {
@@ -194,7 +193,7 @@ export default class Tileset {
   }
 
   toggleSelectedTile(tile: Point) {
-    const i = this.selectedTiles.findIndex(t => t.equals(tile));
+    const i = this.selectedTiles.findIndex((t) => t.equals(tile));
     if (i !== -1) {
       this.selectedTiles.splice(i, 1);
     } else {
@@ -212,7 +211,7 @@ export default class Tileset {
   }
 
   setSelectionTags(tags: Set<string>) {
-    this.selectedTiles.forEach(loc => {
+    this.selectedTiles.forEach((loc) => {
       // If a single tile is selected, tags replaces the current set
       if (this.selectedTiles.length === 1) {
         this.tiledata.set(loc, "tags", Array.from(tags));
@@ -231,7 +230,7 @@ export default class Tileset {
       return new Set(this.tiledata.get(this.selectedTiles[0], "tags", []));
     }
     // Otherwise, return the intersection of the selected tile's tags
-    this.selectedTiles.forEach(loc => {
+    this.selectedTiles.forEach((loc) => {
       const tileTags = new Set<string>(this.tiledata.get(loc, "tags", []));
       if (tags.size == 0) {
         tags = tileTags;
@@ -276,7 +275,7 @@ export default class Tileset {
     return this.selectedTiles[
       Math.floor(Math.random() * this.selectedTiles.length)
     ];
-  } 
+  }
 
   getTileBuffer(tile: Point): TileBuffer {
     return this.tiles[tile.y * this.widthInTiles() + tile.x];
@@ -432,11 +431,7 @@ export default class Tileset {
     }
   }
 
-  drawTile(
-    ctx: CanvasRenderingContext2D,
-    world: Point,
-    tileLoc: Point,
-  ) {
+  drawTile(ctx: CanvasRenderingContext2D, world: Point, tileLoc: Point) {
     if (!this.img) return true;
     const dest = this.tileToWorld(world);
     const source = this.tileToImgCoords(tileLoc);
@@ -473,7 +468,8 @@ export default class Tileset {
   }
 
   createTiles() {
-    if (!this.img || !this.tilewidth || !this.tileheight || this.rendering) return;
+    if (!this.img || !this.tilewidth || !this.tileheight || this.rendering)
+      return;
     const canvas = document.createElement("canvas");
     canvas.width = this.tilewidth;
     canvas.height = this.tileheight;
@@ -569,13 +565,13 @@ export default class Tileset {
         spacing: this.spacing,
         tiledata: this.tiledata,
       },
-      this.img, 
+      this.img,
     );
   }
 
   toJSON() {
     return {
-      class: 'Tileset',
+      class: "Tileset",
       data: this.png()?.dataURL() || null,
     };
   }
@@ -585,7 +581,7 @@ export default class Tileset {
   }
 
   static async from(source: File | string): Promise<Tileset> {
-    let png: PNGWithMetadata
+    let png: PNGWithMetadata;
     if (source instanceof File) {
       png = await PNGWithMetadata.fromFile(source);
     } else {

@@ -34,7 +34,10 @@
   let degrees: number = 90;
 
   function screenToWorld(screen: Point): Point {
-    return new Point((screen.x - offset.x) / zoom, (screen.y - offset.y) / zoom);
+    return new Point(
+      (screen.x - offset.x) / zoom,
+      (screen.y - offset.y) / zoom,
+    );
   }
 
   function worldToScreen(world: Point): Point {
@@ -69,8 +72,7 @@
           continue;
         if (
           filter === "" ||
-          tileset
-            .tiledata
+          tileset.tiledata
             .get(tile.loc, "tags", [] as string[])
             ?.some((tag) => tag.startsWith(filter))
         ) {
@@ -214,7 +216,12 @@
     } else if (tool == Tool.Select) {
       const world = screenToWorld(new Point(e.offsetX, e.offsetY));
       if (!tileset.img) return;
-      if (world.x < 0 || world.x >= tileset.img.width || world.y < 0 || world.y >= tileset.img.height) {
+      if (
+        world.x < 0 ||
+        world.x >= tileset.img.width ||
+        world.y < 0 ||
+        world.y >= tileset.img.height
+      ) {
         return;
       }
       const tile = tileset.imgCoordsToTile(world);
@@ -251,10 +258,7 @@
       } else if (tool === Tool.Erase) {
         tileset.setPixel(mouse.floor(), 0, 0, 0, 0);
         tileset = tileset;
-      } else if (
-        tool == Tool.Select &&
-        drag !== undefined
-      ) {
+      } else if (tool == Tool.Select && drag !== undefined) {
         tileset.clearSelectedTiles();
         let a = tileset.imgCoordsToTile(drag);
         let b = tileset.imgCoordsToTile(mouse);
@@ -285,7 +289,7 @@
     if (files === null) return;
     const file = files[0];
     if (!file) return;
-    Tileset.from(file).then(_tileset => {
+    Tileset.from(file).then((_tileset) => {
       tileset = _tileset;
       offset.x = 0;
       offset.y = 0;
@@ -530,7 +534,7 @@
         <option value="hex">Hex</option>
       </select>
     </div>
-    <button on:click={() => tileset.createTiles() } disabled={!tileset.img}>
+    <button on:click={() => tileset.createTiles()} disabled={!tileset.img}>
       <Icon name="refresh" />
     </button>
     <div style="margin-left: auto; display: flex; gap: 8px;">
