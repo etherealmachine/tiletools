@@ -87,13 +87,36 @@ export default class Tilemap {
 
   fill(loc: Point, max_dist: number = 10) {
     if (this.layers[this.selectedLayer].tiles[loc.toString()]) return;
+    const undo = this.undoer.push();
+    if (this.selectedTiles.length > 0) {
+      for (let tile of this.selectedTiles) {
+        const choice = this.tileset.randSelectedTile();
+        if (!choice) return;
+        const tileLoc = tile.toString();
+        undo.tiles.push({
+          layer: this.selectedLayer,
+          loc: tile,
+          from: this.layers[this.selectedLayer].tiles[tileLoc],
+          to: choice,
+        });
+        this.layers[this.selectedLayer].tiles[tileLoc] = choice;
+      }
+      return;
+    }
     const queue: Point[] = [loc];
     while (queue.length > 0) {
       const curr = queue.shift();
       if (!curr) return;
       const choice = this.tileset.randSelectedTile();
       if (!choice) return;
-      this.layers[this.selectedLayer].tiles[curr.toString()] = choice;
+      const currLoc = curr.toString();
+      undo.tiles.push({
+        layer: this.selectedLayer,
+        loc: curr,
+        from: this.layers[this.selectedLayer].tiles[currLoc],
+        to: choice,
+      });
+      this.layers[this.selectedLayer].tiles[currLoc] = choice;
       for (let d of [
         [1, 0],
         [-1, 0],

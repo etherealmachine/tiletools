@@ -135,7 +135,7 @@
       }
     }
     for (let layer of map.layers) {
-      if (!layer.visible) return;
+      if (!layer.visible) continue;
       map.drawLayer(ctx, layer);
     }
     for (let [from, to] of map.tiledata.filter<Point>("door")) {
@@ -171,9 +171,12 @@
     });
   }
 
-  function onClick(e: PointerEvent) {
+  function onPointerDown(e: PointerEvent) {
+    mouse = screenToTile(new Point(e.offsetX, e.offsetY));
+    drag = mouse.clone();
     if (e.buttons === 1) {
       if (tool === Tool.Erase) {
+        map.undoer.begin();
         map.erase(mouse);
       } else if (tool === Tool.Fill) {
         map.fill(mouse);
@@ -183,16 +186,8 @@
         map.setDoor(mouse, doorStart);
         doorStart = undefined;
       } else if (tool === Tool.Edit) {
+        map.undoer.begin();
         map.set(mouse);
-      } else if (tool === Tool.Select && drag !== undefined) {
-        map.clearSelectedTiles();
-        let a = drag;
-        let b = mouse;
-        for (let x = Math.min(a.x, b.x); x <= Math.max(a.x, b.x); x++) {
-          for (let y = Math.min(a.y, b.y); y <= Math.max(a.y, b.y); y++) {
-            map.addSelectedTile(new Point(x, y));
-          }
-        }
       } else if (tool === Tool.Select) {
         if (e.shiftKey) {
           map.toggleSelectedTile(mouse);
@@ -201,18 +196,7 @@
         }
       }
       map = map;
-    } else if (e.ctrlKey) {
-      offset.x += e.movementX;
-      offset.y += e.movementY;
     }
-  }
-
-  function onPointerDown(e: PointerEvent) {
-    mouse = screenToTile(new Point(e.offsetX, e.offsetY));
-    if (e.buttons === 1) {
-      map.undoer.begin();
-    }
-    onClick(e);
   }
 
   function onPointerUp() {
@@ -226,12 +210,27 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (!map.tileset || !map.tileset.img) return;
     mouse = screenToTile(new Point(e.offsetX, e.offsetY));
-    if (e.buttons === 1 && drag === undefined) {
-      drag = mouse.clone();
+    if (e.buttons === 1) {
+      if (tool === Tool.Erase) {
+        map.erase(mouse);
+      } else if (tool === Tool.Edit) {
+        map.set(mouse);
+      } else if (tool === Tool.Select && drag !== undefined) {
+        map.clearSelectedTiles();
+        let a = drag;
+        let b = mouse;
+        for (let x = Math.min(a.x, b.x); x <= Math.max(a.x, b.x); x++) {
+          for (let y = Math.min(a.y, b.y); y <= Math.max(a.y, b.y); y++) {
+            map.addSelectedTile(new Point(x, y));
+          }
+        }
+      }
+      map = map;
+    } else if (e.ctrlKey) {
+      offset.x += e.movementX;
+      offset.y += e.movementY;
     }
-    onClick(e);
   }
 
   function onWheel(e: WheelEvent) {

@@ -239,12 +239,7 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (e.ctrlKey) {
-      offset.x += e.movementX;
-      offset.y += e.movementY;
-    }
     mouse = screenToWorld(new Point(e.offsetX, e.offsetY));
-
     if (mouseDown) {
       if (tool === Tool.Edit) {
         tileset.setPixel(
@@ -269,6 +264,9 @@
         }
         tileset = tileset;
       }
+    } else if (e.ctrlKey) {
+      offset.x += e.movementX;
+      offset.y += e.movementY;
     }
   }
 
