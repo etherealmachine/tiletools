@@ -1,3 +1,12 @@
+export type JSONValue =
+  | null
+  | string
+  | number
+  | boolean
+  | { [key: string]: JSONValue }
+  | Array<JSONValue>
+  | { toJSON(): JSONValue };
+
 interface Revivifiable {
   name: string;
   from(v: any): any;

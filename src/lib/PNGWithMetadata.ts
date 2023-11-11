@@ -1,7 +1,6 @@
 import { readFileAsBinaryString } from "./files";
 import pako from "pako";
-import type { JSONValue } from "./types";
-import { revivify } from "./Revivify";
+import { revivify, type JSONValue } from "./Revivify";
 
 enum ChunkType {
   IHDR = "IHDR",

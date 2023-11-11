@@ -5,7 +5,7 @@
   import { onMount } from "svelte";
   import type RPGEngine from "./RPGEngine";
   import PNGWithMetadata from "./PNGWithMetadata";
-  import { Point } from "./types";
+  import Point from "./Point";
 
   export let engine: RPGEngine;
 
@@ -122,22 +122,13 @@
         e.preventDefault();
         break;
     }
-    for (let i = 0; i < engine.characters.length; i++) {
-      const e = engine.characters[i];
-      const d = Math.round(
-        Math.sqrt(
-          Math.pow(e.position.x - c.position.x, 2) +
-            Math.pow(e.position.y - c.position.y, 2),
-        ),
-      );
-      if (e.name !== "Player" && d === 0) {
-        c.position.x = x;
-        c.position.y = y;
-        e.health.current -= Math.ceil(Math.random() * 3);
-        if (e.health.current <= 0) {
-          engine.characters.splice(i, 1);
-        }
-      }
+    const player = engine.characters.find(c => c.controlled_by === "current_player");
+    if (!player) return;
+    const door = engine.tilemap.tiledata.filter<Point>("door").find(([from, to]) => {
+      return player.position.x === from.x && player.position.y === from.y;
+    });
+    if (door) {
+      player.position = door[1].clone();
     }
   }
 

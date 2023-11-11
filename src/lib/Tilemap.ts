@@ -1,11 +1,12 @@
 import PNGWithMetadata from "./PNGWithMetadata";
 import Tiledata from "./Tiledata";
-import type Tileset from "./Tileset";
+import Tileset from "./Tileset";
 import Undoer, { Undoable } from "./Undoer";
 import Point from "./Point";
-import { Revivifiable } from "./Revivify";
+import { Revivifiable, type JSONValue } from "./Revivify";
 
 interface Layer {
+  [key: string]: JSONValue;
   name: string;
   visible: boolean;
   tiles: { [key: string]: Point };
@@ -55,7 +56,7 @@ class TilemapUndoable extends Undoable<Tilemap> {
 
 export default class Tilemap {
   name: string = "";
-  tileset?: Tileset;
+  tileset: Tileset = new Tileset();
   layers: Layer[] = [
     {
       name: "Layer 1",
@@ -68,7 +69,6 @@ export default class Tilemap {
   undoer: Undoer<Tilemap, TilemapUndoable> = new Undoer(TilemapUndoable);
 
   set(loc: Point, tile?: Point) {
-    if (!this.tileset) return;
     if (!tile) {
       tile = this.tileset.randSelectedTile();
     }
@@ -85,7 +85,6 @@ export default class Tilemap {
   }
 
   fill(loc: Point, max_dist: number = 10) {
-    if (!this.tileset) return;
     if (this.layers[this.selectedLayer].tiles[loc.toString()]) return;
     const queue: Point[] = [loc];
     while (queue.length > 0) {
@@ -166,7 +165,6 @@ export default class Tilemap {
   }
 
   drawLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
-    if (!this.tileset) return;
     // TODO: Sort layer
     for (let [loc, tile] of Object.entries(layer.tiles)) {
       this.tileset.drawTile(ctx, Point.from(loc), tile);
@@ -185,7 +183,6 @@ export default class Tilemap {
       }
     }
     const canvas = document.createElement("canvas");
-    if (!this.tileset) return canvas;
     canvas.width = this.tileset.tilewidth * (Math.abs(maxX - minX) + 1);
     canvas.height = this.tileset.tileheight * (Math.abs(maxY - minY) + 1);
     const ctx = canvas.getContext("2d");
@@ -205,7 +202,6 @@ export default class Tilemap {
   }
 
   download() {
-    if (!this.tileset) return;
     new PNGWithMetadata(
       this.name,
       {
@@ -222,6 +218,10 @@ export default class Tilemap {
     const png = await PNGWithMetadata.fromFile(file);
     const tilemap = new Tilemap();
     Object.assign(tilemap, png.metadata);
+    // TODO: It works but I dislike it
+    if (tilemap.tileset instanceof Promise) {
+      tilemap.tileset = await tilemap.tileset;
+    }
     return tilemap;
   }
 }

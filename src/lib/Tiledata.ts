@@ -1,6 +1,5 @@
-import { Revivifiable } from "./Revivify";
+import { Revivifiable, type JSONValue } from "./Revivify";
 import Point from "./Point";
-import type { JSONValue } from "./types";
 
 export default class Tiledata {
   data: { [key: string]: { [key: string]: JSONValue } } = {};
