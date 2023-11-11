@@ -561,6 +561,7 @@ export default class Tileset {
         name: this.name,
         tilewidth: this.tilewidth,
         tileheight: this.tileheight,
+        type: this.type,
         margin: this.margin,
         spacing: this.spacing,
         tiledata: this.tiledata,
@@ -590,6 +591,10 @@ export default class Tileset {
     const tileset = new Tileset();
     Object.assign(tileset, png.metadata);
     await tileset.setImageFromDataURL(png.dataURL());
+    // TODO: Remove
+    if (!(tileset.tiledata instanceof Tiledata)) {
+      tileset.tiledata = new Tiledata();
+    }
     return tileset;
   }
 }

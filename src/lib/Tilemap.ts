@@ -29,11 +29,11 @@ class TilemapUndoable extends Undoable<Tilemap> {
       tilemap.layers.splice(change.i, 0, change.layer);
     }
     for (let change of this.tiles) {
-      const key = change.toString();
+      const loc = change.loc.toString();
       if (change.from === undefined) {
-        delete tilemap.layers[change.layer].tiles[key];
+        delete tilemap.layers[change.layer].tiles[loc];
       } else {
-        tilemap.layers[change.layer].tiles[key] = change.from;
+        tilemap.layers[change.layer].tiles[loc] = change.from;
       }
     }
   }
@@ -44,11 +44,11 @@ class TilemapUndoable extends Undoable<Tilemap> {
       tilemap.layers.splice(change.i, 1);
     }
     for (let change of this.tiles) {
-      const key = change.toString();
+      const loc = change.loc.toString();
       if (change.to === undefined) {
-        delete tilemap.layers[change.layer].tiles[key];
+        delete tilemap.layers[change.layer].tiles[loc];
       } else {
-        tilemap.layers[change.layer].tiles[key] = change.to;
+        tilemap.layers[change.layer].tiles[loc] = change.to;
       }
     }
   }
@@ -165,8 +165,11 @@ export default class Tilemap {
   }
 
   drawLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
-    // TODO: Sort layer
-    for (let [loc, tile] of Object.entries(layer.tiles)) {
+    for (let [loc, tile] of Object.entries(layer.tiles).sort((a, b) => {
+      const [pa, pb] = [Point.from(a[0]), Point.from(b[0])];
+      if (pa.y === pb.y) return pa.x - pb.x;
+      return pa.y - pb.y;
+    })) {
       this.tileset.drawTile(ctx, Point.from(loc), tile);
     }
   }

@@ -195,6 +195,7 @@
   function onPointerUp() {
     drag = undefined;
     map.undoer.end();
+    map = map;
   }
 
   function onPointerCancel() {
@@ -318,6 +319,7 @@
         map.undo();
         map = map;
       }}
+      disabled={map.undoer.undoStack.length === 0}
     >
       <Icon name="undo" />
     </button>
@@ -326,6 +328,7 @@
         map.redo();
         map = map;
       }}
+      disabled={map.undoer.redoStack.length === 0}
     >
       <Icon name="redo" />
     </button>
