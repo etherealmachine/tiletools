@@ -104,11 +104,11 @@ export default class Tileset {
   margin: number = 0;
   spacing: number = 0;
   tiledata: Tiledata = new Tiledata();
-  selectedTiles: Point[] = [];
 
   tiles: TileBuffer[] = [];
   rendering: number = 0;
   copyBuffer: TileBuffer[] = [];
+  selectedTiles: Point[] = [];
   undoer: Undoer<Tileset, TilesetUndoable> = new Undoer(TilesetUndoable);
 
   worldToTile(world: Point): Point {

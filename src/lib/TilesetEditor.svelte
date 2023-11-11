@@ -213,7 +213,7 @@
       tileset.undoer.begin();
       tileset.setPixel(mouse.floor(), 0, 0, 0, 0);
       tileset = tileset;
-    } else if (tool == Tool.Select) {
+    } else if (tool === Tool.Select) {
       const world = screenToWorld(new Point(e.offsetX, e.offsetY));
       if (!tileset.img) return;
       if (
@@ -258,7 +258,7 @@
       } else if (tool === Tool.Erase) {
         tileset.setPixel(mouse.floor(), 0, 0, 0, 0);
         tileset = tileset;
-      } else if (tool == Tool.Select && drag !== undefined) {
+      } else if (tool === Tool.Select && drag !== undefined) {
         tileset.clearSelectedTiles();
         let a = tileset.imgCoordsToTile(drag);
         let b = tileset.imgCoordsToTile(mouse);

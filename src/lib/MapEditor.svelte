@@ -93,18 +93,17 @@
     ctx.clearRect(0, 0, W, H);
     ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = "white";
-    if (
-      grid &&
-      map.tileset &&
-      map.tileset.tilewidth > 0 &&
-      map.tileset.tileheight > 0
-    ) {
+    ctx.strokeStyle = "#ffffff77";
+
+    const radius = map.tileset.radius();
+    const horiz = (3 / 2) * radius;
+    const vert = Math.sqrt(3) * radius;
+    const halfVert = (1 / 2) * vert;
+    const tilewidth = map.tileset.tilewidth;
+    const tileheight = map.tileset.tileheight;
+
+    if (grid && tilewidth > 0 && tileheight > 0) {
       if (map.tileset.type === "hex") {
-        const radius = map.tileset.radius();
-        const horiz = (3 / 2) * radius;
-        const vert = Math.sqrt(3) * radius;
-        const halfVert = (1 / 2) * vert;
         let zero = screenToWorld(new Point(0, 0));
         zero.x = Math.floor(zero.x / horiz);
         zero.y = Math.floor(zero.y / vert);
@@ -114,52 +113,62 @@
         ];
         for (let x = zero.x; x <= zero.x + w; x++) {
           for (let y = zero.y; y <= zero.y + h; y++) {
-            if (x % 2 === 0) {
-              drawHexagon(ctx, x * horiz, y * vert, radius);
-            } else {
-              drawHexagon(ctx, x * horiz, y * vert + halfVert, radius);
-            }
+            drawHexagon(ctx, x * horiz, y * vert + ((x%2===0) ? 0 : halfVert), radius);
           }
         }
       } else {
         let zero = screenToWorld(new Point(0, 0));
-        zero.x = Math.floor(zero.x / map.tileset.tilewidth);
-        zero.y = Math.floor(zero.y / map.tileset.tileheight);
-        const [w, h] = [
-          canvas.width / map.tileset.tilewidth / zoom,
-          canvas.height / map.tileset.tileheight / zoom,
-        ];
+        zero.x = Math.floor(zero.x / tilewidth);
+        zero.y = Math.floor(zero.y / tileheight);
+        const [w, h] = [W / tilewidth / zoom, H / tileheight / zoom];
         for (let x = zero.x; x <= zero.x + w; x++) {
           for (let y = zero.y; y <= zero.y + h; y++) {
             drawRect(
               ctx,
-              x * map.tileset.tilewidth,
-              y * map.tileset.tileheight,
-              map.tileset.tilewidth,
-              map.tileset.tileheight,
+              x * tilewidth,
+              y * tileheight,
+              tilewidth,
+              tileheight,
             );
           }
         }
       }
     }
-    if (map.tileset) {
-      for (let layer of map.layers) {
-        if (!layer.visible) return;
-        map.drawLayer(ctx, layer);
-      }
-      for (let [from, to] of map.tiledata.filter<Point>("door")) {
-        drawDoor(ctx, map.tileset, from, to);
-      }
-      if (tool === Tool.Edit && mouseOver) {
-        const randTile = map.tileset.randSelectedTile();
-        if (randTile) {
-          map.tileset.drawTile(ctx, mouse, randTile);
-        }
-      }
-      if (tool === Tool.Door && doorStart) {
-        drawDoor(ctx, map.tileset, doorStart, mouse);
+    for (let layer of map.layers) {
+      if (!layer.visible) return;
+      map.drawLayer(ctx, layer);
+    }
+    for (let [from, to] of map.tiledata.filter<Point>("door")) {
+      drawDoor(ctx, map.tileset, from, to);
+    }
+    if (tool === Tool.Edit && mouseOver) {
+      const randTile = map.tileset.randSelectedTile();
+      if (randTile) {
+        map.tileset.drawTile(ctx, mouse, randTile);
       }
     }
+    if (tool === Tool.Door && doorStart) {
+      drawDoor(ctx, map.tileset, doorStart, mouse);
+    }
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "white";
+    map.selectedTiles.forEach((loc) => {
+      const world = map.tileset.tileToWorld(loc);
+      switch (map.tileset.type) {
+        case "square":
+          drawRect(ctx, world.x, world.y, tilewidth, tileheight);
+          break;
+        case "hex":
+          drawHexagon(
+            ctx,
+            world.x,
+            world.y,
+            radius,
+          );
+          break;
+      }
+    });
   }
 
   function onClick(e: PointerEvent) {
@@ -175,6 +184,21 @@
         doorStart = undefined;
       } else if (tool === Tool.Edit) {
         map.set(mouse);
+      } else if (tool === Tool.Select && drag !== undefined) {
+        map.clearSelectedTiles();
+        let a = drag;
+        let b = mouse;
+        for (let x = Math.min(a.x, b.x); x <= Math.max(a.x, b.x); x++) {
+          for (let y = Math.min(a.y, b.y); y <= Math.max(a.y, b.y); y++) {
+            map.addSelectedTile(new Point(x, y));
+          }
+        }
+      } else if (tool === Tool.Select) {
+        if (e.shiftKey) {
+          map.toggleSelectedTile(mouse);
+        } else {
+          map.setSelectedTile(mouse);
+        }
       }
       map = map;
     } else if (e.ctrlKey) {
@@ -185,7 +209,6 @@
 
   function onPointerDown(e: PointerEvent) {
     mouse = screenToTile(new Point(e.offsetX, e.offsetY));
-    drag = mouse.clone();
     if (e.buttons === 1) {
       map.undoer.begin();
     }
@@ -205,6 +228,9 @@
   function onPointerMove(e: PointerEvent) {
     if (!map.tileset || !map.tileset.img) return;
     mouse = screenToTile(new Point(e.offsetX, e.offsetY));
+    if (e.buttons === 1 && drag === undefined) {
+      drag = mouse.clone();
+    }
     onClick(e);
   }
 
@@ -250,6 +276,16 @@
         break;
       case e.key === "ArrowDown":
         offset.y -= zoom * map.tileset.offsetHeight();
+        e.preventDefault();
+        break;
+      case e.key === "Backspace" || e.key === "Delete":
+        map.clear();
+        map = map;
+        e.preventDefault();
+        break;
+      case e.key === "Escape":
+        map.clearSelectedTiles();
+        map = map;
         e.preventDefault();
         break;
     }

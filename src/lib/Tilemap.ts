@@ -66,6 +66,7 @@ export default class Tilemap {
   ];
   tiledata: Tiledata = new Tiledata();
   selectedLayer: number = 0;
+  selectedTiles: Point[] = [];
   undoer: Undoer<Tilemap, TilemapUndoable> = new Undoer(TilemapUndoable);
 
   set(loc: Point, tile?: Point) {
@@ -121,6 +122,14 @@ export default class Tilemap {
     delete this.layers[this.selectedLayer].tiles[key];
   }
 
+  clear() {
+    this.undoer.begin();
+    for (let loc of this.selectedTiles) {
+      this.erase(loc);
+    }
+    this.undoer.end();
+  }
+
   addLayer() {
     this.layers.push({
       name: `Layer ${this.layers.length + 1}`,
@@ -161,6 +170,30 @@ export default class Tilemap {
     } else {
       this.tiledata.set(from, "door", to.clone());
       this.tiledata.set(to, "door", from.clone());
+    }
+  }
+
+  clearSelectedTiles() {
+    this.selectedTiles = [];
+  }
+
+  addSelectedTile(tile: Point) {
+    const i = this.selectedTiles.findIndex((t) => t.equals(tile));
+    if (i === -1) {
+      this.selectedTiles.push(tile.clone());
+    }
+  }
+
+  setSelectedTile(tile: Point) {
+    this.selectedTiles = [tile];
+  }
+
+  toggleSelectedTile(tile: Point) {
+    const i = this.selectedTiles.findIndex((t) => t.equals(tile));
+    if (i !== -1) {
+      this.selectedTiles.splice(i, 1);
+    } else {
+      this.selectedTiles.push(tile.clone());
     }
   }
 
