@@ -4,7 +4,7 @@
   import TilesetEditor from "$lib/TilesetEditor.svelte";
   import type Tileset from "$lib/Tileset";
   import { browser } from "$app/environment";
-    import { onMount } from "svelte";
+  import { onMount } from "svelte";
 
   let tileset: Tileset | undefined;
   let map: Tilemap | undefined;
