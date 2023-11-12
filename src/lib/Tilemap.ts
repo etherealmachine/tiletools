@@ -234,6 +234,21 @@ export default class Tilemap {
     }
   }
 
+  filter(fn: (d?: { [key: string]: JSONValue }) => boolean): Point[] {
+    // Get all points where the top-most layer has a tile with data matching the filter
+    const locs: Point[] = [];
+    for (let i = this.layers.length-1; i >= 0; i--) {
+      const layer = this.layers[i];
+      for (let [loc, tile] of Object.entries(layer.tiles)) {
+        if (i+1 >= this.layers.length || this.layers[i+1].tiles[loc]) continue;
+        if (fn(this.tileset.tiledata.data[tile.toString()])) {
+          locs.push(Point.from(loc));
+        }
+      }
+    }
+    return locs;
+  }
+
   drawLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
     for (let [loc, tile] of Object.entries(layer.tiles).sort((a, b) => {
       const [pa, pb] = [Point.from(a[0]), Point.from(b[0])];
