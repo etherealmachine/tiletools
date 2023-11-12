@@ -291,12 +291,12 @@ export default class Tilemap {
     this.png().download();
   }
 
-  static async from(source: File | string): Promise<Tilemap> {
+  static async from(source: File | string | ArrayBuffer): Promise<Tilemap> {
     let png: PNGWithMetadata;
     if (source instanceof File) {
       png = await PNGWithMetadata.fromFile(source);
     } else {
-      png = PNGWithMetadata.fromDataURL(source);
+      png = new PNGWithMetadata("", {}, source);
     }
     const tilemap = new Tilemap();
     Object.assign(tilemap, png.metadata);

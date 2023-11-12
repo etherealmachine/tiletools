@@ -62,7 +62,7 @@
     }
     for (let c of engine.characters) {
       if (typeof c.token === "string") {
-        PNGWithMetadata.fromDataURL(c.token)
+        new PNGWithMetadata("", {}, c.token)
           .bitmap()
           .then((img) => {
             c.token = img;

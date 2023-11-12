@@ -34,7 +34,7 @@ export default class PNGWithMetadata {
   constructor(
     filename: string,
     metadata: { [key: string]: JSONValue },
-    img: HTMLCanvasElement | HTMLImageElement | ImageBitmap | string,
+    img: HTMLCanvasElement | HTMLImageElement | ImageBitmap | ArrayBuffer | string,
   ) {
     this.filename = filename;
     this.metadata = metadata;
@@ -56,6 +56,9 @@ export default class PNGWithMetadata {
       this.imageBytes = base64ToBytes(
         canvas.toDataURL("image/png").substring(DATA_PNG.length),
       );
+    } else if (img instanceof ArrayBuffer) {
+      this.imageBytes = new Uint8Array(img);
+      Object.assign(this.metadata, readMetadata(this.imageBytes) || {});
     } else if (img.startsWith(DATA_PNG)) {
       this.imageBytes = base64ToBytes(img.slice(DATA_PNG.length));
       Object.assign(this.metadata, readMetadata(this.imageBytes) || {});
@@ -88,10 +91,6 @@ export default class PNGWithMetadata {
       };
       img.src = this.dataURL();
     });
-  }
-
-  static fromDataURL(url: string): PNGWithMetadata {
-    return new PNGWithMetadata("", {}, url);
   }
 
   static fromFile(file: File): Promise<PNGWithMetadata> {
@@ -178,7 +177,6 @@ function splitChunks(buf: Uint8Array): Chunk[] {
 }
 
 function joinChunks(chunks: Chunk[]): Uint8Array {
-  let s = PNG_SIG;
   const bufs: Uint8Array[] = [];
   let len = 0;
   for (let chunk of chunks) {

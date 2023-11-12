@@ -588,7 +588,7 @@ export default class Tileset {
     if (source instanceof File) {
       png = await PNGWithMetadata.fromFile(source);
     } else {
-      png = PNGWithMetadata.fromDataURL(source);
+      png = new PNGWithMetadata("", {}, source);
     }
     const tileset = new Tileset();
     Object.assign(tileset, png.metadata);
