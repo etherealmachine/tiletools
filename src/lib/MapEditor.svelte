@@ -14,6 +14,7 @@
   import type Tileset from "./Tileset";
   import { drawHexagon, drawRect } from "./draw";
   import Point from "./Point";
+  import TiledataEditor from "./TiledataEditor.svelte";
 
   // TODO: Select location, copy/paste layers
   export let map: Tilemap = new Tilemap();
@@ -447,6 +448,9 @@
           map = map;
         }}><Icon name="plus" /></button
       >
+      {#if map && map.selectedTiles.length === 1}
+        <TiledataEditor bind:map={map} />
+      {/if}
     </div>
   </div>
 </div>
