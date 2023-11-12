@@ -134,6 +134,20 @@ export default class Tilemap {
   }
 
   erase(loc: Point) {
+    if (this.selectedTiles.length > 0) {
+      const undo = this.undoer.push();
+      for (let loc of this.selectedTiles) {
+        const key = loc.toString();
+        undo.tiles.push({
+          layer: this.selectedLayer,
+          loc,
+          from: this.layers[this.selectedLayer].tiles[key],
+          to: undefined,
+        });
+        delete this.layers[this.selectedLayer].tiles[key];
+      }
+      return;
+    }
     const key = loc.toString();
     const undo = this.undoer.push();
     undo.tiles.push({
@@ -260,8 +274,8 @@ export default class Tilemap {
     return canvas;
   }
 
-  download() {
-    new PNGWithMetadata(
+  png(): PNGWithMetadata {
+    return new PNGWithMetadata(
       this.name,
       {
         name: this.name,
@@ -270,11 +284,20 @@ export default class Tilemap {
         tiledata: this.tiledata,
       },
       this.image(),
-    ).download();
+    );
   }
 
-  static async from(file: File): Promise<Tilemap> {
-    const png = await PNGWithMetadata.fromFile(file);
+  download() {
+    this.png().download();
+  }
+
+  static async from(source: File | string): Promise<Tilemap> {
+    let png: PNGWithMetadata;
+    if (source instanceof File) {
+      png = await PNGWithMetadata.fromFile(source);
+    } else {
+      png = PNGWithMetadata.fromDataURL(source);
+    }
     const tilemap = new Tilemap();
     Object.assign(tilemap, png.metadata);
     // TODO: It works but I dislike it

@@ -282,12 +282,11 @@ export default class Tileset {
   }
 
   setPixel(pixel: Point, r: number, g: number, b: number, a: number) {
-    const loc = this.imgCoordsToTile(pixel);
-    const tile = this.getTileBuffer(loc);
-    loc.x = loc.x % this.offsetWidth();
-    loc.y = loc.y % this.offsetHeight();
-    if (loc.x >= this.tilewidth || loc.y >= this.tilewidth) return;
-    const i = (loc.y * tile.buf.width + loc.x) * 4;
+    const tile = this.getTileBuffer(this.imgCoordsToTile(pixel));
+    pixel.x = pixel.x % this.offsetWidth();
+    pixel.y = pixel.y % this.offsetHeight();
+    if (pixel.x >= this.tilewidth || pixel.y >= this.tilewidth) return;
+    const i = (pixel.y * tile.buf.width + pixel.x) * 4;
     const prev: RGBA = {
       r: tile.buf.data[i + 0],
       g: tile.buf.data[i + 1],
@@ -298,7 +297,7 @@ export default class Tileset {
     const undo = this.undoer.push();
     undo.pixels.push({
       tile: tile.loc,
-      pixel: loc,
+      pixel,
       from: prev,
       to: { r, g, b, a },
     });
@@ -510,7 +509,7 @@ export default class Tileset {
     }
   }
 
-  async syncTiles(): Promise<ImageBitmap> {
+  async syncTiles(): Promise<Tileset> {
     if (this.rendering)
       throw new Error("cannot sync until tiles are fully rendered");
     let [maxX, maxY] = [0, 0];
@@ -536,7 +535,8 @@ export default class Tileset {
       ctx.drawImage(tile.img, x, y);
     }
     const buf = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    return createImageBitmap(buf);
+    this.img = await createImageBitmap(buf);
+    return this;
   }
 
   setImageFromDataURL(url: string): Promise<Tileset> {
@@ -578,7 +578,9 @@ export default class Tileset {
   }
 
   download() {
-    this.png()?.download();
+    this.syncTiles().then(tileset => {
+      tileset.png()?.download();
+    });
   }
 
   static async from(source: File | string): Promise<Tileset> {

@@ -1,8 +1,10 @@
 <script lang="ts">
-  import type Tilemap from "$lib/Tilemap";
+  import Tilemap from "$lib/Tilemap";
   import MapEditor from "$lib/MapEditor.svelte";
   import TilesetEditor from "$lib/TilesetEditor.svelte";
   import type Tileset from "$lib/Tileset";
+  import { browser } from "$app/environment";
+    import { onMount } from "svelte";
 
   let tileset: Tileset | undefined;
   let map: Tilemap | undefined;
@@ -14,14 +16,41 @@
   }
 
   function tilesetChanged(tileset: Tileset | undefined) {
-    if (map) {
+    if (map && tileset) {
       map.tileset = tileset;
     }
   }
 
   $: mapChanged(map)
   $: tilesetChanged(tileset);
-  // TODO: Persist state during reload
+
+  let autosaver: number | undefined;
+
+  function updateAutosave(_: any) {
+    if (browser) {
+      clearTimeout(autosaver);
+      autosaver = setTimeout(autosave, 5000);
+    }
+  }
+
+  function autosave() {
+    if (!browser || !map) return;
+    const png = map.png();
+    if (png) {
+      localStorage.setItem("tilemap", png.dataURL());
+    }
+  }
+
+  onMount(() => {
+    const url = localStorage.getItem("tilemap");
+    if (url) {
+      Tilemap.from(url).then(_map => {
+        map= _map;
+      });
+    }
+  });
+
+  $: updateAutosave(map);
 </script>
 
 <div
