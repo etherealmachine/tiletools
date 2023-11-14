@@ -1,3 +1,4 @@
+import type Point from "./Point";
 import type Tilemap from "./Tilemap";
 
 export interface Camera {
@@ -9,7 +10,7 @@ export interface Camera {
 export interface Character {
   name: string;
   token: string | ImageBitmap;
-  position: { x: number; y: number };
+  position: Point;
   health: {
     max: number;
     current: number;

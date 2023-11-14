@@ -234,6 +234,21 @@ export default class Tilemap {
     }
   }
 
+  dataAt(loc: Point): { [key: string]: JSONValue }[] {
+    const data: { [key: string]: JSONValue }[] = [];
+    for (let i = this.layers.length-1; i >= 0; i--) {
+      const layer = this.layers[i];
+      const tile = layer.tiles[loc.toString()];
+      if (tile) {
+        const td = this.tileset.tiledata.data[tile.toString()];
+        if (td) {
+          data.push(td);
+        }
+      }
+    }
+    return data;
+  }
+
   filter(fn: (d?: { [key: string]: JSONValue }) => boolean): Point[] {
     // Get all points where the top-most layer has a tile with data matching the filter
     const locs: Point[] = [];

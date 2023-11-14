@@ -103,7 +103,8 @@
   function onKeyDown(e: KeyboardEvent) {
     const c = engine.characters.find((c) => c.name === "Player");
     if (!c) return;
-    const { x, y } = c.position;
+    const prevX = c.position.x;
+    const prevY = c.position.y;
     switch (true) {
       case e.key === "ArrowLeft":
         c.position.x--;
@@ -129,6 +130,11 @@
     });
     if (door) {
       player.position = door[1].clone();
+    }
+    const positionData = engine.tilemap.dataAt(player.position);
+    if (positionData.some(d => d['tags'] && (d['tags'] as string[]).includes('wall'))) {
+      player.position.x = prevX;
+      player.position.y = prevY;
     }
   }
 
