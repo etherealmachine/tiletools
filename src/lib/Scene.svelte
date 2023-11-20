@@ -6,10 +6,13 @@
   import type RPGEngine from "./RPGEngine";
   import PNGWithMetadata from "./PNGWithMetadata";
   import Point from "./Point";
+  import FOV from "./fov";
 
   export let engine: RPGEngine;
 
   let canvas: HTMLCanvasElement | undefined;
+
+  let fov: FOV | undefined;
 
   function draw() {
     if (!canvas) {
@@ -57,7 +60,14 @@
         return y1 - y2;
       });
       for (let [loc, tile] of sortedTiles) {
-        tilemap.tileset.drawTile(ctx, Point.from(loc), tile);
+        const pos = Point.from(loc);
+        if (fov) {
+          if (fov.lit.find(litPos => litPos.equals(pos))) {
+            tilemap.tileset.drawTile(ctx, pos, tile);
+          }
+        } else {
+          tilemap.tileset.drawTile(ctx, pos, tile);
+        }
       }
     }
     for (let c of engine.characters) {
@@ -136,6 +146,11 @@
       player.position.x = prevX;
       player.position.y = prevY;
     }
+    fov = new FOV(player.position, 10, 100, 100, (pos: Point) => {
+      const positionData = engine.tilemap.dataAt(pos);
+      return positionData.some(d => d['tags'] && (d['tags'] as string[]).includes('wall'));
+    });
+    fov.calculate();
   }
 
   onMount(() => {
