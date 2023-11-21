@@ -3,16 +3,15 @@
 
 <script lang="ts">
   import { onMount } from "svelte";
-  import type RPGEngine from "./RPGEngine";
+  import type Scene from "./Scene";
   import PNGWithMetadata from "./PNGWithMetadata";
   import Point from "./Point";
   import FOV from "./fov";
+    import { drawRect } from "./draw";
 
-  export let engine: RPGEngine;
+  export let scene: Scene;
 
   let canvas: HTMLCanvasElement | undefined;
-
-  let fov: FOV | undefined;
 
   function draw() {
     if (!canvas) {
@@ -31,13 +30,13 @@
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
-    const { camera, tilemap } = engine;
+    const { camera, tilemap } = scene;
     if (!tilemap.tileset) {
       requestAnimationFrame(draw);
       return;
     }
     const [w, h] = [tilemap.tileset.tilewidth, tilemap.tileset.tileheight];
-    for (let c of engine.characters) {
+    for (let c of scene.characters) {
       if (camera && c.name === "Player") {
         camera.centerX = c.position.x * w;
         camera.centerY = c.position.y * h;
@@ -61,8 +60,8 @@
       });
       for (let [loc, tile] of sortedTiles) {
         const pos = Point.from(loc);
-        if (fov) {
-          if (fov.lit.find(litPos => litPos.equals(pos))) {
+        if (scene.fov) {
+          if (scene.seen[loc] || scene.fov.lit.find(litPos => litPos.equals(pos))) {
             tilemap.tileset.drawTile(ctx, pos, tile);
           }
         } else {
@@ -70,7 +69,15 @@
         }
       }
     }
-    for (let c of engine.characters) {
+    for (let loc of Object.keys(scene.seen)) {
+      const pos = Point.from(loc);
+      if (scene.fov && !scene.fov.lit.find(litPos => litPos.equals(pos))) {
+        ctx.fillStyle = '#000000aa';
+        ctx.strokeStyle = '#00000000';
+        drawRect(ctx, pos.x*tilemap.tileset.tilewidth, pos.y*tilemap.tileset.tileheight, tilemap.tileset.tilewidth, tilemap.tileset.tileheight, true);
+      }
+    }
+    for (let c of scene.characters) {
       if (typeof c.token === "string") {
         new PNGWithMetadata("", {}, c.token)
           .bitmap()
@@ -101,7 +108,7 @@
   function onPointerMove(e: PointerEvent) {}
 
   function onWheel(e: WheelEvent) {
-    const { camera } = engine;
+    const { camera } = scene;
     if (e.deltaY < 0) {
       camera.zoom *= 1.1;
     } else if (e.deltaY > 0) {
@@ -111,46 +118,26 @@
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    const c = engine.characters.find((c) => c.name === "Player");
-    if (!c) return;
-    const prevX = c.position.x;
-    const prevY = c.position.y;
+    const p = scene.currentPlayer();
+    if (!p) return;
     switch (true) {
       case e.key === "ArrowLeft":
-        c.position.x--;
+        scene.moveCharacter(p, -1, 0);
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
-        c.position.x++;
+        scene.moveCharacter(p, 1, 0);
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
-        c.position.y--;
+        scene.moveCharacter(p, 0, -1);
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
-        c.position.y++;
+        scene.moveCharacter(p, 0, 1);
         e.preventDefault();
         break;
     }
-    const player = engine.characters.find(c => c.controlled_by === "current_player");
-    if (!player) return;
-    const door = engine.tilemap.tiledata.filter<Point>("door").find(([from, to]) => {
-      return player.position.x === from.x && player.position.y === from.y;
-    });
-    if (door) {
-      player.position = door[1].clone();
-    }
-    const positionData = engine.tilemap.dataAt(player.position);
-    if (positionData.some(d => d['tags'] && (d['tags'] as string[]).includes('wall'))) {
-      player.position.x = prevX;
-      player.position.y = prevY;
-    }
-    fov = new FOV(player.position, 10, 100, 100, (pos: Point) => {
-      const positionData = engine.tilemap.dataAt(pos);
-      return positionData.some(d => d['tags'] && (d['tags'] as string[]).includes('wall'));
-    });
-    fov.calculate();
   }
 
   onMount(() => {

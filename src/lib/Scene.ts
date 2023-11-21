@@ -1,5 +1,6 @@
 import type Point from "./Point";
 import type Tilemap from "./Tilemap";
+import FOV from "./fov";
 
 export interface Camera {
   centerX: number;
@@ -27,15 +28,12 @@ export interface Item {
   contents?: Item[];
 }
 
-interface Entity {
-  component: string;
-  data: any;
-}
-
-export default class RPGEngine {
+export default class Scene {
   camera: Camera;
   tilemap: Tilemap;
   characters: Character[] = [];
+  seen: { [key: string]: boolean } = {};
+  fov: FOV | undefined;
 
   constructor(camera: Camera, tilemap: Tilemap) {
     this.camera = camera;
@@ -63,5 +61,38 @@ export default class RPGEngine {
 
   addCharacter(character: Character) {
     this.characters.push(character);
+  }
+
+  currentPlayer(): Character | undefined {
+    return this.characters.find(c => c.controlled_by === "current_player");
+  }
+
+  moveCharacter(character: Character, dx: number, dy: number) {
+    const newPos = character.position.add(dx, dy);
+    const door = this.tilemap.tiledata.filter<Point>("door").find(([from, _to]) => {
+      return newPos.x === from.x && newPos.y === from.y;
+    });
+    if (door) {
+      character.position = door[1].clone();
+    } else {
+      if (this.tilemap.layers.every(layer => !layer.tiles[newPos.toString()])) {
+        return;
+      }
+      const positionData = this.tilemap.dataAt(newPos);
+      if (positionData.some(d => d['tags'] && (d['tags'] as string[]).includes('wall'))) {
+        return;
+      }
+      character.position = newPos;
+    }
+    this.fov = new FOV(character.position, 10, (pos: Point): boolean => {
+      const positionData = this.tilemap.dataAt(pos);
+      return positionData.some(d => d['tags'] && (d['tags'] as string[]).includes('wall'));
+    }, (pos: Point) => {
+      return this.tilemap.layers.every(layer => layer.tiles[pos.toString()] === undefined);
+    });
+    this.fov.calculate();
+    for (let pos of this.fov.lit) {
+      this.seen[pos.toString()] = true;
+    }
   }
 }

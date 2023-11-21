@@ -21,6 +21,7 @@ export function drawRect(
   y: number,
   width: number,
   height: number,
+  fill: boolean = false,
 ) {
   ctx.beginPath();
   ctx.lineTo(x, y);
@@ -28,6 +29,9 @@ export function drawRect(
   ctx.lineTo(x + width, y + height);
   ctx.lineTo(x, y + height);
   ctx.closePath();
+  if (fill) {
+    ctx.fill();
+  }
   ctx.stroke();
 }
 

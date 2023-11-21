@@ -12,17 +12,17 @@ const MATRIX = [
 export default class FOV {
   position: Point;
   radius: number;
-  width: number;
-  height: number;
   blocked: (pos: Point) => boolean;
-  lit: Point[] = [];
+  off: (pos: Point) => boolean;
+  lit: Point[];
 
-  constructor(position: Point, radius: number, width: number, height: number, blocked: (pos: Point) => boolean) {
+  constructor(position: Point, radius: number, blocked: (pos: Point) => boolean, off: (pos: Point) => boolean) {
     this.position = position;
+    // TODO: Infinite radius would be nice, currently will infinite loop
     this.radius = radius;
-    this.width = width;
-    this.height = height;
     this.blocked = blocked;
+    this.off = off;
+    this.lit = [position];
   }
 
 	calculate() {
@@ -36,8 +36,6 @@ export default class FOV {
     row: number, start: number, end: number, radius: number,
     xx: number, xy: number, yx: number, yy: number) {
     
-    // mark position as lit but unseen
-		
 		let new_start: number = 0;	
 		
 		if(start < end) return;
@@ -58,9 +56,9 @@ export default class FOV {
           this.position.x + dx * xx + dy * xy,
           this.position.y + dx * yx + dy * yy,
         );
-				
-				if (curr.x < 0 || curr.y >= this.width || curr.x < 0 || curr.y >= this.height) continue;
-				
+
+        if (this.off(curr)) continue;
+
         const l_slope = (dx-0.5)/(dy+0.5);
         const r_slope = (dx+0.5)/(dy-0.5);
         
