@@ -1,3 +1,4 @@
+import Point from "./Point";
 import type Tileset from "./Tileset";
 
 export function drawHexagon(
@@ -111,4 +112,139 @@ export function colors(buf: ImageData): Set<string> {
     }
   }
   return colors;
+}
+
+export function drawArrow(
+  ctx: CanvasRenderingContext2D,
+  direction: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  const miterLimit = ctx.miterLimit;
+  const strokeStyle = ctx.strokeStyle;
+  ctx.miterLimit = 1;
+  ctx.strokeStyle = "#0000ffff";
+  ctx.beginPath();
+  switch (direction) {
+    case 'down':
+      ctx.moveTo((x+0.5)*w, (y+0.2)*h);
+      ctx.lineTo((x+0.5)*w, (y+0.8)*h);
+      ctx.lineTo((x+0.2)*w, (y+0.5)*h);
+      ctx.lineTo((x+0.5)*w, (y+0.8)*h);
+      ctx.lineTo((x+0.8)*w, (y+0.5)*h);
+      break;
+    case 'up':
+      ctx.moveTo((x+0.5)*w, (y+0.8)*h);
+      ctx.lineTo((x+0.5)*w, (y+0.2)*h);
+      ctx.lineTo((x+0.2)*w, (y+0.5)*h);
+      ctx.lineTo((x+0.5)*w, (y+0.2)*h);
+      ctx.lineTo((x+0.8)*w, (y+0.5)*h);
+      break;
+    case 'left':
+      ctx.moveTo((x+0.8)*w, (y+0.5)*h);
+      ctx.lineTo((x+0.2)*w, (y+0.5)*h);
+      ctx.lineTo((x+0.5)*w, (y+0.2)*h);
+      ctx.lineTo((x+0.2)*w, (y+0.5)*h);
+      ctx.lineTo((x+0.5)*w, (y+0.8)*h);
+      break;
+    case 'right':
+      ctx.moveTo((x+0.2)*w, (y+0.5)*h);
+      ctx.lineTo((x+0.8)*w, (y+0.5)*h);
+      ctx.lineTo((x+0.5)*w, (y+0.2)*h);
+      ctx.lineTo((x+0.8)*w, (y+0.5)*h);
+      ctx.lineTo((x+0.5)*w, (y+0.8)*h);
+      break;
+  }
+  ctx.stroke();
+  ctx.miterLimit = miterLimit;
+  ctx.strokeStyle = strokeStyle;
+}
+
+export function drawDoor(
+  ctx: CanvasRenderingContext2D,
+  tileset: Tileset,
+  tile: Point,
+  color: string,
+) {
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = color;
+  ctx.strokeRect(
+    tile.x * tileset.tilewidth,
+    tile.y * tileset.tileheight,
+    tileset.tilewidth,
+    tileset.tileheight,
+  );
+}
+
+export function drawDoorLink(
+  ctx: CanvasRenderingContext2D,
+  tileset: Tileset,
+  from: Point,
+  fromColor: string,
+  to: Point,
+  toColor: string,
+) {
+  if (tileset.type === "hex") {
+  } else {
+    drawDoor(ctx, tileset, from, fromColor);
+    ctx.beginPath();
+    ctx.moveTo(
+      (from.x + 0.5) * tileset.tilewidth,
+      (from.y + 0.5) * tileset.tileheight,
+    );
+    ctx.lineTo(
+      (to.x + 0.5) * tileset.tilewidth,
+      (to.y + 0.5) * tileset.tileheight,
+    );
+    ctx.stroke();
+    drawDoor(ctx, tileset, to, toColor);
+  }
+}
+
+export function drawHexGrid(
+  ctx: CanvasRenderingContext2D,
+  tileset: Tileset,
+  screenToWorld: (p: Point) => Point,
+  width: number,
+  height: number,
+) {
+  const radius = tileset.radius();
+  const vert = Math.sqrt(3) * radius;
+  const horiz = (3 / 2) * radius;
+  const halfVert = (1 / 2) * vert;
+  let zero = screenToWorld(new Point(0, 0));
+  zero.x = Math.floor(zero.x / horiz);
+  zero.y = Math.floor(zero.y / vert);
+  const [w, h] = [width / horiz, height/ vert];
+  for (let x = zero.x; x <= zero.x + w; x++) {
+    for (let y = zero.y; y <= zero.y + h; y++) {
+      drawHexagon(ctx, x * horiz, y * vert + ((x%2===0) ? 0 : halfVert), radius);
+    }
+  }
+}
+
+export function drawSquareGrid(
+  ctx: CanvasRenderingContext2D,
+  tileset: Tileset,
+  screenToWorld: (p: Point) => Point,
+  width: number,
+  height: number,
+) {
+  let zero = screenToWorld(new Point(0, 0));
+  zero.x = Math.floor(zero.x / tileset.tilewidth);
+  zero.y = Math.floor(zero.y / tileset.tileheight);
+  const [w, h] = [width / tileset.tilewidth, height / tileset.tileheight];
+  for (let x = zero.x; x <= zero.x + w; x++) {
+    for (let y = zero.y; y <= zero.y + h; y++) {
+      drawRect(
+        ctx,
+        x * tileset.tilewidth,
+        y * tileset.tileheight,
+        tileset.tilewidth,
+        tileset.tileheight,
+      );
+    }
+  }
 }

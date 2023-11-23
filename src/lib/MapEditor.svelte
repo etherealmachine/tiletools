@@ -12,7 +12,7 @@
   import Icon from "./Icon.svelte";
   import Tilemap from "./Tilemap";
   import type Tileset from "./Tileset";
-  import { drawHexagon, drawRect } from "./draw";
+  import { drawDoorLink, drawHexGrid, drawHexagon, drawRect, drawSquareGrid } from "./draw";
   import Point from "./Point";
   import TiledataEditor from "./TiledataEditor.svelte";
 
@@ -47,95 +47,6 @@
     tool = _tool;
   }
 
-  function drawArrow(
-    ctx: CanvasRenderingContext2D,
-    direction: string,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-  ) {
-    const miterLimit = ctx.miterLimit;
-    const strokeStyle = ctx.strokeStyle;
-    ctx.miterLimit = 1;
-    ctx.strokeStyle = "#0000ffff";
-    ctx.beginPath();
-    switch (direction) {
-      case 'down':
-        ctx.moveTo((x+0.5)*w, (y+0.2)*h);
-        ctx.lineTo((x+0.5)*w, (y+0.8)*h);
-        ctx.lineTo((x+0.2)*w, (y+0.5)*h);
-        ctx.lineTo((x+0.5)*w, (y+0.8)*h);
-        ctx.lineTo((x+0.8)*w, (y+0.5)*h);
-        break;
-      case 'up':
-        ctx.moveTo((x+0.5)*w, (y+0.8)*h);
-        ctx.lineTo((x+0.5)*w, (y+0.2)*h);
-        ctx.lineTo((x+0.2)*w, (y+0.5)*h);
-        ctx.lineTo((x+0.5)*w, (y+0.2)*h);
-        ctx.lineTo((x+0.8)*w, (y+0.5)*h);
-        break;
-      case 'left':
-        ctx.moveTo((x+0.8)*w, (y+0.5)*h);
-        ctx.lineTo((x+0.2)*w, (y+0.5)*h);
-        ctx.lineTo((x+0.5)*w, (y+0.2)*h);
-        ctx.lineTo((x+0.2)*w, (y+0.5)*h);
-        ctx.lineTo((x+0.5)*w, (y+0.8)*h);
-        break;
-      case 'right':
-        ctx.moveTo((x+0.2)*w, (y+0.5)*h);
-        ctx.lineTo((x+0.8)*w, (y+0.5)*h);
-        ctx.lineTo((x+0.5)*w, (y+0.2)*h);
-        ctx.lineTo((x+0.8)*w, (y+0.5)*h);
-        ctx.lineTo((x+0.5)*w, (y+0.8)*h);
-        break;
-    }
-    ctx.stroke();
-    ctx.miterLimit = miterLimit;
-    ctx.strokeStyle = strokeStyle;
-  }
-
-  function drawDoor(
-    ctx: CanvasRenderingContext2D,
-    tileset: Tileset,
-    tile: Point,
-    color: string,
-  ) {
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = color;
-    ctx.strokeRect(
-      tile.x * tileset.tilewidth,
-      tile.y * tileset.tileheight,
-      tileset.tilewidth,
-      tileset.tileheight,
-    );
-  }
-
-  function drawDoorLink(
-    ctx: CanvasRenderingContext2D,
-    tileset: Tileset,
-    from: Point,
-    fromColor: string,
-    to: Point,
-    toColor: string,
-  ) {
-    if (tileset.type === "hex") {
-    } else {
-      drawDoor(ctx, tileset, from, fromColor);
-      ctx.beginPath();
-      ctx.moveTo(
-        (from.x + 0.5) * tileset.tilewidth,
-        (from.y + 0.5) * tileset.tileheight,
-      );
-      ctx.lineTo(
-        (to.x + 0.5) * tileset.tilewidth,
-        (to.y + 0.5) * tileset.tileheight,
-      );
-      ctx.stroke();
-      drawDoor(ctx, tileset, to, toColor);
-    }
-  }
-
   function draw() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -150,43 +61,14 @@
     ctx.lineWidth = 1;
     ctx.strokeStyle = "#ffffff77";
 
-    const radius = map.tileset.radius();
-    const horiz = (3 / 2) * radius;
-    const vert = Math.sqrt(3) * radius;
-    const halfVert = (1 / 2) * vert;
     const tilewidth = map.tileset.tilewidth;
     const tileheight = map.tileset.tileheight;
 
     if (grid && tilewidth > 0 && tileheight > 0) {
       if (map.tileset.type === "hex") {
-        let zero = screenToWorld(new Point(0, 0));
-        zero.x = Math.floor(zero.x / horiz);
-        zero.y = Math.floor(zero.y / vert);
-        const [w, h] = [
-          canvas.width / horiz / zoom,
-          canvas.height / vert / zoom,
-        ];
-        for (let x = zero.x; x <= zero.x + w; x++) {
-          for (let y = zero.y; y <= zero.y + h; y++) {
-            drawHexagon(ctx, x * horiz, y * vert + ((x%2===0) ? 0 : halfVert), radius);
-          }
-        }
+        drawHexGrid(ctx, map.tileset, screenToWorld, canvas.width*zoom, canvas.height*zoom);
       } else {
-        let zero = screenToWorld(new Point(0, 0));
-        zero.x = Math.floor(zero.x / tilewidth);
-        zero.y = Math.floor(zero.y / tileheight);
-        const [w, h] = [W / tilewidth / zoom, H / tileheight / zoom];
-        for (let x = zero.x; x <= zero.x + w; x++) {
-          for (let y = zero.y; y <= zero.y + h; y++) {
-            drawRect(
-              ctx,
-              x * tilewidth,
-              y * tileheight,
-              tilewidth,
-              tileheight,
-            );
-          }
-        }
+        drawSquareGrid(ctx, map.tileset, screenToWorld, canvas.width*zoom, canvas.height*zoom);
       }
     }
     for (let layer of map.layers) {
@@ -225,7 +107,7 @@
             ctx,
             world.x,
             world.y,
-            radius,
+            map.tileset.radius(),
           );
           break;
       }
