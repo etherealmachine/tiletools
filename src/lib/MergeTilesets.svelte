@@ -2,9 +2,9 @@
   import Icon from "./Icon.svelte";
   import Tileset from "./Tileset";
 
-  let left: Tileset = new Tileset({});
-  let right: Tileset = new Tileset({});
-  let result: Tileset = new Tileset({});
+  let left: Tileset = new Tileset();
+  let right: Tileset = new Tileset();
+  let result: Tileset = new Tileset();
   let landscape: boolean = true;
 
   function merge(landscape: boolean) {
