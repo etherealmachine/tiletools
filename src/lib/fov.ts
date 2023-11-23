@@ -27,7 +27,7 @@ export default class FOV {
 
 	calculate() {
 		for(let i = 0; i < 8; i++) {
-			this.calculateOctant(1, 1.0, 0.0, this.radius, 
+			this.calculateOctant(0, 1.0, 0.0, this.radius, 
 				MATRIX[0][i], MATRIX[1][i], MATRIX[2][i], MATRIX[3][i]);
 		}
 	}
@@ -69,7 +69,7 @@ export default class FOV {
         } else {
           if (dx*dx + dy*dy < radius_squared) {
             this.lit.push(curr);
-          } 
+          }
 
           if (blocked) {
             if (this.blocked(curr)) {

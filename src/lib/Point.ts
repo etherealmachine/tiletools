@@ -25,7 +25,8 @@ export default class Point {
     return new Point(this.x, this.y);
   }
 
-  equals(p: Point): boolean {
+  equals(p: any): boolean {
+    if (!(p instanceof Point)) return false;
     return p.x === this.x && p.y === this.y;
   }
 

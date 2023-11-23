@@ -47,22 +47,81 @@
     tool = _tool;
   }
 
+  function drawArrow(
+    ctx: CanvasRenderingContext2D,
+    direction: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+  ) {
+    const miterLimit = ctx.miterLimit;
+    const strokeStyle = ctx.strokeStyle;
+    ctx.miterLimit = 1;
+    ctx.strokeStyle = "#0000ffff";
+    ctx.beginPath();
+    switch (direction) {
+      case 'down':
+        ctx.moveTo((x+0.5)*w, (y+0.2)*h);
+        ctx.lineTo((x+0.5)*w, (y+0.8)*h);
+        ctx.lineTo((x+0.2)*w, (y+0.5)*h);
+        ctx.lineTo((x+0.5)*w, (y+0.8)*h);
+        ctx.lineTo((x+0.8)*w, (y+0.5)*h);
+        break;
+      case 'up':
+        ctx.moveTo((x+0.5)*w, (y+0.8)*h);
+        ctx.lineTo((x+0.5)*w, (y+0.2)*h);
+        ctx.lineTo((x+0.2)*w, (y+0.5)*h);
+        ctx.lineTo((x+0.5)*w, (y+0.2)*h);
+        ctx.lineTo((x+0.8)*w, (y+0.5)*h);
+        break;
+      case 'left':
+        ctx.moveTo((x+0.8)*w, (y+0.5)*h);
+        ctx.lineTo((x+0.2)*w, (y+0.5)*h);
+        ctx.lineTo((x+0.5)*w, (y+0.2)*h);
+        ctx.lineTo((x+0.2)*w, (y+0.5)*h);
+        ctx.lineTo((x+0.5)*w, (y+0.8)*h);
+        break;
+      case 'right':
+        ctx.moveTo((x+0.2)*w, (y+0.5)*h);
+        ctx.lineTo((x+0.8)*w, (y+0.5)*h);
+        ctx.lineTo((x+0.5)*w, (y+0.2)*h);
+        ctx.lineTo((x+0.8)*w, (y+0.5)*h);
+        ctx.lineTo((x+0.5)*w, (y+0.8)*h);
+        break;
+    }
+    ctx.stroke();
+    ctx.miterLimit = miterLimit;
+    ctx.strokeStyle = strokeStyle;
+  }
+
   function drawDoor(
     ctx: CanvasRenderingContext2D,
     tileset: Tileset,
+    tile: Point,
+    color: string,
+  ) {
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = color;
+    ctx.strokeRect(
+      tile.x * tileset.tilewidth,
+      tile.y * tileset.tileheight,
+      tileset.tilewidth,
+      tileset.tileheight,
+    );
+  }
+
+  function drawDoorLink(
+    ctx: CanvasRenderingContext2D,
+    tileset: Tileset,
     from: Point,
+    fromColor: string,
     to: Point,
+    toColor: string,
   ) {
     if (tileset.type === "hex") {
     } else {
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#FF8000";
-      ctx.strokeRect(
-        from.x * tileset.tilewidth,
-        from.y * tileset.tileheight,
-        tileset.tilewidth,
-        tileset.tileheight,
-      );
+      drawDoor(ctx, tileset, from, fromColor);
       ctx.beginPath();
       ctx.moveTo(
         (from.x + 0.5) * tileset.tilewidth,
@@ -73,12 +132,7 @@
         (to.y + 0.5) * tileset.tileheight,
       );
       ctx.stroke();
-      ctx.strokeRect(
-        to.x * tileset.tilewidth,
-        to.y * tileset.tileheight,
-        tileset.tilewidth,
-        tileset.tileheight,
-      );
+      drawDoor(ctx, tileset, to, toColor);
     }
   }
 
@@ -140,7 +194,11 @@
       map.drawLayer(ctx, layer);
     }
     for (let [from, to] of map.tiledata.filter<Point>("door")) {
-      drawDoor(ctx, map.tileset, from, to);
+      drawDoorLink(
+        ctx,
+        map.tileset,
+        from, "#FF8000",
+        to, "#FF8000");
     }
     if (tool === Tool.Edit && mouseOver) {
       const randTile = map.tileset.randSelectedTile();
@@ -148,8 +206,10 @@
         map.tileset.drawTile(ctx, mouse, randTile);
       }
     }
-    if (tool === Tool.Door && doorStart) {
-      drawDoor(ctx, map.tileset, doorStart, mouse);
+    if (tool === Tool.Door) {
+      if (doorStart) {
+        drawDoorLink(ctx, map.tileset, doorStart, "#FF8000", mouse, "#FF8000");
+      }
     }
 
     ctx.lineWidth = 3;
