@@ -305,7 +305,9 @@ export function drawMap(
   map: Tilemap,
   camera: Camera,
   grid: boolean,
-  doorLinks: boolean,
+  walls: boolean,
+  doors: boolean,
+  water: boolean,
   selection: boolean,
   previewAt?: Point,
   previewDoor?: { from: Point; to: Point },
@@ -328,15 +330,61 @@ export function drawMap(
     drawMapGrid(ctx, map, camera);
   }
   map.draw(ctx);
-  if (doorLinks) {
-    for (let [from, to] of map.tiledata.filter<Point>("door")) {
-      drawDoorLink(ctx, map.tileset, from, "#FF8000", to, "#FF8000");
-    }
-  }
+
   if (previewAt) {
     const randTile = map.tileset.randSelectedTile();
     if (randTile) {
       map.tileset.drawTile(ctx, previewAt, randTile);
+    }
+  }
+
+  if (walls) {
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "red";
+    for (let wall of map.filter(d => !!d && (d['tags'] as string[]).includes('wall'))) {
+      const world = map.tileset.tileToWorld(wall);
+      switch (map.tileset.type) {
+        case "square":
+          drawRect(
+            ctx,
+            world.x,
+            world.y,
+            map.tileset.tilewidth,
+            map.tileset.tileheight,
+          );
+          break;
+        case "hex":
+          drawHexagon(ctx, world.x, world.y, map.tileset.radius());
+          break;
+      }
+    }
+  }
+
+  if (water) {
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "blue";
+    for (let water of map.filter(d => !!d && (d['tags'] as string[]).includes('water'))) {
+      const world = map.tileset.tileToWorld(water);
+      switch (map.tileset.type) {
+        case "square":
+          drawRect(
+            ctx,
+            world.x,
+            world.y,
+            map.tileset.tilewidth,
+            map.tileset.tileheight,
+          );
+          break;
+        case "hex":
+          drawHexagon(ctx, world.x, world.y, map.tileset.radius());
+          break;
+      }
+    }
+  }
+
+  if (doors) {
+    for (let [from, to] of map.tiledata.filter<Point>("door")) {
+      drawDoorLink(ctx, map.tileset, from, "#FF8000", to, "#FF8000");
     }
   }
   if (previewDoor) {

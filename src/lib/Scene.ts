@@ -1,5 +1,5 @@
 import { Camera } from "./Camera";
-import type Point from "./Point";
+import Point from "./Point";
 import type Tilemap from "./Tilemap";
 import { drawScene, setupCanvasContext } from "./draw";
 import FOV from "./fov";
@@ -41,9 +41,10 @@ export default class Scene {
     this.viewport = { width: 0, height: 0 };
     this.camera = new Camera();
     this.tilemap = tilemap;
-    const paths = this.tilemap.filter(
+    let paths = this.tilemap.filter(
       (d) => !!d && (d["tags"] as string[]).includes("path"),
     );
+    if (paths.length === 0) paths = [new Point(0, 0)];
     this.addCharacter({
       name: "Player",
       token:

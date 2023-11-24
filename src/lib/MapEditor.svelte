@@ -27,6 +27,9 @@
   let mouse: Point = new Point(-1, -1);
   let drag: Point | undefined;
   let grid: boolean = true;
+  let walls: boolean = false;
+  let doors: boolean = true;
+  let water: boolean = false;
   let mouseOver: boolean = false;
 
   function setTool(_tool: Tool) {
@@ -45,7 +48,9 @@
       map,
       camera,
       grid,
-      true,
+      walls,
+      doors,
+      water,
       true,
       tool === Tool.Edit ? mouse : undefined,
       tool === Tool.Door && doorStart
@@ -191,7 +196,7 @@
     }
   }
 
-  $: triggerRedraw(map, grid, camera, drag, mouse, mouseOver);
+  $: triggerRedraw(map, grid, walls, doors, water, camera, drag, mouse, mouseOver);
 </script>
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">
@@ -199,6 +204,18 @@
     <label>
       <input type="checkbox" bind:checked={grid} />
       Grid
+    </label>
+    <label>
+      <input type="checkbox" bind:checked={walls} />
+      Walls
+    </label>
+    <label>
+      <input type="checkbox" bind:checked={doors} />
+      Doors
+    </label>
+    <label>
+      <input type="checkbox" bind:checked={water} />
+      Water
     </label>
     <button
       on:click={() => setTool(Tool.Select)}
@@ -279,6 +296,7 @@
       />
     </div>
     <div style="display: flex; flex-direction: column; gap: 4px;">
+      
       <button
         on:click={() => {
           editingLayers = !editingLayers;
