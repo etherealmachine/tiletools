@@ -11,12 +11,14 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import Tilemap from "./Tilemap";
-  import { drawDoorLink, drawHexagon, drawMap, drawMapGrid, drawRect, screenToTile } from "./draw";
+  import { drawMap } from "./draw";
   import Point from "./Point";
   import TiledataEditor from "./TiledataEditor.svelte";
+  import { Camera } from "./Camera";
 
-  // TODO: Select location, copy/paste layers
+  // TODO: Copy/paste layers
   export let map: Tilemap = new Tilemap();
+  export let camera: Camera = new Camera();
 
   let canvas: HTMLCanvasElement;
   let tool: Tool = Tool.Select;
@@ -25,30 +27,28 @@
   let mouse: Point = new Point(-1, -1);
   let drag: Point | undefined;
   let grid: boolean = true;
-  let zoom: number = 1;
   let mouseOver: boolean = false;
-  let offset: Point = new Point(0, 0);
 
   function setTool(_tool: Tool) {
     tool = _tool;
   }
 
   function draw() {
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
     const W = (canvas.parentElement?.scrollWidth || 0) - 4;
     const H = (canvas.parentElement?.scrollHeight || 0) - 4;
     canvas.width = W;
     canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
     drawMap(
-      ctx, map, offset, zoom, grid, true, true,
+      ctx, map, camera, grid, true, true,
       tool === Tool.Edit ? mouse : undefined,
       (tool === Tool.Door && doorStart) ? { from: doorStart, to: mouse } : undefined,
     );
   }
 
   function onPointerDown(e: PointerEvent) {
-    mouse = screenToTile(new Point(e.offsetX, e.offsetY), offset, zoom, map.tileset);
+    mouse = camera.screenToTile(new Point(e.offsetX, e.offsetY), map.tileset);
     drag = mouse.clone();
     if (e.buttons === 1) {
       if (tool === Tool.Erase) {
@@ -86,7 +86,7 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    mouse = screenToTile(new Point(e.offsetX, e.offsetY), offset, zoom, map.tileset);
+    mouse = camera.screenToTile(new Point(e.offsetX, e.offsetY), map.tileset);
     if (e.buttons === 1) {
       if (tool === Tool.Erase) {
         map.erase(mouse);
@@ -104,21 +104,21 @@
       }
       map = map;
     } else if (e.ctrlKey) {
-      offset.x += e.movementX;
-      offset.y += e.movementY;
+      camera.center.x += e.movementX;
+      camera.center.y += e.movementY;
     }
   }
 
   function onWheel(e: WheelEvent) {
-    const prevZoom = zoom;
+    const prevZoom = camera.zoom;
     if (e.deltaY < 0) {
-      zoom *= 1.1;
+      camera.zoom *= 1.1;
     } else if (e.deltaY > 0) {
-      zoom *= 0.9;
+      camera.zoom *= 0.9;
     }
-    zoom = Math.min(Math.max(0.25, zoom), 8);
-    offset.x = (-zoom * (e.offsetX - offset.x)) / prevZoom + e.offsetX;
-    offset.y = (-zoom * (e.offsetY - offset.y)) / prevZoom + e.offsetY;
+    camera.zoom = Math.min(Math.max(0.25, camera.zoom), 8);
+    camera.center.x = (-camera.zoom * (e.offsetX - camera.center.x)) / prevZoom + e.offsetX;
+    camera.center.y = (-camera.zoom * (e.offsetY - camera.center.y)) / prevZoom + e.offsetY;
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -138,19 +138,19 @@
         e.preventDefault();
         break;
       case e.key === "ArrowLeft":
-        offset.x += zoom * map.tileset.offsetWidth();
+        camera.center.x += camera.zoom * map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
-        offset.x -= zoom * map.tileset.offsetWidth();
+        camera.center.x -= camera.zoom * map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
-        offset.y += zoom * map.tileset.offsetHeight();
+        camera.center.y += camera.zoom * map.tileset.offsetHeight();
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
-        offset.y -= zoom * map.tileset.offsetHeight();
+        camera.center.y -= camera.zoom * map.tileset.offsetHeight();
         e.preventDefault();
         break;
       case e.key === "Backspace" || e.key === "Delete":
@@ -182,7 +182,7 @@
     }
   }
 
-  $: triggerRedraw(map, grid, zoom, offset, drag, mouse, mouseOver);
+  $: triggerRedraw(map, grid, camera, drag, mouse, mouseOver);
 </script>
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">

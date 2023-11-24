@@ -34,7 +34,12 @@ export default class PNGWithMetadata {
   constructor(
     filename: string,
     metadata: { [key: string]: JSONValue },
-    img: HTMLCanvasElement | HTMLImageElement | ImageBitmap | ArrayBuffer | string,
+    img:
+      | HTMLCanvasElement
+      | HTMLImageElement
+      | ImageBitmap
+      | ArrayBuffer
+      | string,
   ) {
     this.filename = filename;
     this.metadata = metadata;

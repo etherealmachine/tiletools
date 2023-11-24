@@ -578,7 +578,7 @@ export default class Tileset {
   }
 
   download() {
-    this.syncTiles().then(tileset => {
+    this.syncTiles().then((tileset) => {
       tileset.png()?.download();
     });
   }

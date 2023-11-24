@@ -12,11 +12,7 @@
     fetch(`/weave/examples/${data.url}`).then(resp => {
       resp.arrayBuffer().then(buf => {
         Tilemap.from(buf).then(tilemap => {
-          scene = new Scene({
-            centerX: 0,
-            centerY: 0,
-            zoom: 1,
-          }, tilemap);
+          scene = new Scene(tilemap);
         });
       });
     });

@@ -1,11 +1,12 @@
+import { Camera } from "./Camera";
 import type Point from "./Point";
 import type Tilemap from "./Tilemap";
+import { drawScene, setupCanvasContext } from "./draw";
 import FOV from "./fov";
 
-export interface Camera {
-  centerX: number;
-  centerY: number;
-  zoom: number;
+export interface Viewport {
+  width: number;
+  height: number;
 }
 
 export interface Character {
@@ -29,16 +30,20 @@ export interface Item {
 }
 
 export default class Scene {
+  viewport: Viewport;
   camera: Camera;
   tilemap: Tilemap;
   characters: Character[] = [];
   seen: { [key: string]: boolean } = {};
   fov: FOV | undefined;
 
-  constructor(camera: Camera, tilemap: Tilemap) {
-    this.camera = camera;
+  constructor(tilemap: Tilemap) {
+    this.viewport = { width: 0, height: 0 };
+    this.camera = new Camera();
     this.tilemap = tilemap;
-    const paths = this.tilemap.filter(d => !!d && (d['tags'] as string[]).includes("path"));
+    const paths = this.tilemap.filter(
+      (d) => !!d && (d["tags"] as string[]).includes("path"),
+    );
     this.addCharacter({
       name: "Player",
       token:
@@ -64,41 +69,78 @@ export default class Scene {
   }
 
   currentPlayer(): Character | undefined {
-    return this.characters.find(c => c.controlled_by === "current_player");
+    return this.characters.find((c) => c.controlled_by === "current_player");
   }
 
   moveCharacter(character: Character, dx: number, dy: number) {
     const newPos = character.position.add(dx, dy);
-    const door = this.tilemap.tiledata.filter<Point>("door").find(([from, _to]) => {
-      return newPos.x === from.x && newPos.y === from.y;
-    });
+    const door = this.tilemap.tiledata
+      .filter<Point>("door")
+      .find(([from, _to]) => {
+        return newPos.x === from.x && newPos.y === from.y;
+      });
     if (door && !door[1].equals(character.position)) {
       character.position = door[1].clone();
     } else {
       const positionData = this.tilemap.dataAt(newPos);
-      if (positionData.some(d => d['tags'] && (d['tags'] as string[]).includes('wall'))) {
-        const currDoor = this.tilemap.tiledata.get<Point|undefined>(character.position, 'door', undefined);
+      if (
+        positionData.some(
+          (d) => d["tags"] && (d["tags"] as string[]).includes("wall"),
+        )
+      ) {
+        const currDoor = this.tilemap.tiledata.get<Point | undefined>(
+          character.position,
+          "door",
+          undefined,
+        );
         if (currDoor) {
           character.position = currDoor;
         } else {
           return;
         }
       } else {
-        if (this.tilemap.layers.every(layer => !layer.tiles[newPos.toString()])) {
+        if (
+          this.tilemap.layers.every((layer) => !layer.tiles[newPos.toString()])
+        ) {
           return;
         }
         character.position = newPos;
       }
     }
-    this.fov = new FOV(character.position, 10, (pos: Point): boolean => {
-      const positionData = this.tilemap.dataAt(pos);
-      return positionData.some(d => d['tags'] && (d['tags'] as string[]).includes('wall'));
-    }, (pos: Point) => {
-      return this.tilemap.layers.every(layer => layer.tiles[pos.toString()] === undefined);
-    });
+    this.fov = new FOV(
+      character.position,
+      10,
+      (pos: Point): boolean => {
+        const positionData = this.tilemap.dataAt(pos);
+        return positionData.some(
+          (d) => d["tags"] && (d["tags"] as string[]).includes("wall"),
+        );
+      },
+      (pos: Point) => {
+        return this.tilemap.layers.every(
+          (layer) => layer.tiles[pos.toString()] === undefined,
+        );
+      },
+    );
     this.fov.calculate();
     for (let pos of this.fov.lit) {
       this.seen[pos.toString()] = true;
     }
+    this.centerCameraOnCurrentCharacter();
+  }
+
+  centerCameraOnCurrentCharacter() {
+    const c = this.currentPlayer();
+    if (c) {
+      this.camera.center.x = c.position.x * this.tilemap.tileset.tilewidth;
+      this.camera.center.y = c.position.y * this.tilemap.tileset.tileheight;
+    }
+  }
+
+  draw(canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    setupCanvasContext(ctx, this.camera);
+    drawScene(ctx, this);
   }
 }

@@ -11,14 +11,7 @@
     if (files === null) return;
     const file = files[0];
     Tilemap.from(file).then(tilemap => {
-      scene = new Scene(
-        {
-          centerX: 0,
-          centerY: 0,
-          zoom: 1,
-        },
-        tilemap,
-      );
+      scene = new Scene(tilemap);
     });
   }
 </script>

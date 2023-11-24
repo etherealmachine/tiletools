@@ -12,17 +12,17 @@
 
   import Icon from "./Icon.svelte";
   import Tileset from "./Tileset";
-  import { drawHexagon, drawRect, screenToWorld, worldToScreen } from "./draw";
+  import { drawHexagon, drawRect } from "./draw";
   import Point from "./Point";
+  import { Camera } from "./Camera";
 
   export let tileset: Tileset = new Tileset();
   export let maxWidth: string | undefined = undefined;
 
   let canvas: HTMLCanvasElement | undefined;
-  let zoom: number = 2;
+  let camera: Camera = new Camera();
   let mouseOver: boolean = false;
   let mouseDown: boolean = false;
-  let offset: Point = new Point(0, 0);
   let mouse: Point = new Point(-1, -1);
   let drag: Point | undefined;
   let tagString: string = "";
@@ -44,17 +44,17 @@
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
-    ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
+    ctx.setTransform(camera.zoom, 0, 0, camera.zoom, camera.center.x, camera.center.y);
 
     if (tileset.tiles.length > 0) {
       for (let i = 0; i < tileset.tiles.length; i++) {
         const tile = tileset.tiles[i];
         if (!tile.img) continue;
         const dest = tileset.tileToImgCoords(tile.loc);
-        const source = worldToScreen(dest, offset, zoom);
+        const source = camera.worldToScreen(dest);
         if (
-          source.x < -tileset.tilewidth * zoom ||
-          source.y < -tileset.tileheight * zoom ||
+          source.x < -tileset.tilewidth * camera.zoom ||
+          source.y < -tileset.tileheight * camera.zoom ||
           source.x > W ||
           source.y > H
         )
@@ -85,7 +85,7 @@
       return;
     }
 
-    ctx.lineWidth = 1 / zoom;
+    ctx.lineWidth = 1 / camera.zoom;
     if (mouseOver) {
       if (tool === Tool.Select) {
         const p = tileset.tileToImgCoords(tileset.imgCoordsToTile(mouse));
@@ -123,15 +123,16 @@
   }
 
   function onWheel(e: WheelEvent) {
-    const prevZoom = zoom;
+    // TODO: Move zoom to into Camera
+    const prevZoom = camera.zoom;
     if (e.deltaY < 0) {
-      zoom *= 1.1;
+      camera.zoom *= 1.1;
     } else if (e.deltaY > 0) {
-      zoom *= 0.9;
+      camera.zoom *= 0.9;
     }
-    zoom = Math.min(Math.max(0.05, zoom), 16);
-    offset.x = (-zoom * (e.offsetX - offset.x)) / prevZoom + e.offsetX;
-    offset.y = (-zoom * (e.offsetY - offset.y)) / prevZoom + e.offsetY;
+    camera.zoom = Math.min(Math.max(0.05, camera.zoom), 16);
+    camera.center.x = (-camera.zoom * (e.offsetX - camera.center.x)) / prevZoom + e.offsetX;
+    camera.center.y = (-camera.zoom * (e.offsetY - camera.center.y)) / prevZoom + e.offsetY;
   }
 
   function parseColor(color: string): number[] | undefined {
@@ -185,7 +186,7 @@
   }
 
   function onPointerDown(e: PointerEvent) {
-    mouse = screenToWorld(new Point(e.offsetX, e.offsetY), offset, zoom);
+    mouse = camera.screenToWorld(new Point(e.offsetX, e.offsetY));
     drag = mouse.clone();
     mouseDown = true;
     if (tool === Tool.Edit) {
@@ -203,7 +204,7 @@
       tileset.setPixel(mouse.floor(), 0, 0, 0, 0);
       tileset = tileset;
     } else if (tool === Tool.Select) {
-      const world = screenToWorld(new Point(e.offsetX, e.offsetY), offset, zoom);
+      const world = camera.screenToWorld(new Point(e.offsetX, e.offsetY));
       if (!tileset.img) return;
       if (
         world.x < 0 ||
@@ -228,7 +229,7 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    mouse = screenToWorld(new Point(e.offsetX, e.offsetY), offset, zoom);
+    mouse = camera.screenToWorld(new Point(e.offsetX, e.offsetY));
     if (mouseDown) {
       if (tool === Tool.Edit) {
         tileset.setPixel(
@@ -254,8 +255,8 @@
         tileset = tileset;
       }
     } else if (e.ctrlKey) {
-      offset.x += e.movementX;
-      offset.y += e.movementY;
+      camera.center.x += e.movementX;
+      camera.center.y += e.movementY;
     }
   }
 
@@ -278,9 +279,8 @@
     if (!file) return;
     Tileset.from(file).then((_tileset) => {
       tileset = _tileset;
-      offset.x = 0;
-      offset.y = 0;
-      zoom = 2;
+      camera = new Camera();
+      camera.zoom = 2;
     });
   }
 
@@ -353,10 +353,10 @@
         const maxZoom =
           Math.min(w, h) / Math.max(tileset.tilewidth, tileset.tileheight);
         const p = tileset.tileToImgCoords(tileset.selectedTiles[0]);
-        zoom = maxZoom;
-        const centerX = w / 2 - (tileset.tilewidth * zoom) / 2;
-        offset.x = -p.x * zoom + centerX;
-        offset.y = -p.y * zoom;
+        camera.zoom = maxZoom;
+        const centerX = w / 2 - (tileset.tilewidth * camera.zoom) / 2;
+        camera.center.x = -p.x * camera.zoom + centerX;
+        camera.center.y = -p.y * camera.zoom;
         e.preventDefault();
         break;
       case e.key === "i" && tileset.selectedTiles.length === 1:
@@ -401,33 +401,33 @@
         break;
       case e.key === "ArrowLeft":
         if (e.shiftKey) {
-          offset.x += zoom;
+          camera.center.x += camera.zoom;
         } else {
-          offset.x += zoom * tileset.offsetWidth();
+          camera.center.x += camera.zoom * tileset.offsetWidth();
         }
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
         if (e.shiftKey) {
-          offset.x -= zoom;
+          camera.center.x -= camera.zoom;
         } else {
-          offset.x -= zoom * tileset.offsetWidth();
+          camera.center.x -= camera.zoom * tileset.offsetWidth();
         }
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
         if (e.shiftKey) {
-          offset.y += zoom;
+          camera.center.y += camera.zoom;
         } else {
-          offset.y += zoom * tileset.offsetHeight();
+          camera.center.y += camera.zoom * tileset.offsetHeight();
         }
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
         if (e.shiftKey) {
-          offset.y -= zoom;
+          camera.center.y -= camera.zoom;
         } else {
-          offset.y -= zoom * tileset.offsetHeight();
+          camera.center.y -= camera.zoom * tileset.offsetHeight();
         }
         e.preventDefault();
         break;
@@ -451,8 +451,7 @@
     color,
     alpha,
     tool,
-    zoom,
-    offset,
+    camera,
     filter,
     mouse,
     mouseOver,
