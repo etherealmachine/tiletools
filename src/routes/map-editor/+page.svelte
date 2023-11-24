@@ -21,7 +21,7 @@
     }
   }
 
-  $: mapChanged(map)
+  $: mapChanged(map);
   $: tilesetChanged(tileset);
 
   let autosaver: number | undefined;
@@ -44,8 +44,8 @@
   onMount(() => {
     const url = localStorage.getItem("tilemap");
     if (url) {
-      Tilemap.from(url).then(_map => {
-        map= _map;
+      Tilemap.from(url).then((_map) => {
+        map = _map;
       });
     }
   });

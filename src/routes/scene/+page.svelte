@@ -10,7 +10,7 @@
     const files = (e.target as HTMLInputElement).files;
     if (files === null) return;
     const file = files[0];
-    Tilemap.from(file).then(tilemap => {
+    Tilemap.from(file).then((tilemap) => {
       scene = new Scene(tilemap);
     });
   }

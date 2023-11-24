@@ -44,7 +44,14 @@
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, W, H);
-    ctx.setTransform(camera.zoom, 0, 0, camera.zoom, camera.center.x, camera.center.y);
+    ctx.setTransform(
+      camera.zoom,
+      0,
+      0,
+      camera.zoom,
+      camera.center.x,
+      camera.center.y,
+    );
 
     if (tileset.tiles.length > 0) {
       for (let i = 0; i < tileset.tiles.length; i++) {
@@ -131,8 +138,10 @@
       camera.zoom *= 0.9;
     }
     camera.zoom = Math.min(Math.max(0.05, camera.zoom), 16);
-    camera.center.x = (-camera.zoom * (e.offsetX - camera.center.x)) / prevZoom + e.offsetX;
-    camera.center.y = (-camera.zoom * (e.offsetY - camera.center.y)) / prevZoom + e.offsetY;
+    camera.center.x =
+      (-camera.zoom * (e.offsetX - camera.center.x)) / prevZoom + e.offsetX;
+    camera.center.y =
+      (-camera.zoom * (e.offsetY - camera.center.y)) / prevZoom + e.offsetY;
   }
 
   function parseColor(color: string): number[] | undefined {
@@ -447,7 +456,6 @@
 
   $: triggerRedraw(
     tileset,
-    // Note: Adding bitmap here would make sense but has bad performance. Needs investigation.
     color,
     alpha,
     tool,

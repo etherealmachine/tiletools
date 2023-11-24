@@ -41,9 +41,16 @@
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     drawMap(
-      ctx, map, camera, grid, true, true,
+      ctx,
+      map,
+      camera,
+      grid,
+      true,
+      true,
       tool === Tool.Edit ? mouse : undefined,
-      (tool === Tool.Door && doorStart) ? { from: doorStart, to: mouse } : undefined,
+      tool === Tool.Door && doorStart
+        ? { from: doorStart, to: mouse }
+        : undefined,
     );
   }
 
@@ -117,8 +124,10 @@
       camera.zoom *= 0.9;
     }
     camera.zoom = Math.min(Math.max(0.25, camera.zoom), 8);
-    camera.center.x = (-camera.zoom * (e.offsetX - camera.center.x)) / prevZoom + e.offsetX;
-    camera.center.y = (-camera.zoom * (e.offsetY - camera.center.y)) / prevZoom + e.offsetY;
+    camera.center.x =
+      (-camera.zoom * (e.offsetX - camera.center.x)) / prevZoom + e.offsetX;
+    camera.center.y =
+      (-camera.zoom * (e.offsetY - camera.center.y)) / prevZoom + e.offsetY;
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -324,7 +333,7 @@
         }}><Icon name="plus" /></button
       >
       {#if map && map.selectedTiles.length === 1}
-        <TiledataEditor bind:map={map} />
+        <TiledataEditor bind:map />
       {/if}
     </div>
   </div>

@@ -16,7 +16,7 @@
 
   function autosave() {
     if (!browser) return;
-    tileset.syncTiles().then(tileset => {
+    tileset.syncTiles().then((tileset) => {
       const png = tileset.png();
       if (png) {
         localStorage.setItem("tileset", png.dataURL());
@@ -27,7 +27,7 @@
   onMount(() => {
     const url = localStorage.getItem("tileset");
     if (url) {
-      Tileset.from(url).then(_tileset => {
+      Tileset.from(url).then((_tileset) => {
         tileset = _tileset;
       });
     }

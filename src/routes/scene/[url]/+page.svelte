@@ -9,9 +9,9 @@
   let scene: Scene | undefined;
 
   onMount(() => {
-    fetch(`/weave/examples/${data.url}`).then(resp => {
-      resp.arrayBuffer().then(buf => {
-        Tilemap.from(buf).then(tilemap => {
+    fetch(`/weave/examples/${data.url}`).then((resp) => {
+      resp.arrayBuffer().then((buf) => {
+        Tilemap.from(buf).then((tilemap) => {
           scene = new Scene(tilemap);
         });
       });
@@ -23,6 +23,6 @@
   style="display: flex; gap: 16px; justify-content: space-between; width: 100%;"
 >
   {#if scene}
-    <SceneUI scene={scene} />
+    <SceneUI {scene} />
   {/if}
 </div>
