@@ -4,7 +4,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type Scene from "./Scene";
-  import { drawScene, setupCanvasContext } from "./draw";
+  import CharacterEditor from "./CharacterEditor.svelte";
 
   export let scene: Scene;
 
@@ -65,7 +65,7 @@
   });
 </script>
 
-<div style="display: flex; flex-direction: column; flex-grow: 1;">
+<div style="display: flex; flex-direction: row; flex-grow: 1;">
   <div class="canvas">
     <canvas
       style="position: absolute;"
@@ -79,6 +79,12 @@
       bind:this={canvas}
     />
   </div>
+  {#each [0] as _}
+    {@const character = scene.currentPlayer()}
+    {#if character}
+      <CharacterEditor character={character} />
+    {/if}
+  {/each}
 </div>
 
 <style>
