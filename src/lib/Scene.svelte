@@ -7,7 +7,7 @@
   import PNGWithMetadata from "./PNGWithMetadata";
   import Point from "./Point";
   import FOV from "./fov";
-    import { drawRect } from "./draw";
+    import { drawCharacter, drawRect } from "./draw";
 
   export let scene: Scene;
 
@@ -78,23 +78,7 @@
       }
     }
     for (let c of scene.characters) {
-      if (typeof c.token === "string") {
-        new PNGWithMetadata("", {}, c.token)
-          .bitmap()
-          .then((img) => {
-            c.token = img;
-          });
-      } else if (c.token instanceof ImageBitmap) {
-        const [x, y] = [c.position.x * w, c.position.y * h];
-        ctx.drawImage(c.token, x, y, w, h);
-        ctx.fillStyle = "red";
-        ctx.fillRect(
-          x,
-          y - 1,
-          tilemap.tileset.tilewidth * (c.health.current / c.health.max),
-          1,
-        );
-      }
+      drawCharacter(ctx, c, tilemap.tileset);
     }
     requestAnimationFrame(draw);
   }

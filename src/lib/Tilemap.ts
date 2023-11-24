@@ -264,6 +264,13 @@ export default class Tilemap {
     return locs;
   }
 
+  draw(ctx: CanvasRenderingContext2D) {
+    for (let layer of this.layers) {
+      if (!layer.visible) continue;
+      this.drawLayer(ctx, layer);
+    }
+  }
+
   drawLayer(ctx: CanvasRenderingContext2D, layer: Layer) {
     for (let [loc, tile] of Object.entries(layer.tiles).sort((a, b) => {
       const [pa, pb] = [Point.from(a[0]), Point.from(b[0])];

@@ -1,4 +1,7 @@
+import PNGWithMetadata from "./PNGWithMetadata";
 import Point from "./Point";
+import type { Character } from "./Scene";
+import type Tilemap from "./Tilemap";
 import type Tileset from "./Tileset";
 
 export function drawHexagon(
@@ -114,6 +117,22 @@ export function colors(buf: ImageData): Set<string> {
   return colors;
 }
 
+export function screenToWorld(screen: Point, offset: Point, zoom: number): Point {
+  return new Point(
+    (screen.x - offset.x) / zoom,
+    (screen.y - offset.y) / zoom,
+  );
+}
+
+export function worldToScreen(world: Point, offset: Point, zoom: number): Point {
+  return new Point(world.x * zoom + offset.x, world.y * zoom + offset.y);
+}
+
+export function screenToTile(screen: Point, offset: Point, zoom: number, tileset: Tileset): Point {
+  const world = screenToWorld(screen, offset, zoom);
+  return tileset.worldToTile(world);
+}
+
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
   direction: string,
@@ -203,10 +222,24 @@ export function drawDoorLink(
   }
 }
 
+export function drawMapGrid(
+  ctx: CanvasRenderingContext2D,
+  map: Tilemap,
+  offset: Point,
+  zoom: number,
+) {
+  if (map.tileset.type === "hex") {
+    drawHexGrid(ctx, map.tileset, offset, zoom, ctx.canvas.width*zoom, ctx.canvas.height*zoom);
+  } else {
+    drawSquareGrid(ctx, map.tileset, offset, zoom, ctx.canvas.width*zoom, ctx.canvas.height*zoom);
+  }
+}
+
 export function drawHexGrid(
   ctx: CanvasRenderingContext2D,
   tileset: Tileset,
-  screenToWorld: (p: Point) => Point,
+  offset: Point,
+  zoom: number,
   width: number,
   height: number,
 ) {
@@ -214,7 +247,7 @@ export function drawHexGrid(
   const vert = Math.sqrt(3) * radius;
   const horiz = (3 / 2) * radius;
   const halfVert = (1 / 2) * vert;
-  let zero = screenToWorld(new Point(0, 0));
+  let zero = screenToWorld(new Point(0, 0), offset, zoom);
   zero.x = Math.floor(zero.x / horiz);
   zero.y = Math.floor(zero.y / vert);
   const [w, h] = [width / horiz, height/ vert];
@@ -228,11 +261,12 @@ export function drawHexGrid(
 export function drawSquareGrid(
   ctx: CanvasRenderingContext2D,
   tileset: Tileset,
-  screenToWorld: (p: Point) => Point,
+  offset: Point,
+  zoom: number,
   width: number,
   height: number,
 ) {
-  let zero = screenToWorld(new Point(0, 0));
+  let zero = screenToWorld(new Point(0, 0), offset, zoom);
   zero.x = Math.floor(zero.x / tileset.tilewidth);
   zero.y = Math.floor(zero.y / tileset.tileheight);
   const [w, h] = [width / tileset.tilewidth, height / tileset.tileheight];
@@ -247,4 +281,95 @@ export function drawSquareGrid(
       );
     }
   }
+}
+
+export function drawMap(
+  ctx: CanvasRenderingContext2D,
+  map: Tilemap,
+  offset: Point,
+  zoom: number,
+  grid: boolean,
+  doorLinks: boolean,
+  selection: boolean,
+  previewAt?: Point,
+  previewDoor?: { from: Point, to: Point },
+) {
+  ctx.imageSmoothingEnabled = false;
+  ctx.resetTransform();
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#ffffff77";
+
+  if (grid) {
+    drawMapGrid(ctx, map, offset, zoom);
+  }
+  map.draw(ctx);
+  if (doorLinks) {
+    for (let [from, to] of map.tiledata.filter<Point>("door")) {
+      drawDoorLink(
+        ctx,
+        map.tileset,
+        from, "#FF8000",
+        to, "#FF8000");
+    }
+  }
+  if (previewAt) {
+    const randTile = map.tileset.randSelectedTile();
+    if (randTile) {
+      map.tileset.drawTile(ctx, previewAt, randTile);
+    }
+  }
+  if (previewDoor) {
+    drawDoorLink(ctx, map.tileset, previewDoor.from, "#FF8000", previewDoor.to, "#FF8000");
+  }
+
+  if (selection) {
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "white";
+    map.selectedTiles.forEach((loc) => {
+      const world = map.tileset.tileToWorld(loc);
+      switch (map.tileset.type) {
+        case "square":
+          drawRect(ctx, world.x, world.y, map.tileset.tilewidth, map.tileset.tileheight);
+          break;
+        case "hex":
+          drawHexagon(
+            ctx,
+            world.x,
+            world.y,
+            map.tileset.radius(),
+          );
+          break;
+      }
+    });
+  }
+}
+
+export function drawCharacter(
+  ctx: CanvasRenderingContext2D,
+  c: Character,
+  tileset: Tileset,
+) {
+  if (typeof c.token === "string") {
+    new PNGWithMetadata("", {}, c.token)
+      .bitmap()
+      .then((img) => {
+        c.token = img;
+      });
+  } else if (c.token instanceof ImageBitmap) {
+    const [x, y] = [c.position.x * tileset.tilewidth, c.position.y * tileset.tileheight];
+    ctx.drawImage(c.token, x, y, tileset.tilewidth, tileset.tileheight);
+    ctx.fillStyle = "red";
+    ctx.fillRect(
+      x,
+      y - 1,
+      tileset.tilewidth * (c.health.current / c.health.max),
+      1,
+    );
+  }
+}
+
+export function drawCharacters() {
+
 }

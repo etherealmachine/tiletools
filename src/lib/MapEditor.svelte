@@ -11,8 +11,7 @@
 <script lang="ts">
   import Icon from "./Icon.svelte";
   import Tilemap from "./Tilemap";
-  import type Tileset from "./Tileset";
-  import { drawDoorLink, drawHexGrid, drawHexagon, drawRect, drawSquareGrid } from "./draw";
+  import { drawDoorLink, drawHexagon, drawMap, drawMapGrid, drawRect, screenToTile } from "./draw";
   import Point from "./Point";
   import TiledataEditor from "./TiledataEditor.svelte";
 
@@ -30,19 +29,6 @@
   let mouseOver: boolean = false;
   let offset: Point = new Point(0, 0);
 
-  function screenToWorld(screen: Point): Point {
-    return new Point(
-      (screen.x - offset.x) / zoom,
-      (screen.y - offset.y) / zoom,
-    );
-  }
-
-  function screenToTile(screen: Point): Point {
-    const world = screenToWorld(screen);
-    if (!map.tileset) return new Point(0, 0);
-    return map.tileset.worldToTile(world);
-  }
-
   function setTool(_tool: Tool) {
     tool = _tool;
   }
@@ -54,68 +40,15 @@
     const H = (canvas.parentElement?.scrollHeight || 0) - 4;
     canvas.width = W;
     canvas.height = H;
-    ctx.imageSmoothingEnabled = false;
-    ctx.resetTransform();
-    ctx.clearRect(0, 0, W, H);
-    ctx.setTransform(zoom, 0, 0, zoom, offset.x, offset.y);
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "#ffffff77";
-
-    const tilewidth = map.tileset.tilewidth;
-    const tileheight = map.tileset.tileheight;
-
-    if (grid && tilewidth > 0 && tileheight > 0) {
-      if (map.tileset.type === "hex") {
-        drawHexGrid(ctx, map.tileset, screenToWorld, canvas.width*zoom, canvas.height*zoom);
-      } else {
-        drawSquareGrid(ctx, map.tileset, screenToWorld, canvas.width*zoom, canvas.height*zoom);
-      }
-    }
-    for (let layer of map.layers) {
-      if (!layer.visible) continue;
-      map.drawLayer(ctx, layer);
-    }
-    for (let [from, to] of map.tiledata.filter<Point>("door")) {
-      drawDoorLink(
-        ctx,
-        map.tileset,
-        from, "#FF8000",
-        to, "#FF8000");
-    }
-    if (tool === Tool.Edit && mouseOver) {
-      const randTile = map.tileset.randSelectedTile();
-      if (randTile) {
-        map.tileset.drawTile(ctx, mouse, randTile);
-      }
-    }
-    if (tool === Tool.Door) {
-      if (doorStart) {
-        drawDoorLink(ctx, map.tileset, doorStart, "#FF8000", mouse, "#FF8000");
-      }
-    }
-
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "white";
-    map.selectedTiles.forEach((loc) => {
-      const world = map.tileset.tileToWorld(loc);
-      switch (map.tileset.type) {
-        case "square":
-          drawRect(ctx, world.x, world.y, tilewidth, tileheight);
-          break;
-        case "hex":
-          drawHexagon(
-            ctx,
-            world.x,
-            world.y,
-            map.tileset.radius(),
-          );
-          break;
-      }
-    });
+    drawMap(
+      ctx, map, offset, zoom, grid, true, true,
+      tool === Tool.Edit ? mouse : undefined,
+      (tool === Tool.Door && doorStart) ? { from: doorStart, to: mouse } : undefined,
+    );
   }
 
   function onPointerDown(e: PointerEvent) {
-    mouse = screenToTile(new Point(e.offsetX, e.offsetY));
+    mouse = screenToTile(new Point(e.offsetX, e.offsetY), offset, zoom, map.tileset);
     drag = mouse.clone();
     if (e.buttons === 1) {
       if (tool === Tool.Erase) {
@@ -153,7 +86,7 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    mouse = screenToTile(new Point(e.offsetX, e.offsetY));
+    mouse = screenToTile(new Point(e.offsetX, e.offsetY), offset, zoom, map.tileset);
     if (e.buttons === 1) {
       if (tool === Tool.Erase) {
         map.erase(mouse);

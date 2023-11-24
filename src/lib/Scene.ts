@@ -72,17 +72,23 @@ export default class Scene {
     const door = this.tilemap.tiledata.filter<Point>("door").find(([from, _to]) => {
       return newPos.x === from.x && newPos.y === from.y;
     });
-    if (door) {
+    if (door && !door[1].equals(character.position)) {
       character.position = door[1].clone();
     } else {
-      if (this.tilemap.layers.every(layer => !layer.tiles[newPos.toString()])) {
-        return;
-      }
       const positionData = this.tilemap.dataAt(newPos);
       if (positionData.some(d => d['tags'] && (d['tags'] as string[]).includes('wall'))) {
-        return;
+        const currDoor = this.tilemap.tiledata.get<Point|undefined>(character.position, 'door', undefined);
+        if (currDoor) {
+          character.position = currDoor;
+        } else {
+          return;
+        }
+      } else {
+        if (this.tilemap.layers.every(layer => !layer.tiles[newPos.toString()])) {
+          return;
+        }
+        character.position = newPos;
       }
-      character.position = newPos;
     }
     this.fov = new FOV(character.position, 10, (pos: Point): boolean => {
       const positionData = this.tilemap.dataAt(pos);

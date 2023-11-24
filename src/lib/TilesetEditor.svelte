@@ -12,7 +12,7 @@
 
   import Icon from "./Icon.svelte";
   import Tileset from "./Tileset";
-  import { drawHexagon, drawRect } from "./draw";
+  import { drawHexagon, drawRect, screenToWorld, worldToScreen } from "./draw";
   import Point from "./Point";
 
   export let tileset: Tileset = new Tileset();
@@ -33,17 +33,6 @@
   let alpha: number = 255;
   let degrees: number = 90;
 
-  function screenToWorld(screen: Point): Point {
-    return new Point(
-      (screen.x - offset.x) / zoom,
-      (screen.y - offset.y) / zoom,
-    );
-  }
-
-  function worldToScreen(world: Point): Point {
-    return new Point(world.x * zoom + offset.x, world.y * zoom + offset.y);
-  }
-
   function draw() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -62,7 +51,7 @@
         const tile = tileset.tiles[i];
         if (!tile.img) continue;
         const dest = tileset.tileToImgCoords(tile.loc);
-        const source = worldToScreen(dest);
+        const source = worldToScreen(dest, offset, zoom);
         if (
           source.x < -tileset.tilewidth * zoom ||
           source.y < -tileset.tileheight * zoom ||
@@ -196,7 +185,7 @@
   }
 
   function onPointerDown(e: PointerEvent) {
-    mouse = screenToWorld(new Point(e.offsetX, e.offsetY));
+    mouse = screenToWorld(new Point(e.offsetX, e.offsetY), offset, zoom);
     drag = mouse.clone();
     mouseDown = true;
     if (tool === Tool.Edit) {
@@ -214,7 +203,7 @@
       tileset.setPixel(mouse.floor(), 0, 0, 0, 0);
       tileset = tileset;
     } else if (tool === Tool.Select) {
-      const world = screenToWorld(new Point(e.offsetX, e.offsetY));
+      const world = screenToWorld(new Point(e.offsetX, e.offsetY), offset, zoom);
       if (!tileset.img) return;
       if (
         world.x < 0 ||
@@ -239,7 +228,7 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    mouse = screenToWorld(new Point(e.offsetX, e.offsetY));
+    mouse = screenToWorld(new Point(e.offsetX, e.offsetY), offset, zoom);
     if (mouseDown) {
       if (tool === Tool.Edit) {
         tileset.setPixel(
