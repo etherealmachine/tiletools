@@ -341,7 +341,9 @@ export function drawMap(
   if (walls) {
     ctx.lineWidth = 3;
     ctx.strokeStyle = "red";
-    for (let wall of map.filter(d => !!d && (d['tags'] as string[]).includes('wall'))) {
+    for (let wall of map.filter(
+      (d) => !!d && (d["tags"] as string[]).includes("wall"),
+    )) {
       const world = map.tileset.tileToWorld(wall);
       switch (map.tileset.type) {
         case "square":
@@ -363,7 +365,9 @@ export function drawMap(
   if (water) {
     ctx.lineWidth = 3;
     ctx.strokeStyle = "blue";
-    for (let water of map.filter(d => !!d && (d['tags'] as string[]).includes('water'))) {
+    for (let water of map.filter(
+      (d) => !!d && (d["tags"] as string[]).includes("water"),
+    )) {
       const world = map.tileset.tileToWorld(water);
       switch (map.tileset.type) {
         case "square":
@@ -426,16 +430,16 @@ export function drawCharacter(
   c: Character,
   tileset: Tileset,
 ) {
-  if (typeof c.token === "string") {
-    new PNGWithMetadata("", {}, c.token).bitmap().then((img) => {
-      c.token = img;
+  if (typeof c.sprite === "string") {
+    new PNGWithMetadata("", {}, c.sprite).bitmap().then((img) => {
+      c.sprite = img;
     });
-  } else if (c.token instanceof ImageBitmap) {
+  } else if (c.sprite instanceof ImageBitmap) {
     const [x, y] = [
       c.position.x * tileset.tilewidth,
       c.position.y * tileset.tileheight,
     ];
-    ctx.drawImage(c.token, x, y, tileset.tilewidth, tileset.tileheight);
+    ctx.drawImage(c.sprite, x, y, tileset.tilewidth, tileset.tileheight);
     ctx.fillStyle = "red";
     ctx.fillRect(
       x,

@@ -11,7 +11,8 @@ export interface Viewport {
 
 export interface Character {
   name: string;
-  token: string | ImageBitmap;
+  profile?: string | ImageBitmap;
+  sprite?: string | ImageBitmap;
   position: Point;
   health: {
     max: number;
@@ -19,6 +20,14 @@ export interface Character {
   };
   items: Item[];
   controlled_by: string;
+}
+
+export interface Container {
+  name: string;
+  sprite: string | ImageBitmap;
+  position: Point;
+  capacity: number;
+  weight: number;
 }
 
 export interface Item {
@@ -47,7 +56,7 @@ export default class Scene {
     if (paths.length === 0) paths = [new Point(0, 0)];
     this.addCharacter({
       name: "Player",
-      token:
+      sprite:
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABqklEQVQY06WRMUhbURSGv0h8kBKetppGBRErWaoQqEWMtIttdBCUgpQM9k51ELfQyUUcyltEdIiLnZ4WOnTQgkNLDbhUiGAQmqE8aHTQ6yNFQYKKBq5LiYnviRHPdC/nP9/9/3OJxyLKMAwVj0UUgGEYijuUNxAeRAiBaYIRHlRCCAClZ+Yc4vGlA48DACClRAiBlBIpJQDtjV4HIDHSoK5DiirTNAGIRqMAhIamyoatlUn3CLntb2RONslZkpkvGx5AiZeP+fl9ldf9AwAkZz8CGjoai8NP1Hp3rdMBQDwWUXpmDuvQSwtgraT+dzTaHlYXdce9fgDSyTxVpYBXLzrxt/YU76GhqbIoudMCudMC+9lDdwcA9cEmdu0uWs5SJbm1G7+xintWmYN/9j5vJz6ztpwgz1UUsvOVOah72sPacsIhWu+uJT0WJPXGR9/Cb3cH4VAjhT+/3J/xXx1/jHbQBQR8NvrRRXmE85pmHjQ0OwF7O7fvYNuSHD/fIaidu8i0ypZYWnbWOdTU+oiAz64MAPDpw5YH4P30M5VO5gHQjy6K/Xdf/3ouAbr/hlXyQ9uGAAAAAElFTkSuQmCC",
       position: paths[0].clone(),
       health: {
@@ -75,25 +84,17 @@ export default class Scene {
 
   moveCharacter(character: Character, dx: number, dy: number) {
     const newPos = character.position.add(dx, dy);
-    const door = this.tilemap.tiledata
-      .filter<Point>("door")
-      .find(([from, _to]) => {
-        return newPos.x === from.x && newPos.y === from.y;
-      });
-    if (door && !door[1].equals(character.position)) {
-      character.position = door[1].clone();
+    const doorTo = this.tilemap.dataAt<Point>(newPos, "door");
+    if (doorTo && !doorTo.equals(character.position)) {
+      character.position = doorTo.clone();
     } else {
-      const positionData = this.tilemap.dataAt(newPos);
+      const tags = this.tilemap.tagsAt(newPos);
       if (
-        positionData.some(
-          (d) => d["tags"] && (d["tags"] as string[]).includes("wall"),
-        )
+        tags &&
+        (tags.flat().includes("wall") ||
+          tags[tags.length - 1]?.includes("water"))
       ) {
-        const currDoor = this.tilemap.tiledata.get<Point | undefined>(
-          character.position,
-          "door",
-          undefined,
-        );
+        const currDoor = this.tilemap.dataAt<Point>(character.position, "door");
         if (currDoor) {
           character.position = currDoor;
         } else {
@@ -112,10 +113,7 @@ export default class Scene {
       character.position,
       10,
       (pos: Point): boolean => {
-        const positionData = this.tilemap.dataAt(pos);
-        return positionData.some(
-          (d) => d["tags"] && (d["tags"] as string[]).includes("wall"),
-        );
+        return !!this.tilemap.tagsAt(pos)?.flat().includes("wall");
       },
       (pos: Point) => {
         return this.tilemap.layers.every(

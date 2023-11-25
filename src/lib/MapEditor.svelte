@@ -196,7 +196,17 @@
     }
   }
 
-  $: triggerRedraw(map, grid, walls, doors, water, camera, drag, mouse, mouseOver);
+  $: triggerRedraw(
+    map,
+    grid,
+    walls,
+    doors,
+    water,
+    camera,
+    drag,
+    mouse,
+    mouseOver,
+  );
 </script>
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">
@@ -296,7 +306,6 @@
       />
     </div>
     <div style="display: flex; flex-direction: column; gap: 4px;">
-      
       <button
         on:click={() => {
           editingLayers = !editingLayers;

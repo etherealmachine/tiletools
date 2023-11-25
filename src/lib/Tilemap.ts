@@ -234,34 +234,6 @@ export default class Tilemap {
     }
   }
 
-  dataAt(loc: Point): { [key: string]: JSONValue }[] {
-    const data: { [key: string]: JSONValue }[] = [];
-    for (let i = this.layers.length - 1; i >= 0; i--) {
-      const layer = this.layers[i];
-      const tile = layer.tiles[loc.toString()];
-      if (tile) {
-        const td = this.tileset.tiledata.data[tile.toString()];
-        if (td) {
-          data.push(td);
-        }
-      }
-    }
-    return data;
-  }
-
-  filter(fn: (d?: { [key: string]: JSONValue }) => boolean): Point[] {
-    const locs: Point[] = [];
-    for (let i = this.layers.length - 1; i >= 0; i--) {
-      const layer = this.layers[i];
-      for (let [loc, tile] of Object.entries(layer.tiles)) {
-        if (fn(this.tileset.tiledata.data[tile.toString()])) {
-          locs.push(Point.from(loc));
-        }
-      }
-    }
-    return locs;
-  }
-
   draw(ctx: CanvasRenderingContext2D) {
     for (let layer of this.layers) {
       if (!layer.visible) continue;
@@ -340,6 +312,42 @@ export default class Tilemap {
       tilemap.tileset = await tilemap.tileset;
     }
     return tilemap;
+  }
+
+  dataAt<T extends JSONValue | undefined>(loc: Point, key: string): T {
+    return this.tiledata.get(loc, key, undefined) as T;
+  }
+
+  tagsAt(loc: Point): (string[] | undefined)[] | undefined {
+    return this.tilesetDataAt<string[]>(loc, "tags");
+  }
+
+  tilesetDataAt<T extends JSONValue>(
+    loc: Point,
+    key: string,
+  ): (T | undefined)[] {
+    const data = [];
+    for (let layer of this.layers) {
+      const tile = layer.tiles[loc.toString()];
+      if (tile) {
+        const td = this.tileset.tiledata.data[tile.toString()];
+        data.push(td ? (td[key] as T) : undefined);
+      }
+    }
+    return data;
+  }
+
+  filter(fn: (d?: { [key: string]: JSONValue }) => boolean): Point[] {
+    const locs: Point[] = [];
+    for (let i = this.layers.length - 1; i >= 0; i--) {
+      const layer = this.layers[i];
+      for (let [loc, tile] of Object.entries(layer.tiles)) {
+        if (fn(this.tileset.tiledata.data[tile.toString()])) {
+          locs.push(Point.from(loc));
+        }
+      }
+    }
+    return locs;
   }
 }
 Revivifiable(Tilemap);

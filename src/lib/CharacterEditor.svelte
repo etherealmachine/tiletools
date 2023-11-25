@@ -4,6 +4,6 @@
   export let character: Character;
 </script>
 
-<div>
+<div style="display: flex; flex-direction: column;">
   <span>{character.name}</span>
 </div>

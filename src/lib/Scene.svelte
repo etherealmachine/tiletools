@@ -82,7 +82,7 @@
   {#each [0] as _}
     {@const character = scene.currentPlayer()}
     {#if character}
-      <CharacterEditor character={character} />
+      <CharacterEditor {character} />
     {/if}
   {/each}
 </div>
