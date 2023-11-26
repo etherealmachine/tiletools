@@ -116,23 +116,18 @@
       }
       map = map;
     } else if (e.ctrlKey) {
-      camera.center.x += e.movementX;
-      camera.center.y += e.movementY;
+      camera.offset.x += e.movementX;
+      camera.offset.y += e.movementY;
     }
   }
 
   function onWheel(e: WheelEvent) {
-    const prevZoom = camera.zoom;
     if (e.deltaY < 0) {
-      camera.zoom *= 1.1;
+      camera.zoomTo(0.1, new Point(e.offsetX, e.offsetY));
     } else if (e.deltaY > 0) {
-      camera.zoom *= 0.9;
+      camera.zoomTo(-0.1, new Point(e.offsetX, e.offsetY));
     }
-    camera.zoom = Math.min(Math.max(0.25, camera.zoom), 8);
-    camera.center.x =
-      (-camera.zoom * (e.offsetX - camera.center.x)) / prevZoom + e.offsetX;
-    camera.center.y =
-      (-camera.zoom * (e.offsetY - camera.center.y)) / prevZoom + e.offsetY;
+    camera = camera;
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -152,19 +147,19 @@
         e.preventDefault();
         break;
       case e.key === "ArrowLeft":
-        camera.center.x += camera.zoom * map.tileset.offsetWidth();
+        camera.offset.x += camera.zoom * map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
-        camera.center.x -= camera.zoom * map.tileset.offsetWidth();
+        camera.offset.x -= camera.zoom * map.tileset.offsetWidth();
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
-        camera.center.y += camera.zoom * map.tileset.offsetHeight();
+        camera.offset.y += camera.zoom * map.tileset.offsetHeight();
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
-        camera.center.y -= camera.zoom * map.tileset.offsetHeight();
+        camera.offset.y -= camera.zoom * map.tileset.offsetHeight();
         e.preventDefault();
         break;
       case e.key === "Backspace" || e.key === "Delete":

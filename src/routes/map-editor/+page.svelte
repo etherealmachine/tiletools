@@ -12,6 +12,9 @@
   function mapChanged(map: Tilemap | undefined) {
     if (map && map.tileset) {
       tileset = map.tileset;
+      if (browser) {
+        (window as any).map = map;
+      }
     }
   }
 

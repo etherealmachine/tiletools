@@ -5,17 +5,19 @@
   import { onMount } from "svelte";
   import type Scene from "./Scene";
   import CharacterEditor from "./CharacterEditor.svelte";
+    import Point from "./Point";
 
   export let scene: Scene;
 
   let canvas: HTMLCanvasElement;
+  let mouse: Point | undefined;
 
   function draw() {
     const W = (canvas.parentElement?.scrollWidth || 0) - 4;
     const H = (canvas.parentElement?.scrollHeight || 0) - 4;
     canvas.width = W;
     canvas.height = H;
-    scene.draw(canvas);
+    scene.draw(canvas, mouse);
     requestAnimationFrame(draw);
   }
 
@@ -25,16 +27,19 @@
 
   function onPointerCancel(e: PointerEvent) {}
 
-  function onPointerMove(e: PointerEvent) {}
+  function onPointerMove(e: PointerEvent) {
+    mouse = new Point(e.offsetX, e.offsetY);
+  }
 
   function onWheel(e: WheelEvent) {
     const { camera } = scene;
+    const p = scene.currentPlayer();
+    if (!p) return;
     if (e.deltaY < 0) {
-      camera.zoom *= 1.1;
+      camera.zoomTo(0.1)
     } else if (e.deltaY > 0) {
-      camera.zoom *= 0.9;
+      camera.zoomTo(-0.1);
     }
-    camera.zoom = Math.min(Math.max(0.25, camera.zoom), 8);
   }
 
   function onKeyDown(e: KeyboardEvent) {

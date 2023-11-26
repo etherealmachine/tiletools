@@ -41,17 +41,7 @@
     const H = (canvas.parentElement?.scrollHeight || 0) - 4;
     canvas.width = W;
     canvas.height = H;
-    ctx.imageSmoothingEnabled = false;
-    ctx.resetTransform();
-    ctx.clearRect(0, 0, W, H);
-    ctx.setTransform(
-      camera.zoom,
-      0,
-      0,
-      camera.zoom,
-      camera.center.x,
-      camera.center.y,
-    );
+    camera.setup(ctx);
 
     if (tileset.tiles.length > 0) {
       for (let i = 0; i < tileset.tiles.length; i++) {
@@ -138,10 +128,10 @@
       camera.zoom *= 0.9;
     }
     camera.zoom = Math.min(Math.max(0.05, camera.zoom), 16);
-    camera.center.x =
-      (-camera.zoom * (e.offsetX - camera.center.x)) / prevZoom + e.offsetX;
-    camera.center.y =
-      (-camera.zoom * (e.offsetY - camera.center.y)) / prevZoom + e.offsetY;
+    camera.offset.x =
+      (-camera.zoom * (e.offsetX - camera.offset.x)) / prevZoom + e.offsetX;
+    camera.offset.y =
+      (-camera.zoom * (e.offsetY - camera.offset.y)) / prevZoom + e.offsetY;
   }
 
   function parseColor(color: string): number[] | undefined {
@@ -264,8 +254,8 @@
         tileset = tileset;
       }
     } else if (e.ctrlKey) {
-      camera.center.x += e.movementX;
-      camera.center.y += e.movementY;
+      camera.offset.x += e.movementX;
+      camera.offset.y += e.movementY;
     }
   }
 
@@ -364,8 +354,8 @@
         const p = tileset.tileToImgCoords(tileset.selectedTiles[0]);
         camera.zoom = maxZoom;
         const centerX = w / 2 - (tileset.tilewidth * camera.zoom) / 2;
-        camera.center.x = -p.x * camera.zoom + centerX;
-        camera.center.y = -p.y * camera.zoom;
+        camera.offset.x = -p.x * camera.zoom + centerX;
+        camera.offset.y = -p.y * camera.zoom;
         e.preventDefault();
         break;
       case e.key === "i" && tileset.selectedTiles.length === 1:
@@ -410,33 +400,33 @@
         break;
       case e.key === "ArrowLeft":
         if (e.shiftKey) {
-          camera.center.x += camera.zoom;
+          camera.offset.x += camera.zoom;
         } else {
-          camera.center.x += camera.zoom * tileset.offsetWidth();
+          camera.offset.x += camera.zoom * tileset.offsetWidth();
         }
         e.preventDefault();
         break;
       case e.key === "ArrowRight":
         if (e.shiftKey) {
-          camera.center.x -= camera.zoom;
+          camera.offset.x -= camera.zoom;
         } else {
-          camera.center.x -= camera.zoom * tileset.offsetWidth();
+          camera.offset.x -= camera.zoom * tileset.offsetWidth();
         }
         e.preventDefault();
         break;
       case e.key === "ArrowUp":
         if (e.shiftKey) {
-          camera.center.y += camera.zoom;
+          camera.offset.y += camera.zoom;
         } else {
-          camera.center.y += camera.zoom * tileset.offsetHeight();
+          camera.offset.y += camera.zoom * tileset.offsetHeight();
         }
         e.preventDefault();
         break;
       case e.key === "ArrowDown":
         if (e.shiftKey) {
-          camera.center.y -= camera.zoom;
+          camera.offset.y -= camera.zoom;
         } else {
-          camera.center.y -= camera.zoom * tileset.offsetHeight();
+          camera.offset.y -= camera.zoom * tileset.offsetHeight();
         }
         e.preventDefault();
         break;

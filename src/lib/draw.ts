@@ -2,7 +2,7 @@ import type { Camera } from "./Camera";
 import PNGWithMetadata from "./PNGWithMetadata";
 import Point from "./Point";
 import type Scene from "./Scene";
-import type { Character } from "./Scene";
+import type { Character, Container } from "./Scene";
 import type Tilemap from "./Tilemap";
 import type Tileset from "./Tileset";
 
@@ -119,23 +119,6 @@ export function colors(buf: ImageData): Set<string> {
   return colors;
 }
 
-export function setupCanvasContext(
-  ctx: CanvasRenderingContext2D,
-  camera: Camera,
-) {
-  ctx.imageSmoothingEnabled = false;
-  ctx.resetTransform();
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.setTransform(
-    camera.zoom,
-    0,
-    0,
-    camera.zoom,
-    ctx.canvas.width / 2 - camera.center.x * camera.zoom,
-    ctx.canvas.height / 2 - camera.center.y * camera.zoom,
-  );
-}
-
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
   direction: string,
@@ -235,16 +218,16 @@ export function drawMapGrid(
       ctx,
       map.tileset,
       camera,
-      ctx.canvas.width * camera.zoom,
-      ctx.canvas.height * camera.zoom,
+      ctx.canvas.width / camera.zoom,
+      ctx.canvas.height / camera.zoom,
     );
   } else {
     drawSquareGrid(
       ctx,
       map.tileset,
       camera,
-      ctx.canvas.width * camera.zoom,
-      ctx.canvas.height * camera.zoom,
+      ctx.canvas.width / camera.zoom,
+      ctx.canvas.height / camera.zoom,
     );
   }
 }
@@ -320,8 +303,8 @@ export function drawMap(
     0,
     0,
     camera.zoom,
-    camera.center.x,
-    camera.center.y,
+    camera.offset.x,
+    camera.offset.y,
   );
   ctx.lineWidth = 1;
   ctx.strokeStyle = "#ffffff77";
@@ -450,7 +433,32 @@ export function drawCharacter(
   }
 }
 
-export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene) {
+export function drawContainer(
+  ctx: CanvasRenderingContext2D,
+  c: Container,
+  tileset: Tileset,
+  highlight?: boolean,
+) {
+  if (typeof c.sprite === "string") {
+    new PNGWithMetadata("", {}, c.sprite).bitmap().then((img) => {
+      c.sprite = img;
+    });
+  } else if (c.sprite instanceof ImageBitmap) {
+    const [x, y] = [
+      c.position.x * tileset.tilewidth,
+      c.position.y * tileset.tileheight,
+    ];
+    if (highlight) {
+      ctx.globalCompositeOperation = "lighter";
+    }
+    ctx.drawImage(c.sprite, x, y, tileset.tilewidth, tileset.tileheight);
+    if (highlight) {
+      ctx.globalCompositeOperation = "source-over";
+    }
+  }
+}
+
+export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene, mouse?: Point) {
   scene.viewport.width = ctx.canvas.width;
   scene.viewport.height = ctx.canvas.height;
   for (let layer of scene.tilemap.layers) {
@@ -466,12 +474,21 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene) {
       if (scene.fov) {
         if (
           scene.seen[loc] ||
-          scene.fov.lit.find((litPos) => litPos.equals(pos))
+          scene.fov.lit.find(pos.equals.bind(pos))
         ) {
           scene.tilemap.tileset.drawTile(ctx, pos, tile);
         }
       } else {
         scene.tilemap.tileset.drawTile(ctx, pos, tile);
+      }
+    }
+    for (let c of scene.containers) {
+      if (scene.seen[c.position.toString()] || scene.fov?.lit?.find(c.position.equals.bind(c.position))) {
+        if (mouse && scene.camera.screenToTile(mouse, scene.tilemap.tileset).equals(c.position)) {
+          drawContainer(ctx, c, scene.tilemap.tileset, true);
+        } else {
+          drawContainer(ctx, c, scene.tilemap.tileset, false);
+        }
       }
     }
   }
