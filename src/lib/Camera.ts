@@ -34,7 +34,7 @@ export class Camera {
 
   zoomTo(delta: number, point?: Point) {
     const prevZoom = this.zoom;
-    this.zoom *= (1+delta);
+    this.zoom *= 1 + delta;
     this.zoom = Math.min(Math.max(0.25, this.zoom), 8);
     if (point) {
       this.offset.x =
@@ -48,14 +48,6 @@ export class Camera {
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.setTransform(
-      this.zoom,
-      0,
-      0,
-      this.zoom,
-      this.offset.x,
-      this.offset.y,
-    );
+    ctx.setTransform(this.zoom, 0, 0, this.zoom, this.offset.x, this.offset.y);
   }
-
 }

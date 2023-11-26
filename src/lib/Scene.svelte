@@ -5,7 +5,7 @@
   import { onMount } from "svelte";
   import type Scene from "./Scene";
   import CharacterEditor from "./CharacterEditor.svelte";
-    import Point from "./Point";
+  import Point from "./Point";
 
   export let scene: Scene;
 
@@ -36,7 +36,7 @@
     const p = scene.currentPlayer();
     if (!p) return;
     if (e.deltaY < 0) {
-      camera.zoomTo(0.1)
+      camera.zoomTo(0.1);
     } else if (e.deltaY > 0) {
       camera.zoomTo(-0.1);
     }
