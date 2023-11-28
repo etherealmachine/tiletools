@@ -418,7 +418,7 @@ export function drawEntity(
     new PNGWithMetadata("", {}, e.sprite).bitmap().then((img) => {
       e.sprite = img;
     });
-  } else if (e.sprite instanceof ImageBitmap) {
+  } else if (e.sprite instanceof ImageBitmap && e.position) {
     const [x, y] = [
       e.position.x * tileset.tilewidth,
       e.position.y * tileset.tileheight,
@@ -460,11 +460,12 @@ export function drawScene(
     }
     for (let e of scene.entities) {
       if (
-        scene.seen[e.position.toString()] ||
-        scene.fov?.lit?.find(e.position.equals.bind(e.position))
+        e.position &&
+        (scene.seen[e.position.toString()] ||
+          scene.fov?.lit?.find(e.position.equals.bind(e.position)))
       ) {
-        let highlight = false;
-        if (mouse) {
+        let highlight = e.selected;
+        if (!highlight && mouse) {
           highlight = scene.camera
             .screenToTile(mouse, scene.tilemap.tileset)
             .equals(e.position);

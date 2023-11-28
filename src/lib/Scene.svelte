@@ -6,6 +6,7 @@
   import type Scene from "./Scene";
   import CharacterEditor from "./CharacterEditor.svelte";
   import Point from "./Point";
+    import Entity from "./Entity.svelte";
 
   export let scene: Scene;
 
@@ -21,7 +22,10 @@
     requestAnimationFrame(draw);
   }
 
-  function onPointerDown(e: PointerEvent) {}
+  function onPointerDown(e: PointerEvent) {
+    scene.toggleSelect(new Point(e.offsetX, e.offsetY));
+    scene = scene;
+  }
 
   function onPointerUp(e: PointerEvent) {}
 
@@ -84,12 +88,17 @@
       bind:this={canvas}
     />
   </div>
-  {#each [0] as _}
-    {@const character = scene.currentPlayer()}
-    {#if character}
-      <CharacterEditor {character} />
-    {/if}
-  {/each}
+  <div style="display: flex; flex-direction: column;">
+    {#each [0] as _}
+      {@const character = scene.currentPlayer()}
+      {#if character}
+        <CharacterEditor {character} />
+      {/if}
+      {#each scene.selected() as selected}
+        <Entity entity={selected} />
+      {/each}
+    {/each}
+  </div>
 </div>
 
 <style>

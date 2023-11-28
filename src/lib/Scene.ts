@@ -11,32 +11,33 @@ export interface Viewport {
 
 export interface Character {
   name: string;
+  controlled_by?: string;
   profile?: string | ImageBitmap;
   sprite?: string | ImageBitmap;
-  position: Point;
-  health: {
-    max: number;
-    current: number;
-  };
-  items: Item[];
-  controlled_by: string;
-}
-
-export interface Container {
-  name: string;
-  sprite: string | ImageBitmap;
-  position: Point;
-  weight: number;
-  capacity: { width: number; height: number };
-  items: Item[];
+  position?: Point;
+  equipment?: Item[];
+  selected?: boolean;
 }
 
 export interface Item {
   name: string;
+  description?: string;
+  sprite?: string | ImageBitmap;
+  position?: Point;
+  weight?: number;
   amount?: number;
   damage?: string;
   skills?: string[];
-  contents?: Item[];
+  selected?: boolean;
+}
+
+export interface Container extends Item {
+  capacity: { width: number; height: number };
+  contents: Item[];
+}
+
+export interface Selectable {
+  selected: boolean;
 }
 
 export type Entity = Character | Container;
@@ -58,16 +59,12 @@ export default class Scene {
       (d) => !!d && (d["tags"] as string[]).includes("path"),
     );
     if (paths.length === 0) paths = [new Point(0, 0)];
-    this.entities.push({
+    const player = {
       name: "Player",
       sprite:
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABqklEQVQY06WRMUhbURSGv0h8kBKetppGBRErWaoQqEWMtIttdBCUgpQM9k51ELfQyUUcyltEdIiLnZ4WOnTQgkNLDbhUiGAQmqE8aHTQ6yNFQYKKBq5LiYnviRHPdC/nP9/9/3OJxyLKMAwVj0UUgGEYijuUNxAeRAiBaYIRHlRCCAClZ+Yc4vGlA48DACClRAiBlBIpJQDtjV4HIDHSoK5DiirTNAGIRqMAhIamyoatlUn3CLntb2RONslZkpkvGx5AiZeP+fl9ldf9AwAkZz8CGjoai8NP1Hp3rdMBQDwWUXpmDuvQSwtgraT+dzTaHlYXdce9fgDSyTxVpYBXLzrxt/YU76GhqbIoudMCudMC+9lDdwcA9cEmdu0uWs5SJbm1G7+xintWmYN/9j5vJz6ztpwgz1UUsvOVOah72sPacsIhWu+uJT0WJPXGR9/Cb3cH4VAjhT+/3J/xXx1/jHbQBQR8NvrRRXmE85pmHjQ0OwF7O7fvYNuSHD/fIaidu8i0ypZYWnbWOdTU+oiAz64MAPDpw5YH4P30M5VO5gHQjy6K/Xdf/3ouAbr/hlXyQ9uGAAAAAElFTkSuQmCC",
       position: paths[0].clone(),
-      health: {
-        max: 20,
-        current: 20,
-      },
-      items: [
+      contents: [
         {
           name: "Short Sword",
           damage: "1d6",
@@ -75,7 +72,8 @@ export default class Scene {
         },
       ],
       controlled_by: "current_player",
-    });
+    };
+    this.entities.push(player);
     this.entities.push({
       name: "Chest",
       sprite:
@@ -83,10 +81,11 @@ export default class Scene {
       position: new Point(29, 7),
       weight: 10,
       capacity: { width: 3, height: 3 },
-      items: [{ name: "Silver Coins", amount: 5 }],
+      contents: [{ name: "Silver Coins", amount: 5 }],
     });
+
     this.fov = new FOV(
-      this.entities[0].position,
+      player.position,
       10,
       (pos: Point): boolean => {
         return !!this.tilemap.tagsAt(pos)?.flat().includes("wall");
@@ -110,6 +109,7 @@ export default class Scene {
   }
 
   moveCharacter(character: Character, dx: number, dy: number) {
+    if (!character.position) return;
     const newPos = character.position.add(dx, dy);
     const doorTo = this.tilemap.dataAt<Point>(newPos, "door");
     if (doorTo && !doorTo.equals(character.position)) {
@@ -137,7 +137,7 @@ export default class Scene {
       }
     }
     const player = this.currentPlayer();
-    if (player) {
+    if (player && player.position) {
       this.fov = new FOV(
         player.position,
         10,
@@ -159,7 +159,7 @@ export default class Scene {
 
   centerCameraOnCurrentCharacter() {
     const c = this.currentPlayer();
-    if (c) {
+    if (c && c.position) {
       const world = new Point(
         c.position.x * this.tilemap.tileset.tilewidth,
         c.position.y * this.tilemap.tileset.tileheight,
@@ -171,6 +171,21 @@ export default class Scene {
       this.camera.offset.x = center.x - world.x * this.camera.zoom;
       this.camera.offset.y = center.y - world.y * this.camera.zoom;
     }
+  }
+
+  toggleSelect(mouse: Point) {
+    for (let e of this.entities) {
+      if (
+        e.position &&
+        this.camera.screenToTile(mouse, this.tilemap.tileset).equals(e.position)
+      ) {
+        e.selected = !e.selected;
+      }
+    }
+  }
+
+  selected(): Entity[] {
+    return this.entities.filter(e => e.selected);
   }
 
   draw(canvas: HTMLCanvasElement, mouse?: Point) {
