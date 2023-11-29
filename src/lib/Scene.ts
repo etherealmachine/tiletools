@@ -188,6 +188,13 @@ export default class Scene {
     return this.entities.filter(e => e.selected);
   }
 
+  take(e: Entity) {
+    const p = this.currentPlayer();
+    if (!p) return;
+    if (!p.equipment) p.equipment = [];
+    p.equipment.push(e as Item);
+  }
+
   draw(canvas: HTMLCanvasElement, mouse?: Point) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;

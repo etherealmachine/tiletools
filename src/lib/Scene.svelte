@@ -6,7 +6,7 @@
   import type Scene from "./Scene";
   import CharacterEditor from "./CharacterEditor.svelte";
   import Point from "./Point";
-    import Entity from "./Entity.svelte";
+  import Entity from "./Entity.svelte";
 
   export let scene: Scene;
 
@@ -95,7 +95,7 @@
         <CharacterEditor {character} />
       {/if}
       {#each scene.selected() as selected}
-        <Entity entity={selected} />
+        <Entity scene={scene} entity={selected} />
       {/each}
     {/each}
   </div>
