@@ -1,4 +1,6 @@
 <script lang="ts">
+  import arrowDown from "../assets/icons/arrow-down.svg?raw";
+  import arrowUp from "../assets/icons/arrow-up.svg?raw";
   import copy from "../assets/icons/copy.svg?raw";
   import cropRotateTl from "../assets/icons/crop-rotate-tl.svg?raw";
   import cut from "../assets/icons/cut.svg?raw";
@@ -27,6 +29,8 @@
   import upload from "../assets/icons/upload.svg?raw";
 
   const icons = {
+    arrowDown,
+    arrowUp,
     copy,
     cropRotateTl,
     cut,

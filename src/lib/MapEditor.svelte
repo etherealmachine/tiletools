@@ -317,14 +317,40 @@
                 map = map;
               }}
             />
-            <button
-              on:click={() => {
-                map.removeLayer(i);
-                map = map;
-              }}
-            >
-              <Icon name="minus" />
-            </button>
+            <div style="display: flex; flex-direction: row;">
+              <button
+                on:click={() => {
+                  map.removeLayer(i);
+                  map = map;
+                }}
+              >
+                <Icon name="minus" />
+              </button>
+              {#if i >= 1}
+                <button
+                  on:click={() => {
+                    const tmp = map.layers[i-1];
+                    map.layers[i-1] = map.layers[i];
+                    map.layers[i] = tmp;
+                    map = map;
+                  }}
+                >
+                  <Icon name="arrowUp" />
+                </button>
+              {/if}
+              {#if i+1 < map.layers.length}
+                <button
+                  on:click={() => {
+                    const tmp = map.layers[i+1];
+                    map.layers[i+1] = map.layers[i];
+                    map.layers[i] = tmp;
+                    map = map;
+                  }}
+                >
+                  <Icon name="arrowDown" />
+                </button>
+              {/if}
+            </div>
           {:else}
             <button
               on:click={() => {

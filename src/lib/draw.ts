@@ -458,19 +458,21 @@ export function drawScene(
         scene.tilemap.tileset.drawTile(ctx, pos, tile);
       }
     }
-    for (let e of scene.entities) {
-      if (
-        e.position &&
-        (scene.seen[e.position.toString()] ||
-          scene.fov?.lit?.find(e.position.equals.bind(e.position)))
-      ) {
-        let highlight = e.selected;
-        if (!highlight && mouse) {
-          highlight = scene.camera
-            .screenToTile(mouse, scene.tilemap.tileset)
-            .equals(e.position);
+    if (layer.name === "Entity") {
+      for (let e of scene.entities) {
+        if (
+          e.position &&
+          (scene.seen[e.position.toString()] ||
+            scene.fov?.lit?.find(e.position.equals.bind(e.position)))
+        ) {
+          let highlight = e.selected;
+          if (!highlight && mouse) {
+            highlight = scene.camera
+              .screenToTile(mouse, scene.tilemap.tileset)
+              .equals(e.position);
+          }
+          drawEntity(ctx, e, scene.tilemap.tileset, highlight);
         }
-        drawEntity(ctx, e, scene.tilemap.tileset, highlight);
       }
     }
   }
