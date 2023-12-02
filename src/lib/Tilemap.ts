@@ -294,6 +294,10 @@ export default class Tilemap {
     );
   }
 
+  dataURL(): string {
+    return this.png().dataURL();
+  }
+
   download() {
     this.png().download();
   }

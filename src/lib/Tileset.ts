@@ -553,8 +553,7 @@ export default class Tileset {
     });
   }
 
-  png(): PNGWithMetadata | undefined {
-    if (!this.img) return undefined;
+  png(): PNGWithMetadata {
     return new PNGWithMetadata(
       this.name,
       {
@@ -566,20 +565,24 @@ export default class Tileset {
         spacing: this.spacing,
         tiledata: this.tiledata,
       },
-      this.img,
+      this.img || "",
     );
+  }
+
+  dataURL(): string {
+    return this.png().dataURL();
   }
 
   toJSON() {
     return {
       class: "Tileset",
-      data: this.png()?.dataURL() || null,
+      data: this.png().dataURL() || null,
     };
   }
 
   download() {
     this.syncTiles().then((tileset) => {
-      tileset.png()?.download();
+      tileset.png().download();
     });
   }
 

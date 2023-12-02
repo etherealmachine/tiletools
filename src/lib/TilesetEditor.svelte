@@ -15,9 +15,19 @@
   import { drawHexagon, drawRect } from "./draw";
   import Point from "./Point";
   import { Camera } from "./Camera";
+  import type LocalStorage from "./LocalStorage";
 
   export let tileset: Tileset = new Tileset();
   export let maxWidth: string | undefined = undefined;
+  export let storage: LocalStorage | undefined = undefined;
+  if (storage) {
+    const saved = storage.get();
+    if (saved) {
+      Tileset.from(saved).then(_tileset => {
+        tileset = _tileset;
+      });
+    }
+  }
 
   let canvas: HTMLCanvasElement | undefined;
   let camera: Camera = new Camera();
@@ -462,6 +472,11 @@
   style:max-width={maxWidth}
 >
   <div style="display: flex; gap: 8px; align-items: end; flex-wrap: wrap;">
+    <button
+      on:click={() => storage && storage.clear()}
+    >
+      <Icon name="emptyPage" />
+    </button>
     <input type="file" accept="image/png" on:change={onLoad} />
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="name">Name</label>

@@ -15,10 +15,20 @@
   import Point from "./Point";
   import TiledataEditor from "./TiledataEditor.svelte";
   import { Camera } from "./Camera";
+    import type LocalStorage from "./LocalStorage";
 
   // TODO: Copy/paste layers
   export let map: Tilemap = new Tilemap();
   export let camera: Camera = new Camera();
+  export let storage: LocalStorage | undefined = undefined;
+  if (storage) {
+    const saved = storage.get();
+    if (saved) {
+      Tilemap.from(saved).then(_map => {
+        map = _map;
+      });
+    }
+  }
 
   let canvas: HTMLCanvasElement;
   let tool: Tool = Tool.Select;
@@ -206,6 +216,11 @@
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">
   <div style="display: flex; gap: 8px;">
+    <button
+      on:click={() => storage && storage.clear()}
+    >
+      <Icon name="emptyPage" />
+    </button>
     <label>
       <input type="checkbox" bind:checked={grid} />
       Grid

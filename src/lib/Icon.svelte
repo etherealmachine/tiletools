@@ -9,6 +9,7 @@
   import download from "../assets/icons/download.svg?raw";
   import drag from "../assets/icons/drag.svg?raw";
   import editPencil from "../assets/icons/edit-pencil.svg?raw";
+  import emptyPage from "../assets/icons/empty-page.svg?raw";
   import erase from "../assets/icons/erase.svg?raw";
   import eyeEmpty from "../assets/icons/eye-empty.svg?raw";
   import eyeOff from "../assets/icons/eye-off.svg?raw";
@@ -39,6 +40,7 @@
     download,
     drag,
     editPencil,
+    emptyPage,
     erase,
     eyeEmpty,
     eyeOff,
