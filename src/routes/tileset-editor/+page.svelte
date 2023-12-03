@@ -2,7 +2,7 @@
   import TilesetEditor from "$lib/TilesetEditor.svelte";
   import type Tileset from "$lib/Tileset";
   import LocalStorage from "$lib/LocalStorage";
-    import { browser } from "$app/environment";
+  import { browser } from "$app/environment";
 
   let tileset: Tileset | undefined;
   let storage: LocalStorage | undefined;

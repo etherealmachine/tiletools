@@ -23,7 +23,7 @@
   if (storage) {
     const saved = storage.get();
     if (saved) {
-      Tileset.from(saved).then(_tileset => {
+      Tileset.from(saved).then((_tileset) => {
         tileset = _tileset;
       });
     }
@@ -472,9 +472,7 @@
   style:max-width={maxWidth}
 >
   <div style="display: flex; gap: 8px; align-items: end; flex-wrap: wrap;">
-    <button
-      on:click={() => storage && storage.clear()}
-    >
+    <button on:click={() => storage && storage.clear()}>
       <Icon name="emptyPage" />
     </button>
     <input type="file" accept="image/png" on:change={onLoad} />
@@ -536,7 +534,7 @@
     <button on:click={() => tileset.createTiles()} disabled={!tileset.img}>
       <Icon name="refresh" />
     </button>
-    <div style="margin-left: auto; display: flex; gap: 8px;">
+    <div style="margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap;">
       <button
         on:click={() => setTool(Tool.Select)}
         class:active={tool === Tool.Select}
@@ -680,7 +678,7 @@
     />
   </div>
   <div
-    style="display: flex; flex-direction: row; gap: 8px; align-items: start;"
+    style="display: flex; flex-direction: row; gap: 8px; align-items: start; flex-wrap: wrap;"
   >
     <div style="display: flex; flex-direction: column; align-items: start;">
       <label for="tags">Tags</label>

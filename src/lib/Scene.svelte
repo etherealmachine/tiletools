@@ -95,7 +95,7 @@
         <CharacterEditor {character} />
       {/if}
       {#each scene.selected() as selected}
-        <Entity scene={scene} entity={selected} />
+        <Entity {scene} entity={selected} />
       {/each}
     {/each}
   </div>

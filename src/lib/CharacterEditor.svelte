@@ -6,7 +6,7 @@
 
 <div style="display: flex; flex-direction: column;">
   <span>{character.name}</span>
-  {#each (character.equipment || []) as item}
+  {#each character.equipment || [] as item}
     <span>{item.name}</span>
   {/each}
 </div>

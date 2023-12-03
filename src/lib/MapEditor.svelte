@@ -15,7 +15,7 @@
   import Point from "./Point";
   import TiledataEditor from "./TiledataEditor.svelte";
   import { Camera } from "./Camera";
-    import type LocalStorage from "./LocalStorage";
+  import type LocalStorage from "./LocalStorage";
 
   // TODO: Copy/paste layers
   export let map: Tilemap = new Tilemap();
@@ -24,7 +24,7 @@
   if (storage) {
     const saved = storage.get();
     if (saved) {
-      Tilemap.from(saved).then(_map => {
+      Tilemap.from(saved).then((_map) => {
         map = _map;
       });
     }
@@ -221,9 +221,7 @@
 
 <div style="display: flex; flex-direction: column; flex-grow: 1;">
   <div style="display: flex; gap: 8px;">
-    <button
-      on:click={() => storage && storage.clear()}
-    >
+    <button on:click={() => storage && storage.clear()}>
       <Icon name="emptyPage" />
     </button>
     <label>
@@ -254,10 +252,7 @@
     >
       <Icon name="editPencil" />
     </button>
-    <button
-      on:click={() => random = !random}
-      class:active={random}
-    >
+    <button on:click={() => (random = !random)} class:active={random}>
       <Icon name="diceFive" />
     </button>
     <button
@@ -355,8 +350,8 @@
               {#if i >= 1}
                 <button
                   on:click={() => {
-                    const tmp = map.layers[i-1];
-                    map.layers[i-1] = map.layers[i];
+                    const tmp = map.layers[i - 1];
+                    map.layers[i - 1] = map.layers[i];
                     map.layers[i] = tmp;
                     map = map;
                   }}
@@ -364,11 +359,11 @@
                   <Icon name="arrowUp" />
                 </button>
               {/if}
-              {#if i+1 < map.layers.length}
+              {#if i + 1 < map.layers.length}
                 <button
                   on:click={() => {
-                    const tmp = map.layers[i+1];
-                    map.layers[i+1] = map.layers[i];
+                    const tmp = map.layers[i + 1];
+                    map.layers[i + 1] = map.layers[i];
                     map.layers[i] = tmp;
                     map = map;
                   }}

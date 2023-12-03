@@ -185,7 +185,7 @@ export default class Scene {
   }
 
   selected(): Entity[] {
-    return this.entities.filter(e => e.selected);
+    return this.entities.filter((e) => e.selected);
   }
 
   take(e: Entity) {
