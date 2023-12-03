@@ -5,6 +5,7 @@
     Erase,
     Fill,
     Door,
+    MagicWand,
   }
 </script>
 
@@ -68,6 +69,7 @@
       tool === Tool.Door && doorStart
         ? { from: doorStart, to: mouse }
         : undefined,
+      tool === Tool.MagicWand && map.selectedTiles.length > 0,
     );
   }
 
@@ -254,6 +256,12 @@
     </button>
     <button on:click={() => (random = !random)} class:active={random}>
       <Icon name="diceFive" />
+    </button>
+    <button
+      on:click={() => setTool(Tool.MagicWand)}
+      class:active={tool === Tool.MagicWand}
+    >
+      <Icon name="magicWand" />
     </button>
     <button
       on:click={() => setTool(Tool.Erase)}

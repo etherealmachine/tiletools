@@ -293,8 +293,9 @@ export function drawMap(
   water: boolean,
   random: boolean,
   selection: boolean,
-  previewAt?: Point,
-  previewDoor?: { from: Point; to: Point },
+  previewAt: Point | undefined,
+  previewDoor: { from: Point; to: Point } | undefined,
+  autofill: boolean,
 ) {
   ctx.imageSmoothingEnabled = false;
   ctx.resetTransform();
@@ -329,6 +330,10 @@ export function drawMap(
         map.tileset.drawTile(ctx, previewAt.add(curr.sub(first)), curr);
       }
     }
+  }
+
+  if (autofill) {
+    // TODO
   }
 
   if (walls) {
