@@ -110,7 +110,7 @@ export default class Scene {
 
   moveCharacter(character: Character, dx: number, dy: number) {
     if (!character.position) return;
-    const newPos = character.position.add(dx, dy);
+    const newPos = character.position.add(new Point(dx, dy));
     const doorTo = this.tilemap.dataAt<Point>(newPos, "door");
     if (doorTo && !doorTo.equals(character.position)) {
       character.position = doorTo.clone();

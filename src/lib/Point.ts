@@ -9,8 +9,12 @@ export default class Point {
     this.y = y;
   }
 
-  add(dx: number, dy: number): Point {
-    return new Point(this.x + dx, this.y + dy);
+  add(d: Point): Point {
+    return new Point(this.x + d.x, this.y + d.y);
+  }
+
+  sub(d: Point): Point {
+    return new Point(this.x - d.x, this.y - d.y);
   }
 
   floor(): Point {

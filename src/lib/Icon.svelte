@@ -5,6 +5,7 @@
   import cropRotateTl from "../assets/icons/crop-rotate-tl.svg?raw";
   import cut from "../assets/icons/cut.svg?raw";
   import deleteCircle from "../assets/icons/delete-circle.svg?raw";
+  import diceFive from "../assets/icons/dice-five.svg?raw";
   import door from "../assets/icons/door.svg?raw";
   import download from "../assets/icons/download.svg?raw";
   import drag from "../assets/icons/drag.svg?raw";
@@ -36,6 +37,7 @@
     cropRotateTl,
     cut,
     deleteCircle,
+    diceFive,
     door,
     download,
     drag,

@@ -69,11 +69,21 @@ export default class Tilemap {
   selectedTiles: Point[] = [];
   undoer: Undoer<Tilemap, TilemapUndoable> = new Undoer(TilemapUndoable);
 
-  set(loc: Point, tile?: Point) {
-    if (!tile) {
-      tile = this.tileset.randSelectedTile();
+  setFromRandom(loc: Point) {
+    const tile = this.tileset.randSelectedTile();
+    if (tile) this.set(loc, tile);
+  }
+
+  setFromSelection(loc: Point) {
+    const first = this.tileset.selectedTiles[0];
+    this.set(loc, first);
+    for (let i = 1; i < this.tileset.selectedTiles.length; i++) {
+      const curr = this.tileset.selectedTiles[i];
+      this.set(loc.add(curr.sub(first)), curr);
     }
-    if (!tile) return;
+  }
+
+  set(loc: Point, tile: Point) {
     const key = loc.toString();
     const undo = this.undoer.push();
     undo.tiles.push({
@@ -123,7 +133,7 @@ export default class Tilemap {
         [0, 1],
         [0, -1],
       ]) {
-        const n = curr.add(d[0], d[1]);
+        const n = curr.add(new Point(d[0], d[1]));
         if (loc.dist(n) < max_dist) {
           if (!this.layers[this.selectedLayer].tiles[n.toString()]) {
             queue.push(n);

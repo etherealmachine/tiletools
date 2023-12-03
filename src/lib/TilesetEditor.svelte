@@ -369,22 +369,22 @@
         e.preventDefault();
         break;
       case e.key === "i" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(tileset.selectedTiles[0].add(0, -1));
+        tileset.setSelectedTile(tileset.selectedTiles[0].add(new Point(0, -1)));
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "k" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(tileset.selectedTiles[0].add(0, 1));
+        tileset.setSelectedTile(tileset.selectedTiles[0].add(new Point(0, 1)));
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "j" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(tileset.selectedTiles[0].add(-1, 0));
+        tileset.setSelectedTile(tileset.selectedTiles[0].add(new Point(-1, 0)));
         tileset = tileset;
         e.preventDefault();
         break;
       case e.key === "l" && tileset.selectedTiles.length === 1:
-        tileset.setSelectedTile(tileset.selectedTiles[0].add(1, 0));
+        tileset.setSelectedTile(tileset.selectedTiles[0].add(new Point(1, 0)));
         tileset = tileset;
         e.preventDefault();
         break;

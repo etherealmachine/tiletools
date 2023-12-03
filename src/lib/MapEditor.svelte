@@ -40,6 +40,7 @@
   let walls: boolean = false;
   let doors: boolean = true;
   let water: boolean = false;
+  let random: boolean = true;
   let mouseOver: boolean = false;
 
   function setTool(_tool: Tool) {
@@ -61,6 +62,7 @@
       walls,
       doors,
       water,
+      random,
       true,
       tool === Tool.Edit ? mouse : undefined,
       tool === Tool.Door && doorStart
@@ -83,9 +85,12 @@
       } else if (tool === Tool.Door && doorStart) {
         map.setDoor(mouse, doorStart);
         doorStart = undefined;
-      } else if (tool === Tool.Edit) {
+      } else if (tool === Tool.Edit && random) {
         map.undoer.begin();
-        map.set(mouse);
+        map.setFromRandom(mouse);
+      } else if (tool === Tool.Edit && !random) {
+        map.undoer.begin();
+        map.setFromSelection(mouse);
       } else if (tool === Tool.Select) {
         if (e.shiftKey) {
           map.toggleSelectedTile(mouse);
@@ -112,8 +117,8 @@
     if (e.buttons === 1) {
       if (tool === Tool.Erase) {
         map.erase(mouse);
-      } else if (tool === Tool.Edit) {
-        map.set(mouse);
+      } else if (tool === Tool.Edit && random) {
+        map.setFromRandom(mouse);
       } else if (tool === Tool.Select && drag !== undefined) {
         map.clearSelectedTiles();
         let a = drag;
@@ -248,6 +253,12 @@
       class:active={tool === Tool.Edit}
     >
       <Icon name="editPencil" />
+    </button>
+    <button
+      on:click={() => random = !random}
+      class:active={random}
+    >
+      <Icon name="diceFive" />
     </button>
     <button
       on:click={() => setTool(Tool.Erase)}

@@ -358,7 +358,7 @@ export default class Tileset {
     const dy = this.selectedTiles[0].y - this.copyBuffer[0].loc.y;
     const undo = this.undoer.push();
     for (let copy of this.copyBuffer) {
-      const tile = this.getTileBuffer(copy.loc.add(dx, dy));
+      const tile = this.getTileBuffer(copy.loc.add(new Point(dx, dy)));
       undo.addTile(tile);
       tile.buf = copy.buf;
       this.rendering++;

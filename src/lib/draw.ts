@@ -291,6 +291,7 @@ export function drawMap(
   walls: boolean,
   doors: boolean,
   water: boolean,
+  random: boolean,
   selection: boolean,
   previewAt?: Point,
   previewDoor?: { from: Point; to: Point },
@@ -315,9 +316,18 @@ export function drawMap(
   map.draw(ctx);
 
   if (previewAt) {
-    const randTile = map.tileset.randSelectedTile();
-    if (randTile) {
-      map.tileset.drawTile(ctx, previewAt, randTile);
+    if (random) {
+      const randTile = map.tileset.randSelectedTile();
+      if (randTile) {
+        map.tileset.drawTile(ctx, previewAt, randTile);
+      }
+    } else {
+      const first = map.tileset.selectedTiles[0];
+      map.tileset.drawTile(ctx, previewAt, first);
+      for (let i = 1; i < map.tileset.selectedTiles.length; i++) {
+        const curr = map.tileset.selectedTiles[i];
+        map.tileset.drawTile(ctx, previewAt.add(curr.sub(first)), curr);
+      }
     }
   }
 
