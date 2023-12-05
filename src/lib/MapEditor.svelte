@@ -18,7 +18,6 @@
   import { Camera } from "./Camera";
   import type LocalStorage from "./LocalStorage";
 
-  // TODO: Copy/paste layers
   export let map: Tilemap = new Tilemap();
   export let camera: Camera = new Camera();
   export let storage: LocalStorage | undefined = undefined;
@@ -274,6 +273,33 @@
       class:active={tool === Tool.Fill}
     >
       <Icon name="fillColor" />
+    </button>
+    <button
+      on:click={() => {
+        map.cut();
+        map = map;
+      }}
+      disabled={!map.selectedTiles.length}
+    >
+      <Icon name="cut" />
+    </button>
+    <button
+      on:click={() => {
+        map.copy();
+        map = map;
+      }}
+      disabled={!map.selectedTiles.length}
+    >
+      <Icon name="copy" />
+    </button>
+    <button
+      on:click={() => {
+        map.paste();
+        map = map;
+      }}
+      disabled={!map.copyBuffer.length || !map.selectedTiles.length}
+    >
+      <Icon name="pasteClipboard" />
     </button>
     <button
       on:click={() => setTool(Tool.Door)}

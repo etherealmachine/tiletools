@@ -4,6 +4,7 @@ import Tileset from "./Tileset";
 import Undoer, { Undoable } from "./Undoer";
 import Point from "./Point";
 import { Revivifiable, type JSONValue } from "./Revivify";
+import Autotile from "./Autotile";
 
 interface Layer {
   [key: string]: JSONValue;
@@ -13,7 +14,7 @@ interface Layer {
 }
 
 interface TileChange {
-  layer: number;
+  layerIndex: number;
   loc: Point;
   from?: Point;
   to?: Point;
@@ -31,9 +32,9 @@ class TilemapUndoable extends Undoable<Tilemap> {
     for (let change of this.tiles) {
       const loc = change.loc.toString();
       if (change.from === undefined) {
-        delete tilemap.layers[change.layer].tiles[loc];
+        delete tilemap.layers[change.layerIndex].tiles[loc];
       } else {
-        tilemap.layers[change.layer].tiles[loc] = change.from;
+        tilemap.layers[change.layerIndex].tiles[loc] = change.from;
       }
     }
   }
@@ -46,12 +47,17 @@ class TilemapUndoable extends Undoable<Tilemap> {
     for (let change of this.tiles) {
       const loc = change.loc.toString();
       if (change.to === undefined) {
-        delete tilemap.layers[change.layer].tiles[loc];
+        delete tilemap.layers[change.layerIndex].tiles[loc];
       } else {
-        tilemap.layers[change.layer].tiles[loc] = change.to;
+        tilemap.layers[change.layerIndex].tiles[loc] = change.to;
       }
     }
   }
+}
+
+interface CopyBuffer {
+  loc: Point;
+  layers: (Point | undefined)[];
 }
 
 export default class Tilemap {
@@ -68,6 +74,8 @@ export default class Tilemap {
   selectedLayer: number = 0;
   selectedTiles: Point[] = [];
   undoer: Undoer<Tilemap, TilemapUndoable> = new Undoer(TilemapUndoable);
+  copyBuffer: CopyBuffer[] = [];
+  autotile: Autotile = new Autotile();
 
   setFromRandom(loc: Point) {
     const tile = this.tileset.randSelectedTile();
@@ -87,12 +95,13 @@ export default class Tilemap {
     const key = loc.toString();
     const undo = this.undoer.push();
     undo.tiles.push({
-      layer: this.selectedLayer,
+      layerIndex: this.selectedLayer,
       loc,
       from: this.layers[this.selectedLayer].tiles[key],
       to: tile,
     });
     this.layers[this.selectedLayer].tiles[key] = tile;
+    this.autotile.update(this, loc);
   }
 
   fill(loc: Point, max_dist: number = 10) {
@@ -104,7 +113,7 @@ export default class Tilemap {
         if (!choice) return;
         const tileLoc = tile.toString();
         undo.tiles.push({
-          layer: this.selectedLayer,
+          layerIndex: this.selectedLayer,
           loc: tile,
           from: this.layers[this.selectedLayer].tiles[tileLoc],
           to: choice,
@@ -121,7 +130,7 @@ export default class Tilemap {
       if (!choice) return;
       const currLoc = curr.toString();
       undo.tiles.push({
-        layer: this.selectedLayer,
+        layerIndex: this.selectedLayer,
         loc: curr,
         from: this.layers[this.selectedLayer].tiles[currLoc],
         to: choice,
@@ -149,7 +158,7 @@ export default class Tilemap {
       for (let loc of this.selectedTiles) {
         const key = loc.toString();
         undo.tiles.push({
-          layer: this.selectedLayer,
+          layerIndex: this.selectedLayer,
           loc,
           from: this.layers[this.selectedLayer].tiles[key],
           to: undefined,
@@ -161,7 +170,7 @@ export default class Tilemap {
     const key = loc.toString();
     const undo = this.undoer.push();
     undo.tiles.push({
-      layer: this.selectedLayer,
+      layerIndex: this.selectedLayer,
       loc,
       from: this.layers[this.selectedLayer].tiles[key],
       to: undefined,
@@ -196,6 +205,64 @@ export default class Tilemap {
 
   redo() {
     this.undoer.redo(this);
+  }
+
+  cut() {
+    this.copyBuffer = [];
+    const undo = this.undoer.push();
+    for (let loc of this.selectedTiles) {
+      const key = loc.toString();
+      this.copyBuffer.push({
+        loc: loc,
+        layers: this.layers.map(layer => layer.tiles[key]),
+      });
+      for (let i = 0; i < this.layers.length; i++) {
+        const layer = this.layers[i];
+        undo.tiles.push({
+          layerIndex: i,
+          loc,
+          from: layer.tiles[key],
+          to: undefined,
+        });
+        delete layer.tiles[key];
+      }
+    }
+  }
+
+  copy() {
+    this.copyBuffer = [];
+    for (let loc of this.selectedTiles) {
+      const key = loc.toString();
+      this.copyBuffer.push({
+        loc: loc,
+        layers: this.layers.map(layer => layer.tiles[key]),
+      });
+    }
+  }
+
+  paste() {
+    if (this.selectedTiles.length === 0 || this.copyBuffer.length === 0) return;
+    const dx = this.selectedTiles[0].x - this.copyBuffer[0].loc.x;
+    const dy = this.selectedTiles[0].y - this.copyBuffer[0].loc.y;
+    const undo = this.undoer.push();
+    for (let copy of this.copyBuffer) {
+      const loc = copy.loc.add(new Point(dx, dy));
+      const key = loc.toString();
+      for (let i = 0; i < copy.layers.length; i++) {
+        const tile = copy.layers[i];
+        undo.tiles.push({
+          layerIndex: i,
+          loc,
+          from: this.layers[i].tiles[key],
+          to: tile,
+        });
+        if (tile) {
+          this.layers[i].tiles[key] = tile;
+        } else {
+          delete this.layers[i].tiles[key];
+        }
+      }
+    }
   }
 
   setDoor(from: Point, to: Point) {
