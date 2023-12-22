@@ -214,7 +214,7 @@ export default class Tilemap {
       const key = loc.toString();
       this.copyBuffer.push({
         loc: loc,
-        layers: this.layers.map(layer => layer.tiles[key]),
+        layers: this.layers.map((layer) => layer.tiles[key]),
       });
       for (let i = 0; i < this.layers.length; i++) {
         const layer = this.layers[i];
@@ -235,7 +235,7 @@ export default class Tilemap {
       const key = loc.toString();
       this.copyBuffer.push({
         loc: loc,
-        layers: this.layers.map(layer => layer.tiles[key]),
+        layers: this.layers.map((layer) => layer.tiles[key]),
       });
     }
   }

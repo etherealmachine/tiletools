@@ -111,7 +111,8 @@ export function colors(buf: ImageData): Set<string> {
     const b = buf.data[i + 2];
     const a = buf.data[i + 3];
     if (r || g || b || a) {
-      const color = "#" +
+      const color =
+        "#" +
         (r ? r.toString(16) : "00") +
         (g ? g.toString(16) : "00") +
         (b ? b.toString(16) : "00") +

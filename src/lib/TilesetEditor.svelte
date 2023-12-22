@@ -2,6 +2,7 @@
   enum Tool {
     Select,
     Edit,
+    Fill,
     Erase,
     Move,
   }
@@ -200,17 +201,23 @@
     mouseDown = true;
     if (tool === Tool.Edit) {
       tileset.undoer.begin();
-      tileset.setPixel(
-        mouse.floor(),
-        parseInt(color.slice(1, 3), 16),
-        parseInt(color.slice(3, 5), 16),
-        parseInt(color.slice(5, 7), 16),
-        Math.round(alpha),
-      );
+      tileset.setPixel(mouse.floor(), {
+        r: parseInt(color.slice(1, 3), 16),
+        g: parseInt(color.slice(3, 5), 16),
+        b: parseInt(color.slice(5, 7), 16),
+        a: Math.round(alpha),
+      });
       tileset = tileset;
+    } else if (tool === Tool.Fill) {
+      tileset.fill(mouse.floor(), {
+        r: parseInt(color.slice(1, 3), 16),
+        g: parseInt(color.slice(3, 5), 16),
+        b: parseInt(color.slice(5, 7), 16),
+        a: Math.round(alpha),
+      });
     } else if (tool === Tool.Erase) {
       tileset.undoer.begin();
-      tileset.setPixel(mouse.floor(), 0, 0, 0, 0);
+      tileset.setPixel(mouse.floor(), { r: 0, g: 0, b: 0, a: 0 });
       tileset = tileset;
     } else if (tool === Tool.Select) {
       const world = camera.screenToWorld(new Point(e.offsetX, e.offsetY));
@@ -241,16 +248,15 @@
     mouse = camera.screenToWorld(new Point(e.offsetX, e.offsetY));
     if (mouseDown) {
       if (tool === Tool.Edit) {
-        tileset.setPixel(
-          mouse.floor(),
-          parseInt(color.slice(1, 3), 16),
-          parseInt(color.slice(3, 5), 16),
-          parseInt(color.slice(5, 7), 16),
-          Math.round(alpha),
-        );
+        tileset.setPixel(mouse.floor(), {
+          r: parseInt(color.slice(1, 3), 16),
+          g: parseInt(color.slice(3, 5), 16),
+          b: parseInt(color.slice(5, 7), 16),
+          a: Math.round(alpha),
+        });
         tileset = tileset;
       } else if (tool === Tool.Erase) {
-        tileset.setPixel(mouse.floor(), 0, 0, 0, 0);
+        tileset.setPixel(mouse.floor(), { r: 0, g: 0, b: 0, a: 0 });
         tileset = tileset;
       } else if (tool === Tool.Select && drag !== undefined) {
         tileset.clearSelectedTiles();
@@ -547,6 +553,13 @@
         disabled={!tileset.selectedTiles.length}
       >
         <Icon name="editPencil" />
+      </button>
+      <button
+        on:click={() => setTool(Tool.Fill)}
+        class:active={tool === Tool.Fill}
+        disabled={!tileset.selectedTiles.length}
+      >
+        <Icon name="fillColor" />
       </button>
       <button
         on:click={() => setTool(Tool.Erase)}

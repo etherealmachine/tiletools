@@ -281,7 +281,7 @@ export default class Tileset {
     return this.tiles[tile.y * this.widthInTiles() + tile.x];
   }
 
-  setPixel(pixel: Point, r: number, g: number, b: number, a: number) {
+  setPixel(pixel: Point, color: RGBA) {
     const tile = this.getTileBuffer(this.imgCoordsToTile(pixel));
     pixel.x = pixel.x % this.offsetWidth();
     pixel.y = pixel.y % this.offsetHeight();
@@ -293,24 +293,118 @@ export default class Tileset {
       b: tile.buf.data[i + 2],
       a: tile.buf.data[i + 3],
     };
-    if (prev.r === r && prev.g === g && prev.b === b && prev.a === a) return;
+    if (
+      prev.r === color.r &&
+      prev.g === color.g &&
+      prev.b === color.b &&
+      prev.a === color.a
+    )
+      return;
     const undo = this.undoer.push();
     undo.pixels.push({
       tile: tile.loc,
       pixel,
       from: prev,
-      to: { r, g, b, a },
+      to: color,
     });
-    tile.buf.data[i + 0] = r;
-    tile.buf.data[i + 1] = g;
-    tile.buf.data[i + 2] = b;
-    tile.buf.data[i + 3] = a;
+    tile.buf.data[i + 0] = color.r;
+    tile.buf.data[i + 1] = color.g;
+    tile.buf.data[i + 2] = color.b;
+    tile.buf.data[i + 3] = color.a;
     this.rendering++;
     createImageBitmap(tile.buf).then((img) => {
       tile.img?.close();
       tile.img = img;
       this.rendering--;
     });
+  }
+
+  fill(point: Point, color: RGBA) {
+    const tile = this.getTileBuffer(this.imgCoordsToTile(point));
+    point.x = point.x % this.offsetWidth();
+    point.y = point.y % this.offsetHeight();
+    if (point.x >= this.tilewidth || point.y >= this.tilewidth) return;
+    const i = (point.y * tile.buf.width + point.x) * 4;
+    const prev: RGBA = {
+      r: tile.buf.data[i + 0],
+      g: tile.buf.data[i + 1],
+      b: tile.buf.data[i + 2],
+      a: tile.buf.data[i + 3],
+    };
+    if (
+      prev.r === color.r &&
+      prev.g === color.g &&
+      prev.b === color.b &&
+      prev.a === color.a
+    )
+      return;
+    const undo = this.undoer.push();
+    const matching = this.search(point, (p: Point) => {
+      const i = (p.y * tile.buf.width + p.x) * 4;
+      const c = {
+        r: tile.buf.data[i + 0],
+        g: tile.buf.data[i + 1],
+        b: tile.buf.data[i + 2],
+        a: tile.buf.data[i + 3],
+      };
+      return prev.r === c.r && prev.g == c.g && prev.b == c.b && prev.a === c.a;
+    });
+    for (let point of matching) {
+      undo.pixels.push({
+        tile: point,
+        pixel: point,
+        from: prev,
+        to: color,
+      });
+      const i = (point.y * tile.buf.width + point.x) * 4;
+      tile.buf.data[i + 0] = color.r;
+      tile.buf.data[i + 1] = color.g;
+      tile.buf.data[i + 2] = color.b;
+      tile.buf.data[i + 3] = color.a;
+    }
+    this.rendering++;
+    createImageBitmap(tile.buf).then((img) => {
+      tile.img?.close();
+      tile.img = img;
+      this.rendering--;
+    });
+  }
+
+  neighbors(point: Point): Point[] {
+    const n: Point[] = [];
+    if (point.x - 1 >= 0) {
+      n.push(new Point(point.x - 1, point.y));
+    }
+    if (point.x + 1 < this.tilewidth) {
+      n.push(new Point(point.x + 1, point.y));
+    }
+    if (point.y - 1 >= 0) {
+      n.push(new Point(point.x, point.y - 1));
+    }
+    if (point.y + 1 < this.tileheight) {
+      n.push(new Point(point.x, point.y + 1));
+    }
+    return n;
+  }
+
+  search(point: Point, filter: (p: Point) => boolean): Point[] {
+    const visited: { [key: number]: { [key: number]: boolean } } = {};
+    const stack: Point[] = this.neighbors(point);
+    const matches: Point[] = [];
+    while (stack.length > 0) {
+      const curr = stack.pop();
+      if (!curr) break;
+      if (!visited[curr.x]) visited[curr.x] = {};
+      visited[curr.x][curr.y] = true;
+      if (!filter(curr)) continue;
+      matches.push(curr);
+      for (let n of this.neighbors(curr)) {
+        if (!(visited[n.x] && visited[n.x][n.y])) {
+          stack.push(n);
+        }
+      }
+    }
+    return matches;
   }
 
   undo() {
