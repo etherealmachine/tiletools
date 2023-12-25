@@ -192,7 +192,9 @@
     if (!rgba) return;
     color = rgbaToHex(rgba);
     alpha = rgba[3];
-    setTool(Tool.Edit);
+    if (tool !== Tool.Edit && tool !== Tool.Fill) {
+      setTool(Tool.Edit);
+    }
   }
 
   function onPointerDown(e: PointerEvent) {
