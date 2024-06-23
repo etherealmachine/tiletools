@@ -338,7 +338,7 @@
     <div class="canvas">
       <canvas
         style="position: absolute;"
-        tabindex="1"
+        tabindex="0"
         bind:this={canvas}
         on:wheel={onWheel}
         on:pointerdown={onPointerDown}

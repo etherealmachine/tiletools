@@ -44,6 +44,10 @@ export class Camera {
     }
   }
 
+  centerOn(canvas: HTMLCanvasElement, point: Point) {
+    this.offset = point.add(new Point(canvas.width / 2, canvas.height / 2));
+  }
+
   setup(ctx: CanvasRenderingContext2D) {
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();

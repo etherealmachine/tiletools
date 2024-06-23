@@ -39,6 +39,7 @@ class TilesetUndoable extends Undoable<Tileset> {
     for (let prev of this.tiles) {
       const tmp = prev.buf;
       const curr = tileset.getTileBuffer(prev.loc);
+      if (!curr) continue;
       prev.buf = curr.buf;
       curr.buf = tmp;
       tileset.rendering++;
@@ -50,6 +51,7 @@ class TilesetUndoable extends Undoable<Tileset> {
     }
     for (let change of this.pixels) {
       const curr = tileset.getTileBuffer(change.tile);
+      if (!curr) continue;
       const i = (change.pixel.y * curr.buf.width + change.pixel.x) * 4;
       curr.buf.data[i + 0] = change.from.r;
       curr.buf.data[i + 1] = change.from.g;
@@ -66,9 +68,10 @@ class TilesetUndoable extends Undoable<Tileset> {
 
   redo(tileset: Tileset) {
     super.redo(tileset);
-    this.tiles?.forEach((prev) => {
+    for (let prev of this.tiles) {
       const tmp = prev.buf;
       const curr = tileset.getTileBuffer(prev.loc);
+      if (!curr) continue;
       prev.buf = curr.buf;
       curr.buf = tmp;
       tileset.rendering++;
@@ -77,9 +80,10 @@ class TilesetUndoable extends Undoable<Tileset> {
         curr.img = img;
         tileset.rendering--;
       });
-    });
-    this.pixels.forEach((change) => {
+    }
+    for (let change of this.pixels) {
       const curr = tileset.getTileBuffer(change.tile);
+      if (!curr) continue;
       const i = (change.pixel.y * curr.buf.width + change.pixel.x) * 4;
       curr.buf.data[i + 0] = change.to.r;
       curr.buf.data[i + 1] = change.to.g;
@@ -91,7 +95,7 @@ class TilesetUndoable extends Undoable<Tileset> {
         curr.img = img;
         tileset.rendering--;
       });
-    });
+    }
   }
 }
 
@@ -205,6 +209,7 @@ export default class Tileset {
     let palette = new Set<string>();
     for (let loc of this.selectedTiles) {
       const tile = this.getTileBuffer(loc);
+      if (!tile) continue;
       palette = new Set([...palette, ...colors(tile.buf)]);
     }
     return palette;
@@ -277,12 +282,13 @@ export default class Tileset {
     ];
   }
 
-  getTileBuffer(tile: Point): TileBuffer {
+  getTileBuffer(tile: Point): TileBuffer | undefined {
     return this.tiles[tile.y * this.widthInTiles() + tile.x];
   }
 
   setPixel(pixel: Point, color: RGBA) {
     const tile = this.getTileBuffer(this.imgCoordsToTile(pixel));
+    if (!tile) return;
     pixel.x = pixel.x % this.offsetWidth();
     pixel.y = pixel.y % this.offsetHeight();
     if (pixel.x >= this.tilewidth || pixel.y >= this.tilewidth) return;
@@ -321,6 +327,7 @@ export default class Tileset {
 
   fill(point: Point, color: RGBA) {
     const tile = this.getTileBuffer(this.imgCoordsToTile(point));
+    if (!tile) return;
     point.x = point.x % this.offsetWidth();
     point.y = point.y % this.offsetHeight();
     if (point.x >= this.tilewidth || point.y >= this.tilewidth) return;
@@ -420,6 +427,7 @@ export default class Tileset {
     const undo = this.undoer.push();
     for (let loc of this.selectedTiles) {
       const tile = this.getTileBuffer(loc);
+      if (!tile) continue;
       undo.addTile(tile);
       this.copyBuffer.push({
         loc: tile.loc.clone(),
@@ -439,6 +447,7 @@ export default class Tileset {
     this.copyBuffer = [];
     for (let log of this.selectedTiles) {
       const tile = this.getTileBuffer(log);
+      if (!tile) continue;
       this.copyBuffer.push({
         loc: tile.loc.clone(),
         buf: copy(tile.buf),
@@ -453,6 +462,7 @@ export default class Tileset {
     const undo = this.undoer.push();
     for (let copy of this.copyBuffer) {
       const tile = this.getTileBuffer(copy.loc.add(new Point(dx, dy)));
+      if (!tile) continue;
       undo.addTile(tile);
       tile.buf = copy.buf;
       this.rendering++;
@@ -468,6 +478,7 @@ export default class Tileset {
     const undo = this.undoer.push();
     for (let loc of this.selectedTiles) {
       const tile = this.getTileBuffer(loc);
+      if (!tile) continue;
       undo.addTile(tile);
       flip(tile.buf, axis);
       this.rendering++;
@@ -483,6 +494,7 @@ export default class Tileset {
     const undo = this.undoer.push();
     for (let loc of this.selectedTiles) {
       const tile = this.getTileBuffer(loc);
+      if (!tile) continue;
       undo.addTile(tile);
       tile.buf = rotsprite(tile.buf, degrees);
       this.rendering++;
@@ -498,6 +510,7 @@ export default class Tileset {
     const undo = this.undoer.push();
     for (let loc of this.selectedTiles) {
       const tile = this.getTileBuffer(loc);
+      if (!tile) continue;
       undo.addTile(tile);
       shift(tile.buf, x, y);
       this.rendering++;
@@ -513,6 +526,7 @@ export default class Tileset {
     const undo = this.undoer.push();
     for (let loc of this.selectedTiles) {
       const tile = this.getTileBuffer(loc);
+      if (!tile) continue;
       undo.addTile(tile);
       clear(tile.buf);
       this.rendering++;
@@ -533,6 +547,7 @@ export default class Tileset {
       dest.y -= this.hexHeight() + 4; // TODO: Why?;
     }
     const tile = this.getTileBuffer(tileLoc);
+    if (!tile) return;
     if (tile.img) {
       ctx.drawImage(
         tile.img,
@@ -680,7 +695,7 @@ export default class Tileset {
     });
   }
 
-  static async from(source: File | string): Promise<Tileset> {
+  static async from(source: File | ArrayBuffer | string): Promise<Tileset> {
     let png: PNGWithMetadata;
     if (source instanceof File) {
       png = await PNGWithMetadata.fromFile(source);

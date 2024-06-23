@@ -71,7 +71,7 @@ export default class PNGWithMetadata {
       this.imageBytes = Uint8Array.from(img, (m) => m.codePointAt(0) || 0);
       Object.assign(this.metadata, readMetadata(this.imageBytes) || {});
     } else {
-      throw new Error("img is not a PNG");
+      throw new Error(`img is not a PNG: ${Array.from(img.slice(0, 10)).map((c) => c.charCodeAt(0).toString(16))}`);
     }
   }
 

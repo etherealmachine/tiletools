@@ -107,7 +107,7 @@ input[type="color"] {
 }
 
 @media (prefers-color-scheme: light) {
-  :root {
+  :root, body {
     color: #213547;
     background-color: #ffffff;
   }

@@ -78,7 +78,7 @@
   <div class="canvas">
     <canvas
       style="position: absolute;"
-      tabindex="1"
+      tabindex="0"
       on:wheel={onWheel}
       on:pointerdown={onPointerDown}
       on:pointerup={onPointerUp}
