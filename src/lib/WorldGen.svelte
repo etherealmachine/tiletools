@@ -66,6 +66,21 @@
     }
   }
 
+  function shuffle(a: Array<any>) {
+    let i = a.length, j, temp;
+    while(--i > 0) {
+      j = Math.floor(Math.random()*(i+1));
+      temp = a[j];
+      a[j] = a[i];
+      a[i] = temp;
+    }
+  }
+
+  function dist(a: Point, b: Point): number {
+    const vec = a.sub(b);
+    return (Math.abs(vec.x) + Math.abs(vec.y) + Math.abs(1 - vec.x - vec.y)) / 2;
+  }
+
   onMount(async () => {
     const resp = await fetch("/weave/examples/Fantasy Hex.png");
     const blob = await resp.blob();
@@ -86,34 +101,29 @@
       findTile('deep water'),
       findTile('desert'),
     ];
-    const w = 20;
-    const h = 20;
+    const border = findTile('mountains');
+    const s = 20;
     // Seed the map with a few start points
-    // Expand in rings from each seed, assigning the point to the seed
-    // Skip over points assigned to another seed
-    // Stop if we go out of bounds
-    const generators = tiles.map((tile) => {
-      const x = Math.floor(Math.random()*w);
-      const y = Math.floor(Math.random()*h);
+    // BFS from each seed, assigning the point to the seed
+    const stack = tiles.map((tile) => {
+      const x = Math.floor(Math.random()*2*s-(s/2));
+      const y = Math.floor(Math.random()*2*s-(s/2));
       const seed = new Point(x, y-Math.floor(x/2));
-      return { tile, generator: spiral(seed, Infinity) };
+      return { tile, loc: seed };
     });
-    let filled = false;
-    while (!filled) {
-      const g = generators.shift();
-      if (!g) break;
-      const p = g.generator.next();
-      if (!p.value) break;
-      if (p.value.x >= 0 && p.value.x < w && p.value.y >= 0 && p.value.y < h && !map.get(p.value)) {
-        map.set(p.value, g.tile);
-      }
-      generators.push(g);
-      filled = true;
-      for (let x = 0; x < w; x++) {
-        for (let y = 0; y < h; y++) {
-          if (!map.get(new Point(x, y))) {
-            filled = false;
-          }
+    while(stack.length > 0) {
+      const curr = stack.shift();
+      if (!curr) break;
+      shuffle(neighbors);
+      for (let i = 0; i < neighbors.length; i++) {
+        const n = curr.loc.add(neighbors[i]);
+        if (dist(new Point(0, 0), n) >= s) break;
+        const tile = map.get(n);
+        if (!tile) {
+          map.set(n, curr.tile);
+          stack.push({ tile: curr.tile, loc: n });
+        } else if (!tile.equals(curr.tile)) {
+          map.set(n, border);
         }
       }
     }
