@@ -104,6 +104,11 @@ export default class Tilemap {
     this.autotile.update(this, loc);
   }
 
+  get(loc: Point): Point | undefined {
+    const key = loc.toString();
+    return this.layers[this.selectedLayer].tiles[key];
+  }
+
   fill(loc: Point, max_dist: number = 10) {
     if (this.layers[this.selectedLayer].tiles[loc.toString()]) return;
     const undo = this.undoer.push();

@@ -1,10 +1,11 @@
 <script lang="ts">
-  import type Tilemap from "$lib/Tilemap";
+  import Tilemap from "$lib/Tilemap";
   import MapEditor from "$lib/MapEditor.svelte";
   import TilesetEditor from "$lib/TilesetEditor.svelte";
   import type Tileset from "$lib/Tileset";
   import { browser } from "$app/environment";
   import LocalStorage from "$lib/LocalStorage";
+  import { onMount } from "svelte";
 
   let tileset: Tileset | undefined;
   let map: Tilemap | undefined;
@@ -30,6 +31,15 @@
       map.tileset = tileset;
     }
   }
+
+  onMount(async () => {
+    if (browser && storage) {
+      const saved = storage.get();
+      if (saved) {
+        map = await Tilemap.from(saved);
+      }
+    }
+  });
 
   $: mapChanged(map);
   $: tilesetChanged(tileset);
