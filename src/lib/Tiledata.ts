@@ -13,10 +13,9 @@ export default class Tiledata {
   get<T extends JSONValue | undefined>(
     tile: Point,
     key: string,
-    onEmpty: T,
   ): T | undefined {
     const tileKey = tile.toString();
-    if (!this.data[tileKey]) return onEmpty;
+    if (!this.data[tileKey]) return undefined;
     return this.data[tileKey][key] as T | undefined;
   }
 

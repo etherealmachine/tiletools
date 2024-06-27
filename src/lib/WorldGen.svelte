@@ -2,24 +2,30 @@
 </script>
 
 <script lang="ts">
-    import { onMount } from "svelte";
-    import { Camera } from "./Camera";
-    import Tileset from "./Tileset";
-    import Tilemap from "./Tilemap";
-    import Point from "./Point";
+  import { onMount } from "svelte";
+  import { Camera } from "./Camera";
+  import Tileset from "./Tileset";
+  import Tilemap from "./Tilemap";
+  import Point from "./Point";
+  import { dijkstra } from "./search";
 
-  let canvas: HTMLCanvasElement;
+  let canvas: HTMLCanvasElement | undefined;
+  let hoverAside: HTMLElement | undefined;
   let map: Tilemap = new Tilemap();
   let camera: Camera = new Camera();
+  let hoverText: string | undefined;
+  let mouse: Point = new Point(-1, -1);
+  let mouseOver: boolean = false;
 
   function draw() {
+    if (!canvas) return;
     const W = (canvas.parentElement?.scrollWidth || 0) - 4;
     const H = (canvas.parentElement?.scrollHeight || 0) - 4;
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    camera.zoom = 0.5;
+    camera.zoom = 1;
     camera.centerOn(canvas, new Point(0, 0));
     ctx.imageSmoothingEnabled = false;
     ctx.resetTransform();
@@ -35,6 +41,16 @@
     ctx.lineWidth = 1;
     ctx.strokeStyle = "#ffffff77";
     map.draw(ctx);
+    Object.entries(map.tiledata.data).forEach(([key, entry]) => {
+      const tile = Point.from(key);
+      const loc = map.tileset.tileToWorld(tile);
+      const erosion = entry['erosion'];
+      if (erosion !== undefined) {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(JSON.stringify(erosion), loc.x, loc.y);
+      }
+    });
   }
 
   const neighbors = [
@@ -78,7 +94,13 @@
 
   function dist(a: Point, b: Point): number {
     const vec = a.sub(b);
-    return (Math.abs(vec.x) + Math.abs(vec.y) + Math.abs(1 - vec.x - vec.y)) / 2;
+    return (Math.abs(vec.x) + Math.abs(vec.y) + Math.abs(- vec.x - vec.y)) / 2;
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    mouse = camera.screenToWorld(new Point(e.offsetX, e.offsetY));
+    const tile = map.tileset.worldToTile(mouse);
+    hoverText = map.tiledata.get<string | undefined>(tile, 'erosion');
   }
 
   onMount(async () => {
@@ -95,35 +117,99 @@
       }
       return new Point(0, 0);
     }
-    const tiles = [
-      findTile('grassland'),
-      findTile('shallow water'),
-      findTile('deep water'),
-      findTile('desert'),
-    ];
-    const border = findTile('mountains');
+
+    const grass = findTile('grassland');
+    const shallow = findTile('shallow water');
+    const deep = findTile('deep water');
+    const hills = findTile('rocky hills');
+    const desert = findTile('desert');
+    const mountain= findTile('mountains');
+
+    const seeds = 2;
     const s = 20;
-    // Seed the map with a few start points
-    // BFS from each seed, assigning the point to the seed
-    const stack = tiles.map((tile) => {
-      const x = Math.floor(Math.random()*2*s-(s/2));
-      const y = Math.floor(Math.random()*2*s-(s/2));
-      const seed = new Point(x, y-Math.floor(x/2));
-      return { tile, loc: seed };
-    });
-    while(stack.length > 0) {
-      const curr = stack.shift();
-      if (!curr) break;
-      shuffle(neighbors);
-      for (let i = 0; i < neighbors.length; i++) {
-        const n = curr.loc.add(neighbors[i]);
-        if (dist(new Point(0, 0), n) >= s) break;
-        const tile = map.get(n);
-        if (!tile) {
-          map.set(n, curr.tile);
-          stack.push({ tile: curr.tile, loc: n });
-        } else if (!tile.equals(curr.tile)) {
-          map.set(n, border);
+    const center = new Point(0, 0);
+    const possibleSeeds: Point[] = []
+    for (let loc of spiral(center, Infinity)) {
+      if (dist(loc, center) > s) break;
+      if (dist(loc, center) >= s-2) {
+        map.set(loc, deep);
+        map.tiledata.set(loc, 'ocean', true);
+      } else {
+        map.set(loc, shallow);
+        map.tiledata.set(loc, 'ocean', true);
+      }
+      if (dist(loc, center) < 8) {
+        possibleSeeds.push(loc);
+      }
+    }
+    // Seed the map with a few start points for continents
+    const continents = new Map(Array.from(Array(seeds).keys()).map((i) => {
+      shuffle(possibleSeeds);
+      const seed = possibleSeeds.shift() || new Point(0, 0);
+      map.set(seed, grass);
+      map.tiledata.set(seed, 'continent', i);
+      map.tiledata.set(seed, 'height', 5);
+      return [i, {
+        index: i,
+        locs: [seed],
+        stack: [seed],
+      }];
+    }));
+    // Rotate through continents, expanding them with a BFS
+    // If two continents run into each other, mark the tile as a border
+    const mountains = [];
+    let progress = 1;
+    while (progress) {
+      progress = 0;
+      for (let continent of continents.values()) {
+        const curr = continent.stack.shift();
+        if (!curr) continue;
+        progress++;
+        map.tiledata.set(curr, 'ocean', false);
+        const h = map.tiledata.get<number>(curr, 'height') || 0;
+        if (h <= 0) continue;
+        shuffle(neighbors);
+        for (let i = 0; i < neighbors.length; i++) {
+          const n = curr.add(neighbors[i]);
+          if (dist(center, n) >= s) continue;
+          const layers = map.tagsAt(n);
+          if (!layers || layers.some(tags => tags?.includes('shallow water'))) {
+            map.set(n, grass);
+            map.tiledata.set(n, 'continent', continent.index);
+            map.tiledata.set(n, 'height', h-2*Math.random());
+            continent.locs.push(n);
+            continent.stack.push(n);
+          } else {
+            if (map.tiledata.get(curr, 'border') !== undefined) continue;
+            const otherContinentIndex = map.tiledata.get(n, 'continent');
+            if (continent.index !== otherContinentIndex) {
+              map.set(n, mountain);
+              mountains.push(n);
+              map.tiledata.set(n, 'border', [continent.index, otherContinentIndex]);
+            }
+          }
+        }
+      }
+    }
+    // River placement:
+    // 1. Water falls on the mountains and flows to the sea with.
+    // 2. Flow follows a non-deterministic A* search
+    for (let i = 0; i < 100; i++) {
+      const start = mountains[Math.floor(Math.random()*mountains.length)];
+      const path = dijkstra<Point>(start, (p: Point) => map.tiledata.get(p, 'ocean') === true, (p: Point) => {
+        shuffle(neighbors);
+        return neighbors.map(n => {
+          const neighbor = p.add(n);
+          if (dist(center, neighbor) >= s) return undefined; 
+          const weight = -(map.tiledata.get<number>(p, 'erosion') || Math.random());
+          return { neighbor, weight };
+        }).filter(n => n !== undefined);
+      });
+      for (let p of path.slice(1)) {
+        const erosion = map.tiledata.get<number>(p, 'erosion') || 0;
+        map.tiledata.set(p, 'erosion', erosion + 1);
+        if (i === 99) {
+          map.set(p, desert);
         }
       }
     }
@@ -137,7 +223,19 @@
       style="position: absolute;"
       tabindex="0"
       bind:this={canvas}
+      on:pointermove={onPointerMove}
+      on:pointerenter={() => {
+        mouseOver = true;
+      }}
+      on:pointerleave={() => {
+        mouseOver = false;
+      }}
     />
+    {#if hoverText !== undefined}
+      <aside style="position: absolute;" bind:this={hoverAside}>
+        {hoverText}
+      </aside>
+    {/if}
   </div>
 </div>
 

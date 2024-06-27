@@ -274,9 +274,8 @@ export default class Tilemap {
     const fromDoor = this.tiledata.get<Point | undefined>(
       from,
       "door",
-      undefined,
     );
-    const toDoor = this.tiledata.get<Point | undefined>(to, "door", undefined);
+    const toDoor = this.tiledata.get<Point | undefined>(to, "door");
     if (fromDoor) {
       this.tiledata.set(fromDoor, "door", undefined);
     }
@@ -398,10 +397,6 @@ export default class Tilemap {
       tilemap.tileset = await tilemap.tileset;
     }
     return tilemap;
-  }
-
-  dataAt<T extends JSONValue | undefined>(loc: Point, key: string): T {
-    return this.tiledata.get(loc, key, undefined) as T;
   }
 
   tagsAt(loc: Point): (string[] | undefined)[] | undefined {

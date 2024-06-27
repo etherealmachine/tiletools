@@ -111,7 +111,7 @@ export default class Scene {
   moveCharacter(character: Character, dx: number, dy: number) {
     if (!character.position) return;
     const newPos = character.position.add(new Point(dx, dy));
-    const doorTo = this.tilemap.dataAt<Point>(newPos, "door");
+    const doorTo = this.tilemap.tiledata.get<Point>(newPos, "door");
     if (doorTo && !doorTo.equals(character.position)) {
       character.position = doorTo.clone();
     } else {
@@ -121,7 +121,7 @@ export default class Scene {
         (tags.flat().includes("wall") ||
           tags[tags.length - 1]?.includes("water"))
       ) {
-        const currDoor = this.tilemap.dataAt<Point>(character.position, "door");
+        const currDoor = this.tilemap.tiledata.get<Point>(character.position, "door");
         if (currDoor) {
           character.position = currDoor;
         } else {
