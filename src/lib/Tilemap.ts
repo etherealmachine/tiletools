@@ -430,5 +430,9 @@ export default class Tilemap {
     }
     return locs;
   }
+
+  search() {
+    
+  }
 }
 Revivifiable(Tilemap);

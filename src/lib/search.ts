@@ -27,12 +27,16 @@ class PriorityQueue<T> {
     return this.items.shift()?.element;
   }
 
+  includes(element: T): boolean {
+    return this.items.some(item => item.element === element);
+  }
+
   isEmpty() {
     return this.items.length === 0;
   }
 }
 
-export function dijkstra<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number }[]) {
+export function dijkstra<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number }[]): T[] {
   const distances = new Map<T, number>();
   const prev = new Map<T, T>();
   const pq = new PriorityQueue<T>();
@@ -77,7 +81,53 @@ export function dijkstra<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T)
       path.push(next);
       curr = next;
     }
+    // TODO?: Reverse path
     return path;
+  }
+  return [];
+}
+
+export function aStar<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number}[], heuristic: (from: T) => number): T[] {
+  interface Node {
+    el: T,
+    g: number,
+    h: number,
+    parent?: Node,
+  }
+  const open = new PriorityQueue<Node>();
+  const closed = new Set<Node>();
+  const graph = new Map<T, Node>();
+
+  const startNode = {
+    el: start,
+    g: 0,
+    h: heuristic(start),
+  };
+  open.enqueue(startNode, startNode.h);
+  graph.set(startNode.el, startNode);
+
+  while (!open.isEmpty()) {
+    const curr = open.dequeue();
+    if (!curr) break;
+    if (goal(curr.el)) {
+      // TODO: Reconstruct path
+      return [];
+    }
+    closed.add(curr);
+    for (const item of neighbors(curr.el)) {
+      const n = graph.get(item.neighbor);
+      if (!n) break; // TODO: initialize neighbor
+      if (closed.has(n)) continue;
+      const gScoreEst = curr.g + 1; // Assuming each move has a cost of 1
+      if (!open.includes(n) || gScoreEst < n.g) {
+        n.parent = curr;
+        n.g = gScoreEst;
+        n.h = heuristic(n.el);
+        if (!open.includes(n)) {
+          open.enqueue(n, n.g+n.h);
+        }
+      }
+    }
   }
   return [];
 }

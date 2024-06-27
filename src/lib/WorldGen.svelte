@@ -8,6 +8,7 @@
   import Tilemap from "./Tilemap";
   import Point from "./Point";
   import { dijkstra } from "./search";
+  import './array_extensions';
 
   let canvas: HTMLCanvasElement | undefined;
   let hoverAside: HTMLElement | undefined;
@@ -192,27 +193,42 @@
       }
     }
     // River placement:
-    // 1. Water falls on the mountains and flows to the sea with.
-    // 2. Flow follows a non-deterministic A* search
+    // 1. Water falls on the mountains and flows to the sea
     for (let i = 0; i < 100; i++) {
       const start = mountains[Math.floor(Math.random()*mountains.length)];
+      // TODO: Replace dijkstra with A*
       const path = dijkstra<Point>(start, (p: Point) => map.tiledata.get(p, 'ocean') === true, (p: Point) => {
         shuffle(neighbors);
         return neighbors.map(n => {
           const neighbor = p.add(n);
           if (dist(center, neighbor) >= s) return undefined; 
-          const weight = -(map.tiledata.get<number>(p, 'erosion') || Math.random());
+          const weight = map.tiledata.get<number>(p, 'erosion') || Math.random();
           return { neighbor, weight };
         }).filter(n => n !== undefined);
       });
       for (let p of path.slice(1)) {
         const erosion = map.tiledata.get<number>(p, 'erosion') || 0;
         map.tiledata.set(p, 'erosion', erosion + 1);
-        if (i === 99) {
-          map.set(p, desert);
-        }
       }
     }
+    // Starting from the oceans, build a tree
+    /*
+    const maxEroded = Object.entries(map.tiledata.data).maxBy(([_key, data]) => (data['erosion'] as number) || 0);
+    if (maxEroded) {
+      const river = dijkstra<Point>(Point.from(maxEroded[0]), (p: Point) => map.tiledata.get(p, 'ocean') === true, (p: Point) => {
+        shuffle(neighbors);
+        return neighbors.map(n => {
+          const neighbor = p.add(n);
+          if (dist(center, neighbor) >= s) return undefined; 
+          const weight = map.tiledata.get<number>(p, 'erosion') || Math.random();
+          return { neighbor, weight };
+        }).filter(n => n !== undefined);
+      });
+      for (let p of river.slice(1)) {
+        map.set(p, shallow);
+      }
+    }
+    */
     requestAnimationFrame(draw);
   });
 </script>
