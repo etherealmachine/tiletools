@@ -131,3 +131,25 @@ export function aStar<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T) =>
   }
   return [];
 }
+
+export function greedy<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number}[]): T[] {
+  const path: T[] = [];
+  const queue = new PriorityQueue<T>();
+  queue.enqueue(start, 0);
+  const visited = new Set<T>();
+  while (!queue.isEmpty()) {
+    const curr = queue.dequeue();
+    if (!curr) break;
+    path.push(curr);
+    if (goal(curr)) break;
+    if (!visited.has(curr)) {
+      visited.add(curr);
+      for (const { neighbor, weight } of neighbors(curr)) {
+        if (!visited.has(neighbor)) {
+          queue.enqueue(neighbor, weight);
+        }
+      }
+    }
+  }
+  return path;
+}

@@ -7,7 +7,7 @@
   import Tileset from "./Tileset";
   import Tilemap from "./Tilemap";
   import Point from "./Point";
-  import { dijkstra } from "./search";
+  import { greedy } from "./search";
   import './array_extensions';
 
   let canvas: HTMLCanvasElement | undefined;
@@ -45,11 +45,11 @@
     Object.entries(map.tiledata.data).forEach(([key, entry]) => {
       const tile = Point.from(key);
       const loc = map.tileset.tileToWorld(tile);
-      const erosion = entry['erosion'];
-      if (erosion !== undefined) {
+      const height = entry['height'] as number | undefined;
+      if (height !== undefined) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(JSON.stringify(erosion), loc.x, loc.y);
+        ctx.fillText(height.toFixed(2), loc.x, loc.y);
       }
     });
   }
@@ -101,7 +101,7 @@
   function onPointerMove(e: PointerEvent) {
     mouse = camera.screenToWorld(new Point(e.offsetX, e.offsetY));
     const tile = map.tileset.worldToTile(mouse);
-    hoverText = map.tiledata.get<string | undefined>(tile, 'erosion');
+    hoverText = map.tiledata.get<string | undefined>(tile, 'height');
   }
 
   onMount(async () => {
@@ -126,30 +126,32 @@
     const desert = findTile('desert');
     const mountain= findTile('mountains');
 
-    const seeds = 2;
-    const s = 20;
+    const continentSeeds = [1, 2, 4, 4];
+    const mapSize = 20;
+    const margin = 2;
+    const padding = 1;
     const center = new Point(0, 0);
     const possibleSeeds: Point[] = []
     for (let loc of spiral(center, Infinity)) {
-      if (dist(loc, center) > s) break;
-      if (dist(loc, center) >= s-2) {
+      if (dist(loc, center) > mapSize) break;
+      if (dist(loc, center) >= mapSize-margin) {
         map.set(loc, deep);
         map.tiledata.set(loc, 'ocean', true);
       } else {
         map.set(loc, shallow);
         map.tiledata.set(loc, 'ocean', true);
       }
-      if (dist(loc, center) < 8) {
+      if (dist(loc, center) < mapSize-(margin+padding)) {
         possibleSeeds.push(loc);
       }
     }
     // Seed the map with a few start points for continents
-    const continents = new Map(Array.from(Array(seeds).keys()).map((i) => {
+    const continents = new Map(Array.from(Array(continentSeeds.length).keys()).map((i) => {
       shuffle(possibleSeeds);
       const seed = possibleSeeds.shift() || new Point(0, 0);
       map.set(seed, grass);
       map.tiledata.set(seed, 'continent', i);
-      map.tiledata.set(seed, 'height', 5);
+      map.tiledata.set(seed, 'height', continentSeeds[i]);
       return [i, {
         index: i,
         locs: [seed],
@@ -169,10 +171,11 @@
         map.tiledata.set(curr, 'ocean', false);
         const h = map.tiledata.get<number>(curr, 'height') || 0;
         if (h <= 0) continue;
+        // TODO: faster randomization
         shuffle(neighbors);
         for (let i = 0; i < neighbors.length; i++) {
           const n = curr.add(neighbors[i]);
-          if (dist(center, n) >= s) continue;
+          if (dist(center, n) >= mapSize-(margin+padding)) continue;
           const layers = map.tagsAt(n);
           if (!layers || layers.some(tags => tags?.includes('shallow water'))) {
             map.set(n, grass);
@@ -192,43 +195,40 @@
         }
       }
     }
+    for (const continent of continents.values()) {
+      for (const loc of continent.locs) {
+        if (map.tiledata.get(loc, 'border')) {
+          map.tiledata.set(loc, 'height', Infinity);
+        } else {
+          map.tiledata.set(loc, 'height', 0);
+        }
+      }
+    }
     // River placement:
     // 1. Water falls on the mountains and flows to the sea
     for (let i = 0; i < 100; i++) {
-      const start = mountains[Math.floor(Math.random()*mountains.length)];
-      // TODO: Replace dijkstra with A*
-      const path = dijkstra<Point>(start, (p: Point) => map.tiledata.get(p, 'ocean') === true, (p: Point) => {
-        shuffle(neighbors);
-        return neighbors.map(n => {
-          const neighbor = p.add(n);
-          if (dist(center, neighbor) >= s) return undefined; 
-          const weight = map.tiledata.get<number>(p, 'erosion') || Math.random();
-          return { neighbor, weight };
-        }).filter(n => n !== undefined);
-      });
-      for (let p of path.slice(1)) {
-        const erosion = map.tiledata.get<number>(p, 'erosion') || 0;
-        map.tiledata.set(p, 'erosion', erosion + 1);
+      let curr = mountains[Math.floor(Math.random()*mountains.length)];
+      let sediment = 1;
+      while (sediment > 0 && !map.tiledata.get(curr, 'ocean')) {
+        const h = map.tiledata.get<number | undefined>(curr, 'height') || 0;
+        const sedimentDropped = sediment * 0.1 * Math.random();
+        map.tiledata.set(curr, 'height', h + sedimentDropped);
+        sediment -= sedimentDropped;
+        neighbors.sort((a, b) => {
+          const na = curr.add(a);
+          const nb = curr.add(b);
+          const nha = map.tiledata.get(na, 'height') || Infinity;
+          const nhb = map.tiledata.get(na, 'height') || Infinity;
+          if (nha === nhb) {
+            return Math.random() < 0.5 ? -1 : 1;
+          } else if (nha < nhb) {
+            return -1;
+          }
+          return 1;
+        });
+        curr = curr.add(neighbors[0]);
       }
     }
-    // Starting from the oceans, build a tree
-    /*
-    const maxEroded = Object.entries(map.tiledata.data).maxBy(([_key, data]) => (data['erosion'] as number) || 0);
-    if (maxEroded) {
-      const river = dijkstra<Point>(Point.from(maxEroded[0]), (p: Point) => map.tiledata.get(p, 'ocean') === true, (p: Point) => {
-        shuffle(neighbors);
-        return neighbors.map(n => {
-          const neighbor = p.add(n);
-          if (dist(center, neighbor) >= s) return undefined; 
-          const weight = map.tiledata.get<number>(p, 'erosion') || Math.random();
-          return { neighbor, weight };
-        }).filter(n => n !== undefined);
-      });
-      for (let p of river.slice(1)) {
-        map.set(p, shallow);
-      }
-    }
-    */
     requestAnimationFrame(draw);
   });
 </script>
