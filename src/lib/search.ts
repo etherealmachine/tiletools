@@ -132,24 +132,65 @@ export function aStar<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T) =>
   return [];
 }
 
-export function greedy<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number}[]): T[] {
-  const path: T[] = [];
-  const queue = new PriorityQueue<T>();
-  queue.enqueue(start, 0);
-  const visited = new Set<T>();
-  while (!queue.isEmpty()) {
-    const curr = queue.dequeue();
-    if (!curr) break;
-    path.push(curr);
-    if (goal(curr)) break;
-    if (!visited.has(curr)) {
-      visited.add(curr);
-      for (const { neighbor, weight } of neighbors(curr)) {
-        if (!visited.has(neighbor)) {
-          queue.enqueue(neighbor, weight);
-        }
-      }
+export function permutations<T>(arr: T[]): T[][] {
+  const result: T[][] = [];
+
+  function backtrack(start: number) {
+    if (start === arr.length) {
+      result.push([...arr]);
+      return;
+    }
+
+    for (let i = start; i < arr.length; i++) {
+      [arr[start], arr[i]] = [arr[i], arr[start]];  // swap
+      backtrack(start + 1);
+      [arr[start], arr[i]] = [arr[i], arr[start]];  // backtrack (swap back)
     }
   }
-  return path;
+
+  backtrack(0);
+  return result;
 }
+
+export function shuffle(a: Array<any>) {
+  let i = a.length, j, temp;
+  while(--i > 0) {
+    j = Math.floor(Math.random()*(i+1));
+    temp = a[j];
+    a[j] = a[i];
+    a[i] = temp;
+  }
+}
+
+// TODO
+/*
+export function floydWarshall<T>(nodes: T[], edges: { u: T, v: T, w: T}, goal: (n: T) => boolean) {
+  const dist = new DefaultMap([DEFAULT, Infinity]);
+  const next = [[null for _ in nodes] for _ in nodes]
+  
+  const goal_dist = [Infinity for _ in nodes]
+  const goal_next = [null for _ in nodes]
+  
+  for (u, v, w) in edges:
+      dist[u][v] = w
+      next[u][v] = v
+      if goal_function(v):
+          goal_dist[u] = w
+          goal_next[u] = v
+  
+  for k in nodes:
+      for i in nodes:
+          for j in nodes:
+              if dist[i][j] > dist[i][k] + dist[k][j]:
+                  dist[i][j] = dist[i][k] + dist[k][j]
+                  next[i][j] = next[i][k]
+              
+              # Update goal path
+              if goal_function(k):
+                  if goal_dist[i] > dist[i][k]:
+                      goal_dist[i] = dist[i][k]
+                      goal_next[i] = k
+
+  return goal_dist, goal_next
+}
+*/

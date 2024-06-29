@@ -7,7 +7,11 @@ export default class Tiledata {
   set(tile: Point, key: string, value: any) {
     const tileKey = tile.toString();
     if (!this.data[tileKey]) this.data[tileKey] = {};
-    this.data[tileKey][key] = value;
+    if (value === undefined) {
+      delete this.data[tileKey][key];
+    } else {
+      this.data[tileKey][key] = value;
+    }
   }
 
   get<T extends JSONValue | undefined>(
