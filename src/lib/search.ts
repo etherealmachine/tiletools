@@ -162,35 +162,45 @@ export function shuffle(a: Array<any>) {
   }
 }
 
-// TODO
-/*
-export function floydWarshall<T>(nodes: T[], edges: { u: T, v: T, w: T}, goal: (n: T) => boolean) {
-  const dist = new DefaultMap([DEFAULT, Infinity]);
-  const next = [[null for _ in nodes] for _ in nodes]
-  
-  const goal_dist = [Infinity for _ in nodes]
-  const goal_next = [null for _ in nodes]
-  
-  for (u, v, w) in edges:
-      dist[u][v] = w
-      next[u][v] = v
-      if goal_function(v):
-          goal_dist[u] = w
-          goal_next[u] = v
-  
-  for k in nodes:
-      for i in nodes:
-          for j in nodes:
-              if dist[i][j] > dist[i][k] + dist[k][j]:
-                  dist[i][j] = dist[i][k] + dist[k][j]
-                  next[i][j] = next[i][k]
-              
-              # Update goal path
-              if goal_function(k):
-                  if goal_dist[i] > dist[i][k]:
-                      goal_dist[i] = dist[i][k]
-                      goal_next[i] = k
+export function floydWarshall<T>(nodes: T[], goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number}[]) {
+  const nodeIndex = new Map<T, number>();
+  nodes.forEach((node, index) => nodeIndex.set(node, index));
 
-  return goal_dist, goal_next
+  const dist: number[][] = nodes.map(() => nodes.map(() => Infinity));
+  const next: (T | null)[][] = nodes.map(() => nodes.map(() => null));
+  
+  const goalDist: number[] = nodes.map(() => Infinity);
+  const goalNext: (number | undefined)[] = nodes.map(() => undefined);
+
+  nodes.forEach((node, uIdx) => {
+    dist[uIdx][uIdx] = 0;
+    neighbors(node).forEach(({ neighbor, weight }) => {
+      const vIdx = nodeIndex.get(neighbor);
+      if (vIdx !== undefined) {
+        dist[uIdx][vIdx] = weight;
+        next[uIdx][vIdx] = neighbor;
+        if (goal(neighbor)) {
+          goalDist[uIdx] = weight;
+          goalNext[uIdx] = nodeIndex.get(neighbor);
+        }
+      }
+    });
+  });
+ 
+  for (let k = 0; k < nodes.length; k++) {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = 0; j < nodes.length; j++) {
+        if (dist[i][j] > dist[i][k] + dist[k][j]) {
+          dist[i][j] = dist[i][k] + dist[k][j];
+          next[i][j] = next[i][k];
+        }
+        if (goal(nodes[k]) && goalDist[i] > dist[i][k]) {
+          goalDist[i] = dist[i][k];
+          goalNext[i] = k;
+        }
+      }
+    }
+  }
+
+  return { goalDist, goalNext };
 }
-*/

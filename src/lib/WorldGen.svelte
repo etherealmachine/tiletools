@@ -75,19 +75,26 @@
     const deep = findTile('deep water');
     const hills = findTile('rocky hills');
     const desert = findTile('desert');
+    const swamp = findTile('swamp');
     const mountain= findTile('mountains');
 
     map.initializeOcean();
     map.buildContinents();
     map.defineMountains();
+    map.computeElevation();
     for (let [loc, data] of Object.entries(map.tiledata.data)) {
       const p = Point.from(loc);
+      const h = map.tiledata.get<number>(p, 'height') || 0;
       if (data['ocean'] !== undefined) {
         map.set(p, deep);
-      } else if (data['border'] !== undefined) {
+      } else if (data['mountain'] !== undefined) {
         map.set(p, mountain);
       } else if (data['continent'] !== undefined) {
-        map.set(p, grass);
+        if (h < 20) {
+          map.set(p, swamp);
+        } else {
+          map.set(p, grass);
+        }
       }
     }
     requestAnimationFrame(draw);

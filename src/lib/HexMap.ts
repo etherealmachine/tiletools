@@ -1,6 +1,6 @@
 import Point from "./Point";
 import Tilemap from "./Tilemap";
-import { permutations, shuffle } from "./search";
+import { floydWarshall, permutations, shuffle } from "./search";
 
 const CENTER = new Point(0, 0);
 const NEIGHBOR_PERMS: Point[][] = permutations([
@@ -120,14 +120,39 @@ export default class HexMap extends Tilemap {
     for (const [loc, data] of Object.entries(this.tiledata.data)) {
       const p = Point.from(loc);
       const currContinent = data['continent'];
-      if (Array.from(neighbors(p)).some(n => {
+      if (data['ocean']) {
+        data['height'] = 0;
+      } else if (Array.from(neighbors(p)).some(n => {
         return (
           this.tiledata.get(n, 'continent') !== currContinent &&
           this.tiledata.get(n, 'ocean') === undefined &&
-          !this.tiledata.get(n, 'border'));
+          !this.tiledata.get(n, 'mountain'));
       })) {
-        data['border'] = true;
+        data['mountain'] = true;
+        data['height'] = 4000 + Math.random()*500;
+      } else {
+        delete data['height'];
       }
+    }
+  }
+
+  computeElevation() {
+    const nodes = Array.from(Object.entries(this.tiledata.data)).filter(([_loc, data]) => {
+      return data['continent'] !== undefined;
+    }).map(([loc, _data]) => Point.from(loc));
+    // I don't like this averaging - I want to get a smooth transition from the
+    // mountains to sea level in a single pass. Maybe BFS from the mountains?
+    for (let p of nodes) {
+      let sum = this.tiledata.get<number>(p, 'height') || 0;
+      let count = 1; 
+      for (const n of neighbors(p)) {
+        const h = this.tiledata.get<number>(n, 'height');
+        if (h !== undefined) {
+          sum += h;
+          count++;
+        }
+      }
+      this.tiledata.set(p, 'height', sum / count);
     }
   }
 }
