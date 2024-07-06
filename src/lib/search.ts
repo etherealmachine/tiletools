@@ -36,20 +36,29 @@ class PriorityQueue<T> {
   }
 }
 
-export function dijkstra<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number }[]): T[] {
-  const distances = new Map<T, number>();
-  const prev = new Map<T, T>();
-  const pq = new PriorityQueue<T>();
+interface Stringable {
+  toString(): string
+}
 
-  distances.set(start, 0);
-  pq.enqueue(start, 0);
+export function dijkstra<T extends Stringable>(start: T, goal: (n: T) => boolean, neighbors: (n: T) => Generator<[T, number]>): T[] {
+  const nodes = new Map<string, T>([[start.toString(), start]]);
+  const distances = new Map<string, number>();
+  const prev = new Map<string, string>();
+  const pq = new PriorityQueue<string>();
+  const visited = new Set<string>();
 
-  let end: T | undefined;
+  distances.set(start.toString(), 0);
+  pq.enqueue(start.toString(), 0);
+
+  let end: string | undefined;
 
   while (!pq.isEmpty()) {
     const curr = pq.dequeue();
     if (!curr) break;
-    if (goal(curr)) {
+    const currNode = nodes.get(curr);
+    if (!currNode) throw new Error('missing node');
+    visited.add(curr);
+    if (goal(currNode)) {
       end = curr;
       break;
     }
@@ -60,25 +69,32 @@ export function dijkstra<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T)
       distances.set(curr, dist);
     }
 
-    for (const { neighbor, weight } of neighbors(curr)) {
+    for (const [neighbor, weight] of neighbors(currNode)) {
+      const nStr = neighbor.toString();
+      if (visited.has(nStr)) continue;
+      if (!nodes.has(nStr)) nodes.set(nStr, neighbor);
       const alt = dist + weight;
-      const nDist = distances.get(neighbor);
+      const nDist = distances.get(nStr);
       if (nDist === undefined || alt < nDist) {
-        distances.set(neighbor, alt);
-        prev.set(neighbor, curr);
-        pq.enqueue(neighbor, alt);
+        distances.set(nStr, alt);
+        prev.set(nStr, curr);
+        pq.enqueue(nStr, alt);
       }
     }
   }
 
   if (end) {
-    const path = [];
+    const path: T[] = [];
     let curr = end;
-    path.push(curr);
+    let node = nodes.get(curr);
+    if (!node) throw new Error('missing node');
+    path.push(node);
     while (true) {
       const next = prev.get(curr);
       if (!next) break;
-      path.push(next);
+      node = nodes.get(next);
+      if (!node) throw new Error('missing node');
+      path.push(node);
       curr = next;
     }
     // TODO?: Reverse path
@@ -162,6 +178,26 @@ export function shuffle(a: Array<any>) {
   }
 }
 
+export function bfs<T extends Stringable>(start: T, visit: (n: T) => void | 'break' | 'continue', neighbors: (n: T) => Generator<T>) {
+  const queue: T[] = [start];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const curr = queue.shift();
+    if (!curr) break;
+    if (visited.has(curr.toString())) continue;
+    visited.add(curr.toString());
+    const v = visit(curr);
+    if (v === 'break') break;
+    if (v === 'continue') continue;
+    for (const n of neighbors(curr)) {
+      if (!visited.has(n.toString())) {
+        queue.push(n);
+      }
+    }
+  }
+}
+
+// This is too slow to work on even small maps in practice
 export function floydWarshall<T>(nodes: T[], goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number}[]) {
   const nodeIndex = new Map<T, number>();
   nodes.forEach((node, index) => nodeIndex.set(node, index));

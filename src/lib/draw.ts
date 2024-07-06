@@ -2,7 +2,7 @@ import type { Camera } from "./Camera";
 import PNGWithMetadata from "./PNGWithMetadata";
 import Point from "./Point";
 import type Scene from "./Scene";
-import type { Character, Container, Entity } from "./Scene";
+import type { Entity } from "./Scene";
 import type Tilemap from "./Tilemap";
 import type Tileset from "./Tileset";
 
@@ -11,6 +11,7 @@ export function drawHexagon(
   x: number,
   y: number,
   size: number,
+  fill: boolean = false,
 ) {
   const a = (2 * Math.PI) / 6;
   ctx.beginPath();
@@ -19,6 +20,9 @@ export function drawHexagon(
   }
   ctx.closePath();
   ctx.stroke();
+  if (fill) {
+    ctx.fill();
+  }
 }
 
 export function drawRect(

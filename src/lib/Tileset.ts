@@ -232,11 +232,11 @@ export default class Tileset {
     if (this.selectedTiles.length === 0) return tags;
     // If a single tile is selected, return that tile's tags
     if (this.selectedTiles.length === 1) {
-      return new Set(this.tiledata.get(this.selectedTiles[0], "tags", []));
+      return new Set(this.tiledata.get<string[]>(this.selectedTiles[0], "tags") || []);
     }
     // Otherwise, return the intersection of the selected tile's tags
     this.selectedTiles.forEach((loc) => {
-      const tileTags = new Set<string>(this.tiledata.get(loc, "tags", []));
+      const tileTags = new Set(this.tiledata.get<string[]>(loc, "tags") || []);
       if (tags.size == 0) {
         tags = tileTags;
       } else {
