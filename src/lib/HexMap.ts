@@ -66,6 +66,7 @@ export default class HexMap extends Tilemap {
   oceanProb: number;
   erosionRate: number;
   dropsPerErosion: number;
+  colors: number;
 
   constructor(
     width: number=70,
@@ -75,6 +76,7 @@ export default class HexMap extends Tilemap {
     oceanProb: number=0.5,
     erosionRate: number=0.05,
     dropsPerErosion: number=100,
+    colors: number=4,
   ) {
     super()
     this.width = width;
@@ -84,6 +86,7 @@ export default class HexMap extends Tilemap {
     this.oceanProb = oceanProb;
     this.erosionRate = erosionRate;
     this.dropsPerErosion = dropsPerErosion;
+    this.colors = colors;
   }
 
   generate() {
@@ -110,6 +113,18 @@ export default class HexMap extends Tilemap {
       (p.y+p.x/2) >= -this.height/2 &&
       (p.y+p.x/2) <= this.height/2
     );
+  }
+
+  groupBy<T>(key: string): Map<T, Point[]> {
+    const groups = new Map<T, Point[]>();
+    for (const [loc, data] of Object.entries(this.tiledata.data)) {
+      const v = data[key] as T | undefined;
+      if (v === undefined) continue;
+      const a = groups.get(v) || [];
+      a.push(Point.from(loc));
+      groups.set(v, a);
+    }
+    return groups;
   }
 
   buildPlates() {
@@ -148,8 +163,8 @@ export default class HexMap extends Tilemap {
         const curr = plate.stack.shift();
         if (!curr) continue;
         progress++;
-        if (this.tiledata.get(curr, 'index') !== undefined) continue;
-        this.tiledata.set(curr, 'index', plate.index);
+        if (this.tiledata.get(curr, 'plate') !== undefined) continue;
+        this.tiledata.set(curr, 'plate', plate.index);
         this.tiledata.set(curr, 'elevation', plate.elevation);
         for (const n of neighbors(curr)) {
           if (!this.inBounds(n)) continue;
@@ -157,6 +172,12 @@ export default class HexMap extends Tilemap {
           plate.stack.push(n);
         }
       }
+    }
+    // TODO: Better coloring, BFS plates and avoid neighbor colors
+    for (const [loc, data] of Object.entries(this.tiledata.data)) {
+      const p = data['plate'] as number | undefined;
+      if (p === undefined) continue;
+      data['color'] = p % this.colors;
     }
   }
 
@@ -256,14 +277,18 @@ export default class HexMap extends Tilemap {
       delete data['shoreline'];
       delete data['watershed'];
     }
-    let watershedIndex = -1;
+    let watershedIndex = 0;
     for (const loc of Object.keys(this.tiledata.data)) {
       const start = Point.from(loc);
       if ((this.tiledata.get<number>(start, 'elevation') || 0) <= 0) continue;
       const path = this.erodePath(start, true);
       if (path.length === 0) continue;
       const end = path[path.length-1];
-      const wi = this.tiledata.get<number>(end, 'watershed') || ++watershedIndex;
+      let wi = this.tiledata.get<number>(end, 'watershed');
+      if (wi === undefined) {
+        wi = watershedIndex;
+        watershedIndex++;
+      }
       for (const p of path) {
         this.tiledata.set(p, 'watershed', wi);
       }
@@ -277,6 +302,12 @@ export default class HexMap extends Tilemap {
         });
       }
     }
+    this.findRivers();
+  }
+
+  findRivers() {
+    const watersheds = this.groupBy<number>('watershed');
+    // TODO: Find longest path in watershed
   }
 
 }

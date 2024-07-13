@@ -108,13 +108,13 @@
     Object.entries(map.tiledata.data).forEach(([key, entry]) => {
       const tile = Point.from(key);
       const loc = map.tileset.tileToWorld(tile);
-      const index = entry['index'] as number | undefined;
+      const color = entry['color'] as number | undefined;
       const river = entry['river'] as boolean | undefined;
       const elevation = entry['elevation'] as number | undefined;
-      if (index !== undefined) {
+      if (color !== undefined) {
         ctx.fillStyle = '#000';
         if (visualizationOption === 'Plates') {
-          ctx.fillStyle = COLORS.spectrum[index];
+          ctx.fillStyle = COLORS.spectrum[color];
         } else if (visualizationOption === 'Elevation') {
           let color: string = '#fff';
           if (river) {
@@ -160,13 +160,14 @@
 
   function onPointerMove(e: PointerEvent) {
     mouse = camera.screenToWorld(new Point(e.clientX, e.clientY));
-    hoverText = "";
-    const data = map.tiledata.data[map.tileset.worldToTile(mouse).toString()];
+    const tile = map.tileset.worldToTile(mouse);
+    hoverText = `${tile.x}, ${tile.y}`;
+    const data = map.tiledata.data[tile.toString()];
     if (data) {
       Object.entries(data).forEach(([key, value]) => {
-        hoverText += `${key}: ${value}\n`;
+        hoverText += `\n${key}: ${value}`;
       });
-      path = map.erodePath(map.tileset.worldToTile(mouse), true);
+      path = map.erodePath(tile, true);
     } else {
       path = undefined;
     }
@@ -231,6 +232,7 @@
     const mountain = findTile('mountains');
     */
 
+    map.colors = COLORS.spectrum.length;
     map.generate();
     if (canvas) {
       camera.zoom = 0.5;
