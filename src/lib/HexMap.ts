@@ -1,6 +1,7 @@
 import Point from "./Point";
 import Tilemap from "./Tilemap";
-import { bfs, dijkstra, floydWarshall, permutations, shuffle } from "./search";
+import { bfs, dfs, dijkstra, permutations, shuffle } from "./search";
+import './array_extensions';
 
 const CENTER = new Point(0, 0);
 const NEIGHBOR_PERMS: Point[][] = permutations([
@@ -37,60 +38,85 @@ function dist(a: Point, b: Point): number {
   return (Math.abs(vec.x) + Math.abs(vec.y) + Math.abs(- vec.x - vec.y)) / 2;
 }
 
-function *neighbors(p: Point, filter?: (p: Point) => boolean): Generator<Point> {
+function *neighbors(p: Point, filter?: (n: Point) => boolean): Generator<Point> {
   for (const n of NEIGHBOR_PERMS[0]) {
-    if (filter === undefined || filter(p)) {
-      yield p.add(n);
+    const np = p.add(n);
+    if (filter === undefined || filter(np)) {
+      yield np;
     }
   }
 }
 
-function *randNeighbors(p: Point, filter?: (p: Point) => boolean): Generator<Point> {
+function *randNeighbors(p: Point, filter?: (n: Point) => boolean): Generator<Point> {
   const i = Math.floor(Math.random()*NEIGHBOR_PERMS.length);
   for (const n of NEIGHBOR_PERMS[i]) {
-    if (filter === undefined || filter(p)) {
-      yield p.add(n);
+    const np = p.add(n);
+    if (filter === undefined || filter(np)) {
+      yield np;
     }
   }
 }
 
 export default class HexMap extends Tilemap {
 
-  size: number;
-  margin: number;
-  padding: number;
+  width: number;
+  height: number;
   numPlates: number;
+  elevationPasses: number;
+  oceanProb: number;
+  erosionRate: number;
+  dropsPerErosion: number;
 
-  constructor(size: number=20, margin: number=2, padding: number=1, numPlates: number=10) {
+  constructor(
+    width: number=70,
+    height: number=35,
+    numPlates: number=100,
+    elevationPasses: number=10,
+    oceanProb: number=0.5,
+    erosionRate: number=0.05,
+    dropsPerErosion: number=100,
+  ) {
     super()
-    this.size = size;
-    this.margin = margin;
-    this.padding = padding;
+    this.width = width;
+    this.height = height;
     this.numPlates = numPlates;
+    this.elevationPasses = elevationPasses;
+    this.oceanProb = oceanProb;
+    this.erosionRate = erosionRate;
+    this.dropsPerErosion = dropsPerErosion;
   }
 
   generate() {
     this.buildPlates();
-    this.unsmoothElevation();
-    this.unsmoothElevation();
-    this.unsmoothElevation();
+    for (let i = 0; i < this.elevationPasses; i++) {
+      this.smoothElevation();
+    }
   }
 
-  elevationRange(): [number, number] {
+  range(key: string): [number, number] {
     return Object.values(this.tiledata.data).reduce((prev, curr) => {
-      const elevation = curr['elevation'];
-      if (typeof elevation  === 'number') {
-        return [Math.min(prev[0], elevation), Math.max(prev[1], elevation)];
+      const v = curr[key];
+      if (typeof v === 'number') {
+        return [Math.min(prev[0], v), Math.max(prev[1], v)];
       }
       return prev;
-    }, [0, 0]);
+    }, [Infinity, -Infinity]);
+  }
+
+  inBounds(p: Point): boolean {
+    return (
+      p.x >= -this.width/2 &&
+      p.x <= this.width/2 &&
+      (p.y+p.x/2) >= -this.height/2 &&
+      (p.y+p.x/2) <= this.height/2
+    );
   }
 
   buildPlates() {
     const seeds: Point[] = [];
-    for (let loc of spiral(CENTER, this.size)) {
+    for (let loc of spiral(CENTER, Math.max(this.width, this.height))) {
       const p = Point.from(loc);
-      if (dist(p, CENTER) < this.size-(this.margin+this.padding)) {
+      if (this.inBounds(p)) {
         seeds.push(p);
       }
     }
@@ -101,12 +127,12 @@ export default class HexMap extends Tilemap {
       if (!seed) break;
       this.tiledata.set(seed, 'seed', true);
       let elevation: number = 0;
-      if (Math.random() < 0.33) {
+      if (Math.random() > this.oceanProb) {
         // Continental
-        elevation = 840 - 600*Math.random();
+        elevation = 10000*Math.random();
       } else {
         // Oceanic
-        elevation = -3790 + 2000*Math.random();
+        elevation = -11000*Math.random();
       }
       plates.push({
         index: i,
@@ -126,7 +152,7 @@ export default class HexMap extends Tilemap {
         this.tiledata.set(curr, 'index', plate.index);
         this.tiledata.set(curr, 'elevation', plate.elevation);
         for (const n of neighbors(curr)) {
-          if (dist(CENTER, n) >= this.size-(this.margin+this.padding)) continue;
+          if (!this.inBounds(n)) continue;
           plate.locs.push(n);
           plate.stack.push(n);
         }
@@ -134,7 +160,7 @@ export default class HexMap extends Tilemap {
     }
   }
 
-  unsmoothElevation() {
+  smoothElevation() {
     const newElevation = new Map<string, number>();
     for (const [loc, data] of Object.entries(this.tiledata.data)) {
       const curr = Point.from(loc);
@@ -156,102 +182,101 @@ export default class HexMap extends Tilemap {
     }
   }
 
-  defineMountains() {
-    for (const [loc, data] of Object.entries(this.tiledata.data)) {
-      const p = Point.from(loc);
-      const currContinent = data['continent'];
-      if (data['ocean']) {
-        data['height'] = 0;
-      } else if (Array.from(neighbors(p)).some(n => {
-        return (
-          this.tiledata.get(n, 'continent') !== currContinent &&
-          this.tiledata.get(n, 'ocean') === undefined &&
-          !this.tiledata.get(n, 'mountain'));
-      })) {
-        data['mountain'] = true;
-        data['height'] = 4000 + Math.random()*500;
-      } else {
-        delete data['height'];
-      }
-    }
-  }
-
-  computeElevation() {
-    const mountains = Array.from(Object.entries(this.tiledata.data)).filter(([_loc, data]) => {
-      return data['mountain'];
-    }).map(([loc, _data]) => Point.from(loc));
-    shuffle(mountains);
-    const validNode = (p: Point) => {
-      return (
-        dist(CENTER, p) < this.size &&
-        !this.tiledata.get(p, 'ocean')
-      );
-    }
-    for (const p of mountains) {
-      bfs(p, (p) => {
-        if (!validNode(p)) return 'continue';
-        let sum = this.tiledata.get<number>(p, 'height') || 0;
-        let count = sum === 0 ? 0 : 1; 
-        for (const n of neighbors(p)) {
-          const h = this.tiledata.get<number>(n, 'height');
-          if (h !== undefined) {
-            sum += h;
-            count++;
-          }
-        }
-        this.tiledata.set(p, 'height', sum / count);
-      }, (p) => neighbors(p, validNode));
-    }
-  }
-
-  *weightedNeighbors(p: Point): Generator<[Point, number]> {
-    if (dist(CENTER, p) >= this.size) return;
-    const h = this.tiledata.get<number>(p, 'height');
-    if (h === undefined) return;
-    for (const n of randNeighbors(p)) {
-      const nh = this.tiledata.get<number>(n, 'height');
-      if (nh === undefined) continue;
-      yield [n, nh-h];
-    }
-  }
-
   erode() {
-    const mountains = Array.from(Object.entries(this.tiledata.data)).filter(([_loc, data]) => {
-      return data['mountain'];
-    }).map(([loc, _data]) => Point.from(loc));
-    for (let snowball = 0; snowball < 1000; snowball++) {
-      shuffle(mountains);
-      const maxIterations = 100;
-      const depositionRate = 0.01;
-      const erosionRate = 0.01;
-      const iterationScale = 0.1;
-      let curr = mountains[0];
-      let prev = curr;
+    const numPaths = this.dropsPerErosion;
+    const locs = Object.keys(this.tiledata.data);
+    for (let i = 0; i < numPaths; i++) {
+      // Start at a random location above sea level
+      const start = Point.from(locs[Math.floor(locs.length*Math.random())]);
+      const elevation = this.tiledata.get<number>(start, 'elevation');
+      if (elevation === undefined || elevation <= 0) {
+        continue;
+      }
+      this.erodePath(start);
+    }
+    this.smoothElevation();
+  }
+
+  erodePath(start: Point, dryRun: boolean = false): Point[] {
+    // TODO: DFS and deal with branches as lakes
+    const path: Point[] = [];
+    let curr = start;
+    while(true) {
+      const e = this.tiledata.get<number>(curr, 'elevation');
+      if (e === undefined) break;
+      path.push(curr);
+      if (e <= 0) break;
+      const ns = Array.from(neighbors(curr, n => {
+        const ne = this.tiledata.get<number>(n, 'elevation');
+        return ne !== undefined && ne < e;
+      }));
+      ns.sort((a, b) => {
+        const ea = this.tiledata.get<number>(a, 'elevation') || Infinity;
+        const eb = this.tiledata.get<number>(b, 'elevation') || Infinity;
+        if (ea < eb) return -1;
+        if (ea > eb) return 1;
+        return 0;
+      })
+      if (ns.length === 0) break;
+      curr = ns[0];
+    }
+    if (!dryRun) {
       let sediment = 0;
-      for (let i = 0; i < maxIterations; i++) {
-        prev = curr;
-        let lowestNeighbor = undefined;
-        let minHeight = 0;
-        for (const n of neighbors(curr)) {
-          if (this.tiledata.get(n, 'mountain')) continue;
-          const nh = this.tiledata.get<number>(n, 'height');
-          if (nh === undefined) continue;
-          if (nh < minHeight) {
-            minHeight = nh;
-            lowestNeighbor = n;
-          }
+      for (let i = 0; i < path.length; i++) {
+        const p = path[i];
+        const e = this.tiledata.get<number>(p, 'elevation') || 0;
+        if (i < path.length-1) {
+          const erosion = this.erosionRate*e;
+          const deposition = (1-this.erosionRate)*sediment;
+          sediment = sediment + erosion - deposition;
+          this.tiledata.set(p, 'elevation', e - erosion + deposition);
+          this.tiledata.set(p, 'water', (this.tiledata.get<number>(p, 'water') || 0) + path.length-i);
+          this.tiledata.set(p, 'erosion', (this.tiledata.get<number>(p, 'erosion') || 0) + erosion);
+          this.tiledata.set(p, 'deposition', (this.tiledata.get<number>(p, 'deposition') || 0) + deposition);
+        } else {
+          this.tiledata.set(p, 'elevation', e + sediment);
         }
-        if (!lowestNeighbor) break;
-        curr = lowestNeighbor;
-        const currHeight = this.tiledata.get<number>(curr, 'height');
-        const prevHeight = this.tiledata.get<number>(prev, 'height');
-        if (currHeight === undefined || prevHeight === undefined) break;
-        const slope = (prevHeight -  currHeight) / 40000;
-        if (slope <= 0) break;
-        const deposit = sediment * depositionRate * slope;
-        const erosion = erosionRate * (1 - slope) * Math.min(1, i*iterationScale);
-        sediment += erosion - deposit;
+      }
+    }
+    return path;
+  }
+
+  isShoreline(p: Point): boolean {
+    const e = this.tiledata.get<number>(p, 'elevation');
+    if (e === undefined || e > 0) return false;
+    for (const n of neighbors(p)) {
+      const ne = this.tiledata.get<number>(n, 'elevation');
+      if (ne !== undefined && ne > 0) return true;
+    }
+    return false;
+  }
+
+  calculateWatershed() {
+    for (const data of Object.values(this.tiledata.data)) {
+      delete data['shoreline'];
+      delete data['watershed'];
+    }
+    let watershedIndex = -1;
+    for (const loc of Object.keys(this.tiledata.data)) {
+      const start = Point.from(loc);
+      if ((this.tiledata.get<number>(start, 'elevation') || 0) <= 0) continue;
+      const path = this.erodePath(start, true);
+      if (path.length === 0) continue;
+      const end = path[path.length-1];
+      const wi = this.tiledata.get<number>(end, 'watershed') || ++watershedIndex;
+      for (const p of path) {
+        this.tiledata.set(p, 'watershed', wi);
+      }
+      if ((this.tiledata.get<number>(end, 'elevation') || NaN) <= 0) {
+        this.tiledata.set(end, 'shoreline', true);
+        bfs(path[path.length-1], p => {
+          this.tiledata.set(p, 'shoreline', true);
+          this.tiledata.set(p, 'watershed', wi);
+        }, p => {
+          return Array.from(neighbors(p, n => this.isShoreline(n)));
+        });
       }
     }
   }
+
 }

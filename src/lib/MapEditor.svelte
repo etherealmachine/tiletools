@@ -30,7 +30,7 @@
     }
   }
 
-  let canvas: HTMLCanvasElement;
+  let canvas: HTMLCanvasElement | undefined;
   let tool: Tool = Tool.Select;
   let doorStart: Point | undefined = undefined;
   let editingLayers: boolean = false;
@@ -48,6 +48,7 @@
   }
 
   function draw() {
+    if (!canvas) return;
     const W = (canvas.parentElement?.scrollWidth || 0) - 4;
     const H = (canvas.parentElement?.scrollHeight || 0) - 4;
     canvas.width = W;
@@ -347,7 +348,7 @@
         on:pointermove={onPointerMove}
         on:keydown={onKeyDown}
         on:pointerenter={() => {
-          canvas.focus();
+          canvas?.focus();
           mouseOver = true;
         }}
         on:pointerleave={() => {

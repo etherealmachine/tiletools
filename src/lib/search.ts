@@ -40,7 +40,12 @@ interface Stringable {
   toString(): string
 }
 
-export function dijkstra<T extends Stringable>(start: T, goal: (n: T) => boolean, neighbors: (n: T) => Generator<[T, number]>): T[] {
+interface Neighbor<T> {
+  neighbor: T
+  weight: number 
+}
+
+export function dijkstra<T extends Stringable>(start: T, goal: (n: T) => boolean, neighbors: (p: T) => Neighbor<T>[]): T[] {
   const nodes = new Map<string, T>([[start.toString(), start]]);
   const distances = new Map<string, number>();
   const prev = new Map<string, string>();
@@ -69,7 +74,7 @@ export function dijkstra<T extends Stringable>(start: T, goal: (n: T) => boolean
       distances.set(curr, dist);
     }
 
-    for (const [neighbor, weight] of neighbors(currNode)) {
+    for (const { neighbor, weight } of neighbors(currNode)) {
       const nStr = neighbor.toString();
       if (visited.has(nStr)) continue;
       if (!nodes.has(nStr)) nodes.set(nStr, neighbor);
@@ -97,13 +102,12 @@ export function dijkstra<T extends Stringable>(start: T, goal: (n: T) => boolean
       path.push(node);
       curr = next;
     }
-    // TODO?: Reverse path
-    return path;
+    return path.reverse();
   }
-  return [];
+  return Array.from(visited).map(s => nodes.get(s)) as T[];
 }
 
-export function aStar<T>(start: T, goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number}[], heuristic: (from: T) => number): T[] {
+export function aStar<T>(start: T, goal: (n: T) => boolean, neighbors: (p: T) => Neighbor<T>[], heuristic: (from: T) => number): T[] {
   interface Node {
     el: T,
     g: number,
@@ -178,14 +182,16 @@ export function shuffle(a: Array<any>) {
   }
 }
 
-export function bfs<T extends Stringable>(start: T, visit: (n: T) => void | 'break' | 'continue', neighbors: (n: T) => Generator<T>) {
+export function bfs<T extends Stringable>(start: T, visit: (p: T) => void | 'break' | 'continue', neighbors: (p: T) => T[]): T[] {
   const queue: T[] = [start];
   const visited = new Set<string>();
+  const nodes = [];
   while (queue.length > 0) {
     const curr = queue.shift();
     if (!curr) break;
     if (visited.has(curr.toString())) continue;
     visited.add(curr.toString());
+    nodes.push(curr);
     const v = visit(curr);
     if (v === 'break') break;
     if (v === 'continue') continue;
@@ -195,10 +201,33 @@ export function bfs<T extends Stringable>(start: T, visit: (n: T) => void | 'bre
       }
     }
   }
+  return nodes;
+}
+
+export function dfs<T extends Stringable>(start: T, visit: (p: T) => void | 'break' | 'continue', neighbors: (p: T) => T[]): T[] {
+  const stack: T[] = [start];
+  const visited = new Set<string>();
+  const nodes = [];
+  while (stack.length > 0) {
+    const curr = stack.pop();
+    if (!curr) break;
+    if (visited.has(curr.toString())) continue;
+    visited.add(curr.toString());
+    nodes.push(curr);
+    const v = visit(curr);
+    if (v === 'break') break;
+    if (v === 'continue') continue;
+    for (const n of neighbors(curr)) {
+      if (!visited.has(n.toString())) {
+        stack.push(n);
+      }
+    }
+  }
+  return nodes;
 }
 
 // This is too slow to work on even small maps in practice
-export function floydWarshall<T>(nodes: T[], goal: (n: T) => boolean, neighbors: (n: T) => { neighbor: T, weight: number}[]) {
+export function floydWarshall<T>(nodes: T[], goal: (n: T) => boolean, neighbors: (p: T) => Neighbor<T>[]) {
   const nodeIndex = new Map<T, number>();
   nodes.forEach((node, index) => nodeIndex.set(node, index));
 
