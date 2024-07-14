@@ -6,10 +6,23 @@
   import HexMap from "./HexMap";
   import { drawHexagon } from "./draw";
   import { browser } from "$app/environment";
+  import Params from "./Params.svelte";
+
+  let params = {
+    seed: 0,
+    width: 30,
+    height: 15,
+    plates: 100,
+    smooth: 10,
+    ocean: 0.33,
+    erosion: 0.01,
+    drops: 100,
+    colors: 12,
+  }
 
   let canvas: HTMLCanvasElement | undefined;
   let hoverAside: HTMLElement | undefined;
-  let map: HexMap = new HexMap();
+  let map: HexMap = new HexMap(params);
   let camera: Camera = new Camera();
   let hoverText: string | undefined;
   let mouse: Point = new Point(-1, -1);
@@ -210,59 +223,14 @@
     }
   }
 
-  function findTile(...findTags: string[]): Point {
-    const tiledata = map.tileset.tiledata.filter<Array<string>>("tags").find(([_t, tags]) => {
-      return findTags.every(tag => tags.includes(tag));
-    });
-    if (tiledata) {
-      return tiledata[0];
-    }
-    return new Point(0, 0);
-  }
-
-  function updateMapTiles() {
-    const grass = findTile('grassland');
-    const shallow = findTile('shallow water');
-    const deep = findTile('deep water');
-    const hills = findTile('rocky hills');
-    const desert = findTile('desert');
-    const swamp = findTile('swamp', 'wet');
-    const mountain = findTile('mountains');
-    map.clear();
-    for (const [loc, data] of Object.entries(map.tiledata.data)) {
-      const p = Point.from(loc);
-      const river = data['river'] as boolean | undefined;
-      const divide = data['divide'] as boolean | undefined;
-      const shoreline = data['shoreline'] as boolean | undefined;
-      const elevation = data['elevation'] as number | undefined;
-      if (elevation === undefined) continue;
-      if (elevation >= 7000) {
-        map.set(p, mountain);
-      } else if (divide && elevation >= 5000) {
-        map.set(p, mountain);
-      } else if (divide) {
-        map.set(p, hills);
-      } else if (shoreline) {
-        map.set(p, shallow);
-      } else if (elevation <= 0 && elevation >= -2000) {
-        map.set(p, shallow);
-      } else if (elevation <= 0) {
-        map.set(p, deep);
-      } else {
-        map.set(p, grass);
-      }
-    }
-  }
-
   onMount(async () => {
     const resp = await fetch("/weave/examples/Fantasy Hex.png");
     const blob = await resp.blob();
     const buf = await blob.arrayBuffer();
     map.tileset = await Tileset.from(buf);
-    map.colors = COLORS.spectrum.length;
     map.generate();
     if (canvas) {
-      camera.zoom = 0.5;
+      camera.zoom = 1.5;
       camera.centerOn(canvas, new Point(0, 0));
       requestAnimationFrame(draw);
     }
@@ -274,6 +242,15 @@
     }
   }
   $: redraw(mouse, camera, highlight, hoverText, visualizationOption, showElevation);
+
+  function updateParams(params: any) {
+    let oldMap = map;
+    map = new HexMap(params);
+    map.tileset = oldMap.tileset;
+    map.generate();
+    redraw();
+  }
+  $: updateParams(params);
 </script>
 
 <div style="display: flex; flex-direction: row; flex-grow: 1;">
@@ -306,13 +283,16 @@
         <label for="showElevation">Show Elevation</label>
       </span>
       <button on:click={() => { map.erode(); redraw() }}>Erode</button>
-      <button on:click={() => { map.watershed(); updateMapTiles(); redraw() }}>Watershed</button>
+      <button on:click={() => { map.watershed(); redraw() }}>Watershed</button>
     </div>
     {#if hoverText !== undefined}
       <aside style="position: absolute; bottom: 0" bind:this={hoverAside}>
         <pre>{hoverText}</pre>
       </aside>
     {/if}
+  </div>
+  <div style="position: absolute; top: 0; right: 0; margin: 8px;">
+    <Params bind:params />
   </div>
 </div>
 

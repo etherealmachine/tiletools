@@ -172,16 +172,6 @@ export function permutations<T>(arr: T[]): T[][] {
   return result;
 }
 
-export function shuffle(a: Array<any>) {
-  let i = a.length, j, temp;
-  while(--i > 0) {
-    j = Math.floor(Math.random()*(i+1));
-    temp = a[j];
-    a[j] = a[i];
-    a[i] = temp;
-  }
-}
-
 export function bfs<T extends Stringable>(start: T, visit: (p: T) => void | 'break' | 'continue', neighbors: (p: T) => T[]): T[] {
   const queue: T[] = [start];
   const visited = new Set<string>();

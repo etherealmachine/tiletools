@@ -1,7 +1,8 @@
 import Point from "./Point";
 import Tilemap from "./Tilemap";
-import { bfs, dfs, dijkstra, permutations, shuffle } from "./search";
+import { bfs, permutations } from "./search";
 import './array_extensions';
+import { RNG } from "./rand";
 
 const CENTER = new Point(0, 0);
 const NEIGHBOR_PERMS: Point[][] = permutations([
@@ -33,11 +34,6 @@ function *spiral(center: Point, radius: number) {
   }
 }
 
-function dist(a: Point, b: Point): number {
-  const vec = a.sub(b);
-  return (Math.abs(vec.x) + Math.abs(vec.y) + Math.abs(- vec.x - vec.y)) / 2;
-}
-
 function *neighbors(p: Point, filter?: (n: Point) => boolean): Generator<Point> {
   for (const n of NEIGHBOR_PERMS[0]) {
     const np = p.add(n);
@@ -47,51 +43,42 @@ function *neighbors(p: Point, filter?: (n: Point) => boolean): Generator<Point> 
   }
 }
 
-function *randNeighbors(p: Point, filter?: (n: Point) => boolean): Generator<Point> {
-  const i = Math.floor(Math.random()*NEIGHBOR_PERMS.length);
-  for (const n of NEIGHBOR_PERMS[i]) {
-    const np = p.add(n);
-    if (filter === undefined || filter(np)) {
-      yield np;
-    }
+function shuffle(a: Array<any>, random: () => number) {
+  let i = a.length, j, temp;
+  while(--i > 0) {
+    j = Math.floor(random()*(i+1));
+    temp = a[j];
+    a[j] = a[i];
+    a[i] = temp;
   }
+}
+
+export interface Parameters {
+  seed: number;
+  width: number;
+  height: number;
+  plates: number;
+  smooth: number;
+  ocean: number;
+  erosion: number;
+  drops: number;
+  colors: number;
 }
 
 export default class HexMap extends Tilemap {
 
-  width: number;
-  height: number;
-  numPlates: number;
-  elevationPasses: number;
-  oceanProb: number;
-  erosionRate: number;
-  dropsPerErosion: number;
-  colors: number;
+  params: Parameters;
+  rng: RNG;
 
-  constructor(
-    width: number=100,
-    height: number=50,
-    numPlates: number=100,
-    elevationPasses: number=10,
-    oceanProb: number=0.5,
-    erosionRate: number=0.01,
-    dropsPerErosion: number=100,
-    colors: number=4,
-  ) {
+  constructor(params: Parameters) {
     super()
-    this.width = width;
-    this.height = height;
-    this.numPlates = numPlates;
-    this.elevationPasses = elevationPasses;
-    this.oceanProb = oceanProb;
-    this.erosionRate = erosionRate;
-    this.dropsPerErosion = dropsPerErosion;
-    this.colors = colors;
+    this.params = params;
+    this.rng = new RNG(params.seed);
   }
 
   generate() {
     this.plates();
-    for (let i = 0; i < this.elevationPasses; i++) {
+    for (let i = 0; i < this.params.smooth; i++) {
       this.smooth();
     }
   }
@@ -108,10 +95,10 @@ export default class HexMap extends Tilemap {
 
   inBounds(p: Point): boolean {
     return (
-      p.x >= -this.width/2 &&
-      p.x <= this.width/2 &&
-      (p.y+p.x/2) >= -this.height/2 &&
-      (p.y+p.x/2) <= this.height/2
+      p.x >= -this.params.width/2 &&
+      p.x <= this.params.width/2 &&
+      (p.y+p.x/2) >= -this.params.height/2 &&
+      (p.y+p.x/2) <= this.params.height/2
     );
   }
 
@@ -129,25 +116,25 @@ export default class HexMap extends Tilemap {
 
   plates() {
     const seeds: Point[] = [];
-    for (let loc of spiral(CENTER, Math.max(this.width, this.height))) {
+    for (let loc of spiral(CENTER, Math.max(this.params.width, this.params.height))) {
       const p = Point.from(loc);
       if (this.inBounds(p)) {
         seeds.push(p);
       }
     }
-    shuffle(seeds);
+    shuffle(seeds, () => this.rng.random());
     const plates = [];
-    for (let i = 0; i < this.numPlates; i++) {
+    for (let i = 0; i < this.params.plates; i++) {
       const seed = seeds.shift();
       if (!seed) break;
       this.tiledata.set(seed, 'seed', true);
       let elevation: number = 0;
-      if (Math.random() > this.oceanProb) {
+      if (this.rng.random() > this.params.ocean) {
         // Continental
-        elevation = 10000*Math.random();
+        elevation = 10000*this.rng.random();
       } else {
         // Oceanic
-        elevation = -11000*Math.random();
+        elevation = -11000*this.rng.random();
       }
       plates.push({
         index: i,
@@ -177,7 +164,7 @@ export default class HexMap extends Tilemap {
     for (const [loc, data] of Object.entries(this.tiledata.data)) {
       const p = data['plate'] as number | undefined;
       if (p === undefined) continue;
-      data['color'] = p % this.colors;
+      data['color'] = p % this.params.colors;
     }
   }
 
@@ -204,11 +191,11 @@ export default class HexMap extends Tilemap {
   }
 
   erode() {
-    const numPaths = this.dropsPerErosion;
+    const numPaths = this.params.drops;
     const locs = Object.keys(this.tiledata.data);
     for (let i = 0; i < numPaths; i++) {
       // Start at a random location above sea level
-      const start = Point.from(locs[Math.floor(locs.length*Math.random())]);
+      const start = Point.from(locs[Math.floor(locs.length*this.rng.random())]);
       const elevation = this.tiledata.get<number>(start, 'elevation');
       if (elevation === undefined || elevation <= 0) {
         continue;
@@ -245,14 +232,18 @@ export default class HexMap extends Tilemap {
       curr = ns[0];
     }
     if (!dryRun) {
+      // TODO: Skip if end of path goes off the map
+      // Or maybe make sure map is surrounded by ocean?
       let sediment = 0;
       for (let i = 0; i < path.length; i++) {
         const p = path[i];
         const e = this.tiledata.get<number>(p, 'elevation') || 0;
+        const precip = this.tiledata.get<number>(p, 'precipitation') || 0;
+        this.tiledata.set(p, 'precipitation', precip+Math.log(i+1));
         if (i < path.length-1) {
           // Want more meandering:
           // Idea: Erode neighbor, deposit at self?
-          const erosion = this.erosionRate*e;
+          const erosion = this.params.erosion*e;
           sediment = sediment + erosion;
           this.tiledata.set(p, 'elevation', e - erosion);
         } else if (e <= 0) {
@@ -308,6 +299,7 @@ export default class HexMap extends Tilemap {
     }
     this.mountains();
     this.rivers();
+    this.tiles();
   }
 
   mountains() {
@@ -332,6 +324,55 @@ export default class HexMap extends Tilemap {
         if (!this.tiledata.get(p, 'divide')) {
           this.tiledata.set(p, 'river', true);
         }
+      }
+    }
+  }
+
+  tile(...findTags: string[]): Point {
+    const tiledata = this.tileset.tiledata.filter<Array<string>>("tags").find(([_t, tags]) => {
+      return findTags.every(tag => tags.includes(tag));
+    });
+    if (tiledata) {
+      return tiledata[0];
+    }
+    return new Point(0, 0);
+  }
+
+  tiles() {
+    const grass = this.tile('grassland');
+    const shallow = this.tile('shallow water');
+    const deep = this.tile('deep water');
+    const hills = this.tile('rocky hills');
+    const desert = this.tile('desert');
+    const swamp = this.tile('swamp', 'wet');
+    const mountain = this.tile('mountains');
+    this.clear();
+    const maxPrecip = this.range('precipitation')[1];
+    for (const [loc, data] of Object.entries(this.tiledata.data)) {
+      const p = Point.from(loc);
+      const river = data['river'] as boolean | undefined;
+      const water = (data['water'] as number | undefined) || 0;
+      const divide = data['divide'] as boolean | undefined;
+      const shoreline = data['shoreline'] as boolean | undefined;
+      const elevation = data['elevation'] as number | undefined;
+      if (elevation === undefined) continue;
+      if (elevation >= 7000) {
+        this.set(p, mountain);
+      } else if (divide && elevation >= 5000) {
+        this.set(p, mountain);
+      } else if (divide) {
+        this.set(p, hills);
+      } else if (shoreline) {
+        this.set(p, shallow);
+      } else if (elevation <= 0 && elevation >= -2000) {
+        this.set(p, shallow);
+      } else if (elevation <= 0) {
+        this.set(p, deep);
+      } else if (water > 0.7*maxPrecip) {
+        // Gradient instead of maxWater?
+        this.set(p, swamp);
+      } else {
+        this.set(p, grass);
       }
     }
   }
