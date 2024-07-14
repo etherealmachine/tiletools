@@ -69,12 +69,12 @@ export default class HexMap extends Tilemap {
   colors: number;
 
   constructor(
-    width: number=70,
-    height: number=35,
+    width: number=100,
+    height: number=50,
     numPlates: number=100,
     elevationPasses: number=10,
     oceanProb: number=0.5,
-    erosionRate: number=0.05,
+    erosionRate: number=0.01,
     dropsPerErosion: number=100,
     colors: number=4,
   ) {
@@ -90,9 +90,9 @@ export default class HexMap extends Tilemap {
   }
 
   generate() {
-    this.buildPlates();
+    this.plates();
     for (let i = 0; i < this.elevationPasses; i++) {
-      this.smoothElevation();
+      this.smooth();
     }
   }
 
@@ -127,7 +127,7 @@ export default class HexMap extends Tilemap {
     return groups;
   }
 
-  buildPlates() {
+  plates() {
     const seeds: Point[] = [];
     for (let loc of spiral(CENTER, Math.max(this.width, this.height))) {
       const p = Point.from(loc);
@@ -181,7 +181,7 @@ export default class HexMap extends Tilemap {
     }
   }
 
-  smoothElevation() {
+  smooth() {
     const newElevation = new Map<string, number>();
     for (const [loc, data] of Object.entries(this.tiledata.data)) {
       const curr = Point.from(loc);
@@ -215,21 +215,24 @@ export default class HexMap extends Tilemap {
       }
       this.erodePath(start);
     }
-    this.smoothElevation();
+    this.smooth();
   }
 
+  // Erosion/deposition isn't carving through terrain like it should
   erodePath(start: Point, dryRun: boolean = false): Point[] {
-    // TODO: DFS and deal with branches as lakes
     const path: Point[] = [];
+    const visited = new Set<string>();
     let curr = start;
     while(true) {
       const e = this.tiledata.get<number>(curr, 'elevation');
       if (e === undefined) break;
       path.push(curr);
+      visited.add(curr.toString());
       if (e <= 0) break;
       const ns = Array.from(neighbors(curr, n => {
+        if (visited.has(n.toString())) return false;
         const ne = this.tiledata.get<number>(n, 'elevation');
-        return ne !== undefined && ne < e;
+        return ne !== undefined && ne <= e;
       }));
       ns.sort((a, b) => {
         const ea = this.tiledata.get<number>(a, 'elevation') || Infinity;
@@ -247,15 +250,16 @@ export default class HexMap extends Tilemap {
         const p = path[i];
         const e = this.tiledata.get<number>(p, 'elevation') || 0;
         if (i < path.length-1) {
+          // Want more meandering:
+          // Idea: Erode neighbor, deposit at self?
           const erosion = this.erosionRate*e;
-          const deposition = (1-this.erosionRate)*sediment;
-          sediment = sediment + erosion - deposition;
-          this.tiledata.set(p, 'elevation', e - erosion + deposition);
-          this.tiledata.set(p, 'water', (this.tiledata.get<number>(p, 'water') || 0) + path.length-i);
-          this.tiledata.set(p, 'erosion', (this.tiledata.get<number>(p, 'erosion') || 0) + erosion);
-          this.tiledata.set(p, 'deposition', (this.tiledata.get<number>(p, 'deposition') || 0) + deposition);
-        } else {
+          sediment = sediment + erosion;
+          this.tiledata.set(p, 'elevation', e - erosion);
+        } else if (e <= 0) {
           this.tiledata.set(p, 'elevation', e + sediment);
+        } else {
+          const min = Math.min(...Array.from(neighbors(p)).map(n => this.tiledata.get<number>(n, 'elevation') || Infinity));
+          this.tiledata.set(p, 'elevation', min);
         }
       }
     }
@@ -272,7 +276,7 @@ export default class HexMap extends Tilemap {
     return false;
   }
 
-  calculateWatershed() {
+  watershed() {
     for (const data of Object.values(this.tiledata.data)) {
       delete data['shoreline'];
       delete data['watershed'];
@@ -302,12 +306,34 @@ export default class HexMap extends Tilemap {
         });
       }
     }
-    this.findRivers();
+    this.mountains();
+    this.rivers();
   }
 
-  findRivers() {
+  mountains() {
     const watersheds = this.groupBy<number>('watershed');
-    // TODO: Find longest path in watershed
+    for (const [wi, watershed] of watersheds.entries()) {
+      bfs(watershed[0], p => {
+        if (Array.from(neighbors(p)).some(n => {
+          const nwi = this.tiledata.get<number>(n, 'watershed');
+          return nwi !== undefined && nwi !== wi;
+        })) {
+          this.tiledata.set(p, 'divide', true);
+        }
+      }, p => Array.from(neighbors(p, n => this.tiledata.get<number>(n, 'watershed') === wi)));
+    }
+  }
+
+  rivers() {
+    const watersheds = this.groupBy<number>('watershed');
+    for (const watershed of watersheds.values()) {
+      const maxPath = watershed.maxBy(p => this.erodePath(p, true).length);
+      for (const p of this.erodePath(maxPath, true)) {
+        if (!this.tiledata.get(p, 'divide')) {
+          this.tiledata.set(p, 'river', true);
+        }
+      }
+    }
   }
 
 }

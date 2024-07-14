@@ -16,7 +16,7 @@
   let mouseOver: boolean = false;
   let visualizationOption: string | undefined;
   let showElevation: boolean = false;
-  let path: Point[] | undefined;
+  let highlight: Point[] | undefined;
 
   const COLORS = {
     spectrum: [
@@ -103,57 +103,60 @@
     ctx.font = '12px san-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    map.draw(ctx);
-    const elevationRange = map.range('elevation');
-    Object.entries(map.tiledata.data).forEach(([key, entry]) => {
-      const tile = Point.from(key);
-      const loc = map.tileset.tileToWorld(tile);
-      const color = entry['color'] as number | undefined;
-      const river = entry['river'] as boolean | undefined;
-      const elevation = entry['elevation'] as number | undefined;
-      if (color !== undefined) {
-        ctx.fillStyle = '#000';
-        if (visualizationOption === 'Plates') {
-          ctx.fillStyle = COLORS.spectrum[color];
-        } else if (visualizationOption === 'Elevation') {
-          let color: string = '#fff';
-          if (river) {
-            color = COLORS.blue[COLORS.blue.length-1];
-          } else if (elevation !== undefined && elevation <= 0) {
+    if (visualizationOption === 'Tileset') {
+      map.draw(ctx);
+    } else {
+      const elevationRange = map.range('elevation');
+      for (const [key, data] of Object.entries(map.tiledata.data)) {
+        const tile = Point.from(key);
+        const loc = map.tileset.tileToWorld(tile);
+        const color = data['color'] as number | undefined;
+        const river = data['river'] as boolean | undefined;
+        const elevation = data['elevation'] as number | undefined;
+        if (color !== undefined) {
+          ctx.fillStyle = '#000';
+          if (visualizationOption === 'Plates') {
+            ctx.fillStyle = COLORS.spectrum[color];
+          } else if (visualizationOption === 'Elevation') {
+            let color: string = '#fff';
+            if (river) {
+              color = COLORS.blue[COLORS.blue.length-1];
+            } else if (elevation !== undefined && elevation <= 0) {
               const i = Math.floor((COLORS.blue.length-1) * (Math.abs(elevation) / Math.abs(elevationRange[0])));
               color = COLORS.blue[i];
-          } else if (elevation !== undefined) {
+            } else if (elevation !== undefined) {
               const i = Math.floor((COLORS.green.length-1) * (1 - (Math.abs(elevation) / Math.abs(elevationRange[1]))));
               color = COLORS.green[i];
-          }
-          ctx.fillStyle = color;
-        } else if (visualizationOption === 'Watershed') {
-          const shoreline = entry['shoreline'] as boolean | undefined;
-          if (shoreline) {
-            ctx.fillStyle = COLORS.blue[4];
-          } else {
-            const watershedIndex = entry['watershed'] as number | undefined;
-            if (watershedIndex !== undefined) {
-              ctx.fillStyle = COLORS.spectrum[watershedIndex];
+            }
+            ctx.fillStyle = color;
+          } else if (visualizationOption === 'Watershed') {
+            const shoreline = data['shoreline'] as boolean | undefined;
+            if (shoreline) {
+              ctx.fillStyle = COLORS.blue[4];
+            } else {
+              const watershedIndex = data['watershed'] as number | undefined;
+              if (watershedIndex !== undefined) {
+                ctx.fillStyle = COLORS.spectrum[watershedIndex];
+              }
             }
           }
-        }
-        drawHexagon(ctx, loc.x, loc.y, map.tileset.radius(), true);
-        ctx.fillStyle = '#000';
-        if (showElevation && elevation) {
-          ctx.fillText(elevation?.toFixed(0).toString(), loc.x, loc.y);
+          drawHexagon(ctx, loc.x, loc.y, map.tileset.radius(), true);
+          ctx.fillStyle = '#000';
+          if (showElevation && elevation) {
+            ctx.fillText(elevation?.toFixed(0).toString(), loc.x, loc.y);
+          }
         }
       }
-    });
-    if (path) {
-      for (let i = 0; i < path.length; i++) {
-        const p = path[i];
-        ctx.fillStyle = COLORS.purple[COLORS.purple.length-1];
-        const loc = map.tileset.tileToWorld(p);
-        drawHexagon(ctx, loc.x, loc.y, map.tileset.radius(), true);
-        ctx.fillStyle = '#fff';
-        ctx.font = '20px san-serif';
-        ctx.fillText(i.toString(), loc.x, loc.y);
+      if (highlight) {
+        for (let i = 0; i < highlight.length; i++) {
+          const p = highlight[i];
+          ctx.fillStyle = COLORS.purple[COLORS.purple.length-1];
+          const loc = map.tileset.tileToWorld(p);
+          drawHexagon(ctx, loc.x, loc.y, map.tileset.radius(), true);
+          ctx.fillStyle = '#fff';
+          ctx.font = '20px san-serif';
+          ctx.fillText(i.toString(), loc.x, loc.y);
+        }
       }
     }
   }
@@ -167,14 +170,14 @@
       Object.entries(data).forEach(([key, value]) => {
         hoverText += `\n${key}: ${value}`;
       });
-      path = map.erodePath(tile, true);
+      highlight = map.erodePath(tile, true);
     } else {
-      path = undefined;
+      highlight = undefined;
     }
   }
 
   function onPointerDown(e: PointerEvent) {
-    path = map.erodePath(map.tileset.worldToTile(mouse), false);
+    highlight = map.erodePath(map.tileset.worldToTile(mouse), false);
   }
 
   function onWheel(e: WheelEvent) {
@@ -207,22 +210,17 @@
     }
   }
 
-  onMount(async () => {
-    const resp = await fetch("/weave/examples/Fantasy Hex.png");
-    const blob = await resp.blob();
-    const buf = await blob.arrayBuffer();
-    map.tileset = await Tileset.from(buf);
-    const findTile = (...findTags: string[]): Point => {
-      const tiledata = map.tileset.tiledata.filter<Array<string>>("tags").find(([_t, tags]) => {
-        return findTags.every(tag => tags.includes(tag));
-      });
-      if (tiledata) {
-        return tiledata[0];
-      }
-      return new Point(0, 0);
+  function findTile(...findTags: string[]): Point {
+    const tiledata = map.tileset.tiledata.filter<Array<string>>("tags").find(([_t, tags]) => {
+      return findTags.every(tag => tags.includes(tag));
+    });
+    if (tiledata) {
+      return tiledata[0];
     }
+    return new Point(0, 0);
+  }
 
-    /*
+  function updateMapTiles() {
     const grass = findTile('grassland');
     const shallow = findTile('shallow water');
     const deep = findTile('deep water');
@@ -230,8 +228,37 @@
     const desert = findTile('desert');
     const swamp = findTile('swamp', 'wet');
     const mountain = findTile('mountains');
-    */
+    map.clear();
+    for (const [loc, data] of Object.entries(map.tiledata.data)) {
+      const p = Point.from(loc);
+      const river = data['river'] as boolean | undefined;
+      const divide = data['divide'] as boolean | undefined;
+      const shoreline = data['shoreline'] as boolean | undefined;
+      const elevation = data['elevation'] as number | undefined;
+      if (elevation === undefined) continue;
+      if (elevation >= 7000) {
+        map.set(p, mountain);
+      } else if (divide && elevation >= 5000) {
+        map.set(p, mountain);
+      } else if (divide) {
+        map.set(p, hills);
+      } else if (shoreline) {
+        map.set(p, shallow);
+      } else if (elevation <= 0 && elevation >= -2000) {
+        map.set(p, shallow);
+      } else if (elevation <= 0) {
+        map.set(p, deep);
+      } else {
+        map.set(p, grass);
+      }
+    }
+  }
 
+  onMount(async () => {
+    const resp = await fetch("/weave/examples/Fantasy Hex.png");
+    const blob = await resp.blob();
+    const buf = await blob.arrayBuffer();
+    map.tileset = await Tileset.from(buf);
     map.colors = COLORS.spectrum.length;
     map.generate();
     if (canvas) {
@@ -246,7 +273,7 @@
       requestAnimationFrame(draw);
     }
   }
-  $: redraw(mouse, camera, path, hoverText, visualizationOption, showElevation);
+  $: redraw(mouse, camera, highlight, hoverText, visualizationOption, showElevation);
 </script>
 
 <div style="display: flex; flex-direction: row; flex-grow: 1;">
@@ -272,13 +299,14 @@
         <option>Plates</option>
         <option>Elevation</option>
         <option>Watershed</option>
+        <option>Tileset</option>
       </select>
       <span>
         <input name="showElevation" type="checkbox" bind:checked={showElevation} />
         <label for="showElevation">Show Elevation</label>
       </span>
       <button on:click={() => { map.erode(); redraw() }}>Erode</button>
-      <button on:click={() => { map.calculateWatershed(); redraw() }}>Watershed</button>
+      <button on:click={() => { map.watershed(); updateMapTiles(); redraw() }}>Watershed</button>
     </div>
     {#if hoverText !== undefined}
       <aside style="position: absolute; bottom: 0" bind:this={hoverAside}>
