@@ -12,6 +12,7 @@
     seed: 0,
     width: 30,
     height: 15,
+    maxElevation: 10000,
     plates: 100,
     smooth: 10,
     ocean: 0.33,
@@ -158,6 +159,15 @@
           if (showElevation && elevation) {
             ctx.fillText(elevation?.toFixed(0).toString(), loc.x, loc.y);
           }
+        }
+        const gradient = data['gradient'] as Point | undefined;
+        const w = map.tileset.tilewidth/2;
+        if (gradient) {
+          ctx.strokeStyle = '#000';
+          ctx.beginPath();
+          ctx.moveTo(loc.x, loc.y);
+          ctx.lineTo(loc.x+gradient.x*w, loc.y+gradient.y*w);
+          ctx.stroke();
         }
       }
       if (highlight) {

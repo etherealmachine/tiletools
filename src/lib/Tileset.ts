@@ -291,7 +291,7 @@ export default class Tileset {
     if (!tile) return;
     pixel.x = pixel.x % this.offsetWidth();
     pixel.y = pixel.y % this.offsetHeight();
-    if (pixel.x >= this.tilewidth || pixel.y >= this.tilewidth) return;
+    if (pixel.x >= this.tilewidth || pixel.y >= this.tileheight) return;
     const i = (pixel.y * tile.buf.width + pixel.x) * 4;
     const prev: RGBA = {
       r: tile.buf.data[i + 0],

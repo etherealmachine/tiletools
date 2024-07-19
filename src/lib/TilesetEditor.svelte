@@ -70,7 +70,7 @@
         if (
           filter === "" ||
           tileset.tiledata
-            .get(tile.loc, "tags", [] as string[])
+            .get<string[]>(tile.loc, "tags")
             ?.some((tag) => tag.startsWith(filter))
         ) {
           ctx.drawImage(
@@ -97,7 +97,7 @@
     if (mouseOver) {
       if (tool === Tool.Select) {
         const p = tileset.tileToImgCoords(tileset.imgCoordsToTile(mouse));
-        ctx.strokeStyle = "#ffffffaa";
+        ctx.strokeStyle = "#000";
         drawRect(ctx, p.x, p.y, tileset.tilewidth, tileset.tileheight);
       } else if (tool === Tool.Edit || tool === Tool.Erase) {
         ctx.fillStyle = color;
@@ -107,7 +107,7 @@
         ctx.fillRect(Math.floor(mouse.x), Math.floor(mouse.y), 1, 1);
       }
     }
-    ctx.strokeStyle = "white";
+    ctx.strokeStyle = "#000";
     tileset.selectedTiles.forEach((loc) => {
       const p = tileset.tileToImgCoords(loc);
       drawRect(ctx, p.x, p.y, tileset.tilewidth, tileset.tileheight);
