@@ -186,14 +186,22 @@
 
   function onPointerMove(e: PointerEvent) {
     mouse = camera.screenToWorld(new Point(e.clientX, e.clientY));
-    const tile = map.tileset.worldToTile(mouse);
-    hoverText = `${tile.x}, ${tile.y}`;
-    const data = map.tiledata.data[tile.toString()];
+    const loc = map.tileset.worldToTile(mouse);
+    hoverText = `${loc.x}, ${loc.y}`;
+    const data = map.tiledata.data[loc.toString()];
     if (data) {
+      map.layers.forEach(layer => {
+        const tile = layer.tiles[loc.toString()];
+        if (!tile) return;
+        const tags = map.tileset.tiledata.get<string[]>(tile, 'tags');
+        if (tags) {
+          hoverText += '\n' + tags.join(',');
+        }
+      });
       Object.entries(data).forEach(([key, value]) => {
         hoverText += `\n${key}: ${value}`;
       });
-      highlight = map.erodePath(tile, true);
+      highlight = map.erodePath(loc, true);
     } else {
       highlight = undefined;
     }

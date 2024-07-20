@@ -5,22 +5,17 @@ import './array_extensions';
 import { RNG } from "./rand";
 
 const CENTER = new Point(0, 0);
-const NEIGHBOR_PERMS: Point[][] = permutations([
-  new Point(0, -1), 
-  new Point(+1, -1),
-  new Point(+1, 0),
-  new Point(0, +1),
-  new Point(-1, +1),
-  new Point(-1, 0),
-]);
-const COEFFS: Point[] = [
-  new Point(0, -1),
-  new Point(0.75, -0.5),
-  new Point(0.75, 0.5),
-  new Point(0, 1),
-  new Point(-0.75, -0.5),
-  new Point(-0.75, 0.5),
+const NEIGHBORS = [
+  [new Point(-1, +1), new Point(-0.75, -0.5)],
+  [new Point(-1, 0), new Point(-0.75, 0.5)],
+  [new Point(0, -1), new Point(0, -1)],
+  [new Point(+1, -1), new Point(0.75, -0.5)],
+  [new Point(+1, 0), new Point(0.75, 0.5)],
+  [new Point(0, +1), new Point(0, 1)],
 ];
+
+const NEIGHBOR_PERMS: Point[][] = permutations(NEIGHBORS.map(n => n[0]));
+const COEFFS: Point[] = NEIGHBORS.map(n => n[1]);
 
 function *ring(center: Point, radius: number) {
   let hex = center.add(new Point(-1, +1).scale(radius));
@@ -364,25 +359,25 @@ export default class HexMap extends Tilemap {
     }
   }
 
-  tile(...findTags: string[]): Point {
+  findTile(...findTags: string[]): Point {
     const tiledata = this.tileset.tiledata.filter<Array<string>>("tags").find(([_t, tags]) => {
       return findTags.every(tag => tags.includes(tag));
     });
     if (tiledata) {
       return tiledata[0];
     }
-    return new Point(0, 0);
+    throw new Error(`can't find tile for tags ${findTags}`);
   }
 
   tiles() {
-    const grass = this.tile('grassland');
-    const shallow = this.tile('shallow water');
-    const deep = this.tile('deep water');
-    const hills = this.tile('rocky hills');
-    const desert = this.tile('desert');
-    const swamp = this.tile('swamp', 'wet');
-    const mountain = this.tile('mountains');
-    const river = this.tile('river');
+    const grass = this.findTile('grassland');
+    const shallow = this.findTile('shallow water');
+    const deep = this.findTile('deep water');
+    const hills = this.findTile('rocky hills');
+    const desert = this.findTile('desert');
+    const swamp = this.findTile('swamp', 'wet');
+    const mountain = this.findTile('mountains');
+    const river = this.findTile('river');
     this.clear();
     this.addLayer();
     const maxPrecip = this.range('precipitation')[1];
@@ -411,9 +406,13 @@ export default class HexMap extends Tilemap {
           if (this.tiledata.get<boolean>(n, 'river')) {
             return i;
           }
+          return '';
         }).sort().join('');
-        console.log(ns);
-        this.set(p, this.tile('river', ns));
+        try {
+          const tile = this.findTile('river', ns);
+          this.set(p, tile);
+        } catch (e) {
+        }
         this.selectedLayer = 0;
       } else if (water > 0.7*maxPrecip) {
         // Gradient instead of maxWater?
