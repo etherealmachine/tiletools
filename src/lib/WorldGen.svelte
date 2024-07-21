@@ -117,6 +117,7 @@
     ctx.font = '12px san-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+
     if (visualizationOption === 'Tileset') {
       map.draw(ctx);
     } else {
@@ -156,6 +157,9 @@
           }
           drawHexagon(ctx, loc.x, loc.y, map.tileset.radius(), true);
           ctx.fillStyle = '#000';
+          if (data['seed'] && visualizationOption === 'Plates') {
+            ctx.fillText('S', loc.x, loc.y);
+          }
           if (showElevation && elevation) {
             ctx.fillText(elevation?.toFixed(0).toString(), loc.x, loc.y);
           }

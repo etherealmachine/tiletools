@@ -1,6 +1,6 @@
 import Point from "./Point";
 import Tilemap from "./Tilemap";
-import { bfs, dfs, permutations } from "./search";
+import { bfs, dfs, dijkstra, permutations, PriorityQueue } from "./search";
 import './array_extensions';
 import { RNG } from "./rand";
 
@@ -121,10 +121,9 @@ export default class HexMap extends Tilemap {
 
   plates() {
     const seeds: Point[] = [];
-    for (let loc of spiral(CENTER, Math.max(this.params.width, this.params.height))) {
-      const p = Point.from(loc);
-      if (this.inBounds(p)) {
-        seeds.push(p);
+    for (let x = -this.params.width/2; x <= this.params.width/2; x++) {
+      for (let y = 0; y <= this.params.height; y++) {
+        seeds.push(new Point(x, Math.ceil(y-(x+this.params.width/2)/2)));
       }
     }
     shuffle(seeds, () => this.rng.random());
@@ -211,49 +210,50 @@ export default class HexMap extends Tilemap {
     this.gradient();
   }
 
-  // Erosion/deposition isn't carving through terrain like it should
   erodePath(start: Point, dryRun: boolean = false): Point[] {
     const path: Point[] = [];
-    const visited = new Set<string>();
     let curr = start;
-    while(true) {
-      const e = this.tiledata.get<number>(curr, 'elevation');
-      if (e === undefined) break;
+    const visited = new Set<string>();
+    while (true) {
       path.push(curr);
       visited.add(curr.toString());
-      if (e <= 0) break;
-      const ns = Array.from(neighbors(curr, n => {
-        if (visited.has(n.toString())) return false;
+      const e = this.tiledata.get<number>(curr, 'elevation');
+      if (e === undefined || e <= 0) break;
+      let minN: Point | undefined = undefined;
+      let minE = e;
+      for (const n of neighbors(curr)) {
+        if (visited.has(n.toString())) continue;
         const ne = this.tiledata.get<number>(n, 'elevation');
-        return ne !== undefined && ne <= e;
-      }));
-      ns.sort((a, b) => {
-        const ea = this.tiledata.get<number>(a, 'elevation') || Infinity;
-        const eb = this.tiledata.get<number>(b, 'elevation') || Infinity;
-        if (ea < eb) return -1;
-        if (ea > eb) return 1;
-        return 0;
-      })
-      if (ns.length === 0) break;
-      curr = ns[0];
+        if (ne !== undefined && ne <= minE) {
+          minE = ne;
+          minN = n;
+        }
+      }
+      if (minN) {
+        curr = minN;
+      } else {
+        break;
+      }
     }
-    if (!dryRun) {
-      // TODO: Skip if end of path goes off the map
-      // Or maybe make sure map is surrounded by ocean?
+    // TODO Needs work
+    if (!dryRun && path.length > 1) {
       let sediment = 0;
-      for (let i = 0; i < path.length; i++) {
-        const p = path[i];
-        const e = this.tiledata.get<number>(p, 'elevation') || 0;
-        const precip = this.tiledata.get<number>(p, 'precipitation') || 0;
-        this.tiledata.set(p, 'precipitation', precip+Math.log(i+1));
-        if (i < path.length-1) {
-          // Want more meandering:
-          // Idea: Erode neighbor, deposit at self?
-          const erosion = (1-((i+1)/path.length))*this.params.erosion*e;
-          sediment = sediment + erosion;
-          this.tiledata.set(p, 'elevation', e - erosion);
-        } else {
-          this.tiledata.set(p, 'elevation', e + sediment);
+      for (let i = 0; i < path.length-1; i++) {
+        const p1 = path[i];
+        const p2 = path[i+1];
+        const e1 = this.tiledata.get<number>(p1, 'elevation');
+        const e2 = this.tiledata.get<number>(p2, 'elevation');
+        if (e1 === undefined || e2 === undefined) continue;
+        const delta = e1-e2;
+        const gradient = this.tiledata.get<Point>(p1, 'gradient');
+        if (gradient === undefined) throw new Error('missing gradient');
+        const slope = Math.sqrt(gradient.x*gradient.x+gradient.y*gradient.y);
+        const erosion = delta*slope;
+        const deposition = delta*(1-slope);
+        sediment += erosion - deposition;
+        this.tiledata.set(p1, 'elevation', e1-erosion+deposition);
+        if (i === path.length-2) {
+          this.tiledata.set(p2, 'elevation', Math.min(e2+sediment, e1-erosion+deposition));
         }
       }
     }

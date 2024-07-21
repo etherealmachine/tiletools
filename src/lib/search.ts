@@ -1,4 +1,4 @@
-class PriorityQueue<T> {
+export class PriorityQueue<T> {
 
   items: { element: T, priority: number}[];
 
